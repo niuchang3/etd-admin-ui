@@ -1,5 +1,15 @@
 import { createApp } from 'vue'
-import './style.css'
 import App from './App.vue'
+import './assets/css/reset.css'
+import VueCookies from 'vue-cookies'
+import router from './router/router'
 
-createApp(App).mount('#app')
+
+
+
+const app = createApp(App)
+app.use(VueCookies)
+app.use(router)
+
+
+app.mount('#app')
