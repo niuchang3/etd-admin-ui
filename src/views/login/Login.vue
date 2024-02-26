@@ -13,8 +13,8 @@
                 <!-- <form> -->
                 <div class="panel-right-form">
                     <div class="panel-right-tabs">
-                        <span>Account Login</span>
-                        <span>SMS Login</span>
+                        <span>Account</span>
+                        <span>SMS</span>
                     </div>
                     <input type="text" name="username" placeholder="Please enter your username.">
                     <input type="password" name="username" placeholder="Please enter your password.">
