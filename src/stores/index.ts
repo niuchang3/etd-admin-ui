@@ -7,7 +7,8 @@ interface LoginTabs {
     smsCountdown?: number
 }
 
-const loginTabsStore = defineStore('loginTabsData', () => {
+const loginTabsStore = defineStore('loginTabsData',{
+    state: () => {
 
         const data = ref<LoginTabs>({
             activeKey: '',
@@ -19,7 +20,6 @@ const loginTabsStore = defineStore('loginTabsData', () => {
         }
 
         const setActiveKey = (value: string) => {
-            data.value.activeKey = value;
         }
 
         const getSmsCodeShow = (): boolean => {
@@ -38,7 +38,11 @@ const loginTabsStore = defineStore('loginTabsData', () => {
         }
 
         return {data,getActiveKey,setActiveKey,getSmsCodeShow,setSmsCodeShow,getSmsCountdown,setSmsCountdown}
+    },
+    persist:{
+        storage: sessionStorage
     }
+}
 
 );
 

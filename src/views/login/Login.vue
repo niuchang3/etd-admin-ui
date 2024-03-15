@@ -90,7 +90,7 @@ import { loginTabsStore } from '@/stores/index'
 import { Form } from 'ant-design-vue';
 
 
-
+console.log(import.meta.env.VITE_BASIC_URL)
 
 
 const loginTabsData = loginTabsStore()
@@ -169,6 +169,8 @@ const accountLogin = () => {
     accountForm.validate().then( (res) =>{
         console.log(res);
     })
+
+    
 
     // accountForm.validateField('username')
 

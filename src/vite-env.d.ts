@@ -1,5 +1,14 @@
 /// <reference types="vite/client" />
+interface ImportMetaEnv {
+    readonly VITE_BASIC_URL: string;
+    readonly VITE_HOST: string;
+    readonly VITE_PORT: number;
 
+}
+
+interface ImportMeta {
+    readonly env: ImportMetaEnv;
+}
 
 
 declare module '*.vue' {
