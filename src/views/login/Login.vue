@@ -1,4 +1,3 @@
-
 <template>
     <div class="container">
         <div class="panel-content">
@@ -11,27 +10,31 @@
             </div>
 
             <div class="panel-right">
-                <a-tabs v-model:activeKey="loginTabsData.data.activeKey" @change="selectedTabs">
+                <a-tabs v-model:activeKey="data.tabsData.activeKey" @change="selectedTabs">
                     <a-tab-pane key="Account" tab="Account">
-                        <a-form autocomplete="off" ref="accountFormRef" :model="accountLoginData" :rules="accountRulesRef">
-                            <a-form-item name="username" v-bind="accountForm.validateInfos.username">
-                                <a-input placeholder="Please enter your account." v-model:value="accountLoginData.username">
+
+                        <a-form autocomplete="off" ref="accountFormRef" :model="data.accountFormData">
+
+                            <a-form-item name="username" :rules="data.accountFormRules.username">
+                                <a-input placeholder="Please enter your account."
+                                    v-model:value="data.accountFormData.username">
                                     <template #prefix>
                                         <UserOutlined style="color: rgba(0, 0, 0, 0.25)" />
                                     </template>
                                 </a-input>
                             </a-form-item>
 
-                            <a-form-item name="password" v-bind="accountForm.validateInfos.password">
+                            <a-form-item name="password" 
+                                    :rules="data.accountFormRules.password">
                                 <a-input-password placeholder="Please enter your password."
-                                    v-model:value="accountLoginData.password">
+                                    v-model:value="data.accountFormData.password">
                                     <template #prefix>
                                         <LockOutlined style="color: rgba(0, 0, 0, 0.25)" />
                                     </template>
                                 </a-input-password>
                             </a-form-item>
                             <a-form-item>
-                                <a-button type="primary" @click="accountLogin" style="width: 100%;">
+                                <a-button type="primary" @click="loginByAccount" style="width: 100%;">
                                     Log in
                                 </a-button>
                             </a-form-item>
@@ -39,19 +42,21 @@
                     </a-tab-pane>
 
                     <a-tab-pane key="SMS" tab="SMS">
-                        <a-form autocomplete="off" ref="smsFormRef" :model="smsLoginData" :rules="smsRulesRef">
-                            <a-form-item name="mobile">
-                                <a-input placeholder="Please enter your mobile." v-model:value="smsLoginData.mobile">
+                        <a-form autocomplete="off" ref="smsFormRef" :model="data.smsLoginFormData">
+                            <a-form-item name="mobile" :rules="data.smsLoginFormRules.mobile">
+                                <a-input placeholder="Please enter your mobile." 
+                                    v-model:value="data.smsLoginFormData.mobile">
                                     <template #prefix>
                                         <MobileOutlined style="color: rgba(0, 0, 0, 0.25)" />
                                     </template>
                                 </a-input>
                             </a-form-item>
 
-                            <a-form-item name="captcha">
+                            <a-form-item name="captcha" :rules="data.smsLoginFormRules.captcha">
                                 <a-row :gutter="[8, 8]">
                                     <a-col span="14">
-                                        <a-input placeholder="enter captcha." v-model:value="smsLoginData.captcha">
+                                        <a-input placeholder="enter captcha." 
+                                            v-model:value="data.smsLoginFormData.captcha">
                                             <template #prefix>
                                                 <LockOutlined style="color: rgba(0, 0, 0, 0.25)" />
                                             </template>
@@ -59,9 +64,12 @@
                                     </a-col>
                                     <a-col span="10">
                                         <a-button type="primary" style="width: 100%;" @click="sendCaptcha"
-                                            v-show="loginTabsData.data.smsCodeShow">获取短信</a-button>
-                                        <a-button style="width: 100%;" v-show="!loginTabsData.data.smsCodeShow" disabled>{{
-                                            loginTabsData.data.smsCountdown }}秒后重试</a-button>
+                                            v-show="data.tabsData.smsCodeShow">获取短信</a-button>
+                                        
+                                            <a-button style="width: 100%;" 
+                                                v-show="!data.tabsData.smsCodeShow" disabled>
+                                            {{data.tabsData.smsCountDown }}秒后重试
+                                        </a-button>
                                     </a-col>
                                 </a-row>
 
@@ -85,136 +93,118 @@
 
 <script setup lang="ts">
 import { UserOutlined, LockOutlined, MobileOutlined } from '@ant-design/icons-vue';
-import { reactive, ref, toRaw } from 'vue';
-import { loginTabsStore } from '@/stores/index'
-import { Form } from 'ant-design-vue';
+import { ref } from 'vue';
+import type { FormInstance } from 'ant-design-vue';
+import { Session } from '@/utils/Storage';
+import { accountLogin, getAccessToken } from '@/stores/oauth2/Oauth';
+import { LoginType } from '@/apis/types';
 
-
-console.log(import.meta.env.VITE_BASIC_URL)
-
-
-const loginTabsData = loginTabsStore()
 const smsCountDown = 30;
 
+const data = ref({
+    tabsData: {
+        activeKey: 'Account',// Mobile
+        smsCodeShow: true,
+        smsCountDown: smsCountDown
+    },
+    accountFormData: {
+        loginType:LoginType.Account,
+        uuid: '',
+        captcha: '',
+        username: '',
+        password: '',
+    },
+    accountFormRules: {
+        username: [
+            {
+                required: true,
+                message: 'Please enter your account.',
+            }
+        ],
+        password: [
+            {
+                required: true,
+                message: 'Please enter your password.',
+            }
+        ],
+    },
+    smsLoginFormData: {
+        loginType:LoginType.Sms,
+        mobile: '',
+        captcha: '',
+    },
+    smsLoginFormRules: {
+        mobile: [
+            {
+                required: true,
+                message: 'Please enter your mobile.',
+            }
+        ],
+        captcha: [
+            {
+                required: true,
+                message: 'Please enter your captcha.',
+            },
+        ],
+    },
 
-if (loginTabsData.getActiveKey() === '') {
-    loginTabsData.setActiveKey('Account')
-    loginTabsData.setSmsCodeShow(true);
-    loginTabsData.setSmsCountdown(smsCountDown);
-}
+
+});
 
 
 const selectedTabs = (value: string) => {
-    loginTabsData.setActiveKey(value);
+    data.value.tabsData.activeKey = value;
+    Session.set('tabsData', data.value.tabsData);
 }
 
 
 
+if(Session.get('tabsData') ===null){
+    Session.set('tabsData', data.value.tabsData);
+}else{
+    data.value.tabsData = Session.get('tabsData');
+}
+
 const sendCaptcha = () => {
     // 模拟发送
-    loginTabsData.setSmsCodeShow(false);
+    data.value.tabsData.smsCodeShow = false;
     const timer = setInterval(() => {
-        if (loginTabsData.getSmsCountdown() > 0) {
-            loginTabsData.setSmsCountdown(loginTabsData.getSmsCountdown() - 1)
+        if (data.value.tabsData.smsCountDown > 0) {
+            data.value.tabsData.smsCountDown = data.value.tabsData.smsCountDown - 1;
+            Session.set('tabsData', data.value.tabsData);
         } else {
-            loginTabsData.setSmsCountdown(smsCountDown);
-            loginTabsData.setSmsCodeShow(true);
+            data.value.tabsData.smsCodeShow = true
+            data.value.tabsData.smsCountDown = smsCountDown
+            Session.set('tabsData', data.value.tabsData);
             clearInterval(timer)
         }
     }, 1000)
 }
 
-if (loginTabsData.getActiveKey() !== 'Account' && loginTabsData.getSmsCountdown() < smsCountDown) {
+if(data.value.tabsData.smsCountDown < smsCountDown){
     sendCaptcha();
 }
 
 
-const accountLoginData = ref({
-    loginType: 'Account',
-    uuid: '',
-    captcha: '',
-    username: '',
-    password: '',
 
-});
+const accountFormRef = ref<FormInstance>();
 
-
-const accountRulesRef = reactive({
-    username: [
-        {
-            required: true,
-            message: 'Please enter your account.',
+const loginByAccount = async () => {
+    try {
+        await accountFormRef.value?.validateFields();
+        accountLogin(data.value.accountFormData)
+        if(getAccessToken() !==null){
+            console.log(getAccessToken())
         }
-    ],
-    password: [
-        {
-            required: true,
-            message: 'Please enter your password.',
-        },
-        {
-            message: '密码错误'
-        }
-    ],
-});
 
+    } catch (error) {
+        
+    }
 
-const accountForm = Form.useForm(accountLoginData, accountRulesRef, {
-    onValidate: (...args) => console.log(...args),
-});
-
-
-
-const accountLogin = () => {
-
-    accountForm.validate().then( (res) =>{
-        console.log(res);
-    })
-
-    
-
-    // accountForm.validateField('username')
-
-    // message.error("密码错误")
 }
 
 
 
-
-const smsLoginData = reactive({
-    loginType: 'Mobile',
-    mobile: '',
-    captcha: '',
-
-});
-
-const smsRulesRef = reactive({
-    mobile: [
-        {
-            required: true,
-            message: 'Please enter your mobile.',
-        }
-    ],
-    captcha: [
-        {
-            required: true,
-            message: 'Please enter your captcha.',
-        },
-    ],
-});
-
-
-
-
-// const smsCodeCount = smsCountdown();
-
-
-
-
-
-
-// const smsLogin = () => {
-//     smsFormRef.value?.validateFields();
-// }
 
 </script>
 

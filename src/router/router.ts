@@ -1,6 +1,6 @@
 
 import { createRouter, createWebHistory } from 'vue-router';
-import CookiesUtils from '../utils/CookiesUtils';
+import { getAccessToken } from '@/stores/oauth2/Oauth';
 
 
 const routes = [
@@ -16,8 +16,7 @@ const router = createRouter({
 
 
 router.beforeEach((to, from, next) => {
-
-  if(CookiesUtils.getAccessToken() ===undefined && to.path !=='/login'){
+  if(getAccessToken() ===null && to.path !=='/login'){
     next('/login')
     return;
   }

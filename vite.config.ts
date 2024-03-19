@@ -7,7 +7,7 @@ import { fileURLToPath,URL} from 'node:url'
 // https://vitejs.dev/config/
 export default defineConfig(({mode}) => {
   const env = loadEnv(mode, process.cwd(), 'VITE')
-  console.log("env",env);
+  // console.log("env",env);
   
   return{
     envDir:"env",

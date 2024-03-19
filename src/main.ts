@@ -10,6 +10,7 @@ import {createPersistedState} from 'pinia-plugin-persistedstate'
 
 
 
+
 const app = createApp(App)
 
 const pinia = createPinia().use(createPersistedState({
