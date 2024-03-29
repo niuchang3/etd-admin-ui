@@ -2,9 +2,7 @@
 import { LonginRequestParams, Token } from '@/apis/types'
 import { Cookies } from '@/utils/storage'
 import { loginByUserName } from '@/apis/login'
-import { useRouter } from 'vue-router'
-
-const router = useRouter()
+import router from '@/router/index'
 
 
 
@@ -21,6 +19,7 @@ export const accountLogin =  async (formData: LonginRequestParams) => {
 export const smsLogin =(formData : LonginRequestParams) =>{
 
 }
+
 
 
 export const refreshToken = () =>{

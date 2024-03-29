@@ -36,3 +36,29 @@ export interface Oauth2Token{
     refreshToken: Token | any,
     tokenType:string
 }
+
+
+export interface Tenant{
+    id:string,
+    tenantName:string,
+    authorities:Authority[]
+
+}
+
+export interface Authority{
+    id:string,
+    parentId:string,
+    authorityName:string,
+    authority:string
+}
+
+
+export interface UserInfo {
+    id:string | null,
+    userName:string | null,
+    birthday:Date | null,
+    gender:number | null,
+    avatar:string | null,
+    nickName:string | null,
+    tenant:Tenant[] | null
+}

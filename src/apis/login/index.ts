@@ -1,5 +1,5 @@
 import request from "@/utils/request";
-import { LonginRequestParams, Oauth2Token, Response } from "../types";
+import { LonginRequestParams, Oauth2Token, Response, UserInfo } from "../types";
 
 /**
  * 根据用户名登录
@@ -24,5 +24,12 @@ export const loginByMobile = async(data:LonginRequestParams) =>{
         url: '/upms/api/oauth2/login',
         data,
         contentType: 'application/x-www-form-urlencoded'
+    });
+}
+
+
+export const selectUserInfo = async() =>{
+    return await request.get<Response<UserInfo>>({
+        url:'/upms/api/v1/user/me'
     });
 }

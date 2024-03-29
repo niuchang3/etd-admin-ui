@@ -45,7 +45,7 @@
                     </a-tab-pane>
 
                     <a-tab-pane :key="LoginType.Sms" :tab="LoginType.Sms">
-                        <a-form autocomplete="off"  :ref="mobileFormRef" :model="loginFormData" >
+                        <a-form autocomplete="off"   :model="loginFormData" >
 
                             <a-form-item name="longinType" hidden>
                                 <a-input v-model:value="loginFormData.longinType" autocomplete="off" />
@@ -102,6 +102,11 @@ import { onBeforeUnmount, onMounted, ref } from 'vue';
 import loginTabsStore from '@/stores/modules/loginTabs';
 import { FormInstance, Rule} from 'ant-design-vue/es/form';
 import { accountLogin } from '@/stores/modules/oauth';
+import userStore from  '@/stores/modules/user';
+import {  useRouter } from 'vue-router';
+
+
+const router = useRouter()
 
 
 const tabsStore = loginTabsStore()
@@ -155,10 +160,10 @@ const login =  () => {
     if (loginFormData.value.longinType === LoginType.Account) {
         
         accountFormRef.value?.validate().then(values =>{
-            accountLogin(values as LonginRequestParams).then(res =>{
+            accountLogin(values as LonginRequestParams).then(_res =>{
                 // 此处应该在获取下用户信息
-
-                
+                userStore().getUserInfo();
+                router.push({path:'/'})
             })
             
         }).catch(err =>{

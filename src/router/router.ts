@@ -1,30 +1,41 @@
 
-import { getAccessToken } from '@/stores/modules/oauth';
-import { createRouter, createWebHistory } from 'vue-router';
-// import { getAccessToken } from '@/stores/modules/oauth';
 
-
-const routes = [
-  { path: '/', component: () => import('../App.vue') },
-  { path: '/login', component: () => import('../views/login.vue') }
+export const menuRoutes = [
+  {
+    path: '/home',
+    name:'首页',
+    component: () => import('../views/home.vue'),
+  },
+  {
+    path:'/system',
+    name :'系统管理',
+    children:[
+      {
+        path: '/system/user',
+        name:'用户管理',
+        component: () => import('../views/user/index.vue'),
+      },
+      {
+        path: '/system/role',
+        name:'角色管理',
+        component: () => import('../views/role/index.vue'),
+      },
+      {
+        path: '/system/department',
+        name:'部门管理',
+        component: () => import('../views/department/index.vue'),
+      }
+    ]
+  }
 ]
 
-const router = createRouter({
-  history: createWebHistory(),
-  routes, // `routes: routes` 的缩写
-})
 
+export const routesInfo = [
+  { 
+    path: '/',
+    component: () => import('../views/index.vue'),
+    children: menuRoutes
 
-
-router.beforeEach((to, from, next) => {
-  const token = getAccessToken();
-  if(!token  && to.path !=='/login'){
-    next('/login')
-    return;
-  }
-  next();
-})
-
-
-
-export default router;
+  },
+  { path: '/login', component: () => import('../views/login.vue') }
+]

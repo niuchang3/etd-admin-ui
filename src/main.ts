@@ -4,7 +4,7 @@ import App from './App.vue'
 import './assets/css/reset.css'
 import 'ant-design-vue/dist/reset.css';
 import VueCookies from 'vue-cookies'
-import router from './router/router'
+import router from './router/index'
 import { pinia } from './stores';
 
 
