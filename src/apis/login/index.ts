@@ -1,13 +1,28 @@
-import request from "@/utils/Request";
-import { AccountData } from "../types";
+import request from "@/utils/request";
+import { LonginRequestParams, Oauth2Token, Response } from "../types";
 
-const X_WWW_FORM_URLENCODED = 'application/x-www-form-urlencoded';
-
-
-export const loginByAccount = async (data:AccountData) =>{
-     return await request.post({
-        url: '/upms/apis/oauth2/login',
+/**
+ * 根据用户名登录
+ * @param data 
+ * @returns 
+ */
+export const loginByUserName = async (data:LonginRequestParams) =>{
+    return await request.post<Response<Oauth2Token>>({
+        url: '/upms/api/oauth2/login',
         data,
-        headersType: X_WWW_FORM_URLENCODED
+        contentType: 'application/x-www-form-urlencoded'
+    }); 
+}
+
+/**
+ * 根据手机号码登录
+ * @param data 
+ * @returns 
+ */
+export const loginByMobile = async(data:LonginRequestParams) =>{
+    return await request.post<Response<Oauth2Token>>({
+        url: '/upms/api/oauth2/login',
+        data,
+        contentType: 'application/x-www-form-urlencoded'
     });
 }

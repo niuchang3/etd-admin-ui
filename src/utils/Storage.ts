@@ -28,9 +28,9 @@ const Session = {
     set<T>(key:string,value:T){
         window.sessionStorage.setItem(key,JSON.stringify(value));
     },
-    get(key:string){
+    get<T>(key:string){
         let json = <string>window.sessionStorage.getItem(key);
-        return JSON.parse(json);
+        return json as T;
     },
     remove(key:string){
         window.sessionStorage.removeItem(key);
@@ -45,10 +45,9 @@ const Cookies = {
     set<T>(key:string,value:T,expireTimes?: string | number | Date){
         cookies.set(key,JSON.stringify(value),expireTimes);
     },
-    get(key:string){
+    get<T>(key:string){
         let json=  <string>cookies.get(key);
-        console.log(json,'json')
-        return JSON.parse(json);
+        return json as T;
     },
     remove(key:string){
         cookies.remove(key);

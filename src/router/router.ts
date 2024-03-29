@@ -1,11 +1,12 @@
 
+import { getAccessToken } from '@/stores/modules/oauth';
 import { createRouter, createWebHistory } from 'vue-router';
-import { getAccessToken } from '@/stores/oauth2/Oauth';
+// import { getAccessToken } from '@/stores/modules/oauth';
 
 
 const routes = [
   { path: '/', component: () => import('../App.vue') },
-  { path: '/login', component: () => import('../views/login/Login.vue') }
+  { path: '/login', component: () => import('../views/login.vue') }
 ]
 
 const router = createRouter({
@@ -16,7 +17,8 @@ const router = createRouter({
 
 
 router.beforeEach((to, from, next) => {
-  if(getAccessToken() ===null && to.path !=='/login'){
+  const token = getAccessToken();
+  if(!token  && to.path !=='/login'){
     next('/login')
     return;
   }

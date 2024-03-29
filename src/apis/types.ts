@@ -1,20 +1,38 @@
+
+// 统一处理请求体
+export interface Response<T>{
+    code:Number,
+    data:T,
+    devMessage:string,
+    message:string,
+    url:string
+}
+
+
 export enum LoginType{
     Account='Account',
     Sms='SMS',
 }
 
 
-export interface AccountData {
-    loginType:LoginType,
+
+export interface LonginRequestParams{
+    longinType : LoginType,
     uuid: string,
-    captcha: string,
     username: string,
     password: string,
-}
-
-export interface MobileData {
-    loginType:LoginType,
     captcha: string,
-    mobile: string
+    mobile:string
 }
 
+export interface Token{
+    expires: string,
+    value:string,
+}
+
+
+export interface Oauth2Token{
+    accessToken:Token,
+    refreshToken: Token | any,
+    tokenType:string
+}

@@ -5,18 +5,15 @@ import './assets/css/reset.css'
 import 'ant-design-vue/dist/reset.css';
 import VueCookies from 'vue-cookies'
 import router from './router/router'
-import { createPinia } from 'pinia'
-import {createPersistedState} from 'pinia-plugin-persistedstate'
+import { pinia } from './stores';
+
 
 
 
 
 const app = createApp(App)
 
-const pinia = createPinia().use(createPersistedState({
-    storage:localStorage,
-    auto: true
-}));
+
 
 app.use(VueCookies)
     .use(router)

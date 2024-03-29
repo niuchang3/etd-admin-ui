@@ -7,7 +7,7 @@ import { fileURLToPath,URL} from 'node:url'
 // https://vitejs.dev/config/
 export default defineConfig(({mode}) => {
   const env = loadEnv(mode, process.cwd(), 'VITE')
-  // console.log("env",env);
+  console.log("env",env);
   
   return{
     envDir:"env",
@@ -19,12 +19,13 @@ export default defineConfig(({mode}) => {
       }
     },
     server:{
-      host: env.VITE_HOST,
-      port: env.VITE_PORT,
+      host: '0.0.0.0',
+      port: Number(env.VITE_SERVER_PORT),
       proxy:{
-          '/upms/apis':{
-            target: env.VITE_BASIC_URL,
-            changeOrigin:true
+        [env.VITE_SERVER_BASE_API]:{
+            target: env.VITE_SERVER_PROXY_TARGET,
+            changeOrigin:true,
+            // rewrite: (path) => path.replace(new RegExp('^' + env.VITE_SERVER_BASE_API), '')
           }
       }
     }
