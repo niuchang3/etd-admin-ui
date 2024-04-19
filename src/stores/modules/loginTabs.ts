@@ -1,4 +1,4 @@
-import { LoginType } from "@/apis/types";
+import { LoginType } from "@/apis/upms/login/userTypes";
 import { defineStore } from "pinia";
 import { computed, ref } from "vue";
 

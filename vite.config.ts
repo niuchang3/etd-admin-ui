@@ -25,7 +25,7 @@ export default defineConfig(({mode}) => {
         [env.VITE_SERVER_BASE_API]:{
             target: env.VITE_SERVER_PROXY_TARGET,
             changeOrigin:true,
-            // rewrite: (path) => path.replace(new RegExp('^' + env.VITE_SERVER_BASE_API), '')
+            rewrite: (path) => path.replace(new RegExp('^' + env.VITE_SERVER_BASE_API), '')
           }
       }
     }

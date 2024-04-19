@@ -96,17 +96,13 @@
 </template>
 
 <script setup lang="ts">
-import { LoginType, LonginRequestParams } from '@/apis/types';
+import { LoginType, LonginRequestParams } from '@/apis/upms/login/userTypes';
 import { UserOutlined, LockOutlined, MobileOutlined } from '@ant-design/icons-vue';
 import { onBeforeUnmount, onMounted, ref } from 'vue';
 import loginTabsStore from '@/stores/modules/loginTabs';
 import { FormInstance, Rule} from 'ant-design-vue/es/form';
 import { accountLogin } from '@/stores/modules/oauth';
-import userStore from  '@/stores/modules/user';
-import {  useRouter } from 'vue-router';
-
-
-const router = useRouter()
+import { tenantsStore, userStore } from '@/stores/modules/user';
 
 
 const tabsStore = loginTabsStore()
@@ -146,30 +142,25 @@ const accountRules : Record<string,Rule[]> = {
 };
 
 
-
-// const mobileFormRef = ref<FormInstance>();
-// const mobileRules = reactive({
-//     mobile: [{ required: true,  message:'手机号码不能为空'}],
-//     captcha: [{ required: true, message:'验证码不能为空'}],
-// });
-
 /**
  * 登录按钮
  */
-const login =  () => {
+const login = () => {
     if (loginFormData.value.longinType === LoginType.Account) {
         
         accountFormRef.value?.validate().then(values =>{
-            accountLogin(values as LonginRequestParams).then(_res =>{
+            accountLogin(values as LonginRequestParams).then( _res =>{
                 // 此处应该在获取下用户信息
-                userStore().getUserInfo();
-                router.push({path:'/'})
+                
+                tenantsStore().getUserTenant().then(_res =>{
+                    tenantsStore().switchTenant(0)
+                    userStore().getUserInfo()    
+                })
             })
             
         }).catch(err =>{
             return err;
         })
-        // console.log(rule,'2')
 
         return
     }
@@ -204,7 +195,6 @@ const sendCaptcha = (isOnMounted:boolean) => {
         }
     }, 1000)
 }
-
 
 
 

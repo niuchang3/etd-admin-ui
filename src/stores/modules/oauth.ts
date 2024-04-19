@@ -1,16 +1,15 @@
 
-import { LonginRequestParams, Token } from '@/apis/types'
+import { LonginRequestParams, Token } from '@/apis/upms/login/userTypes'
 import { Cookies } from '@/utils/storage'
-import { loginByUserName } from '@/apis/login'
+import { loginByUserName } from '@/apis/upms/login'
 import router from '@/router/index'
-
 
 
 export const accountLogin =  async (formData: LonginRequestParams) => {
     return await loginByUserName(formData).then(resData =>{
         Cookies.set<Token>('accessToken',resData.data.accessToken,new Date(resData.data.accessToken.expires));
         if(resData.data.refreshToken){
-            Cookies.set<Token>('refreshToken',resData.data.refreshToken.value,new Date(resData.data.refreshToken.expires));
+            Cookies.set<Token>('refreshToken',resData.data.refreshToken,new Date(resData.data.refreshToken.expires));
         }
         return resData
     })
@@ -40,4 +39,10 @@ export const getAccessToken = ():string | null =>{
 export const getRefreshToken = ():string | null =>{
     const token = Cookies.get<Token>('refreshToken');
     return token ? token.value : null;
+}
+
+
+export const clear  = ()=>{
+    Cookies.remove('accessToken')
+    Cookies.remove('refreshToken')
 }

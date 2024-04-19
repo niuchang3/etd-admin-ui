@@ -1,5 +1,6 @@
 import request from "@/utils/request";
-import { LonginRequestParams, Oauth2Token, Response, UserInfo } from "../types";
+import { LonginRequestParams, Oauth2Token , Tenant, UserInfo, UserMenus } from "./userTypes";
+import {Response} from '@/apis/types'
 
 /**
  * 根据用户名登录
@@ -32,4 +33,17 @@ export const selectUserInfo = async() =>{
     return await request.get<Response<UserInfo>>({
         url:'/upms/api/v1/user/me'
     });
+}
+
+export const selectUserTenant = async() =>{
+    return await request.get<Response<Tenant[]>>({
+        url:'/upms/api/v1/user/tenant'
+    })
+}
+
+
+export const selectUserMenus = async () =>{
+    return await request.get<Response<UserMenus[]>>({
+        url:'/upms/api/v1/user/menus'
+    })
 }

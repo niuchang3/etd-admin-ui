@@ -19,6 +19,8 @@
     "noUnusedLocals": true,
     "noUnusedParameters": true,
     "noFallthroughCasesInSwitch": true,
+    "ignoreDeprecations": "5.0",
+    "suppressImplicitAnyIndexErrors":true,
 
     "baseUrl": "./",
     "paths": {

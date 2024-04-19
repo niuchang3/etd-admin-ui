@@ -3,6 +3,7 @@ import qs from 'qs';
 import { message } from 'ant-design-vue';
 import { getAccessToken } from '@/stores/modules/oauth';
 import {Response} from '@/apis/types'
+import { tenantsStore } from '@/stores/modules/user';
 
 
 
@@ -34,6 +35,10 @@ instance.interceptors.request.use((config:InternalAxiosRequestConfig) =>{
     if(token){
         config.headers['Authorization'] = 'Bearer '+ token;
     }
+    let currentTenant = tenantsStore().userTenant.currentTenant;
+    if(currentTenant){
+        config.headers['TENANT-CODE'] = currentTenant.id
+    }
     
 
     return config;
@@ -51,15 +56,21 @@ instance.interceptors.response.use((config:AxiosResponse)=>{
     return config;
 },(error:AxiosError<Response<any>>) =>{
     // 请求已发出，但服务器响应的状态码不在 2xx 范围内
-    console.log(error)
-    if(error.response){
+    console.log(error,'error')
+    if(error.response && error.response.data){
         message.error(`${error.response.data.message}`)
         return Promise.reject(error.response.data)
     }
-    if(error.request){
-        message.error('请求超时')
-        return Promise.reject(error.request);
+    if(error.response?.status === 500){
+        message.error(`${error.response.statusText}`)
+        return Promise.reject(error.response.data)
     }
+
+    
+    // if(error.request){
+    //     message.error('请求超时')
+    //     return Promise.reject(error.request);
+    // }
     message.error('请求出错')
     return Promise.reject(error.message);
 })

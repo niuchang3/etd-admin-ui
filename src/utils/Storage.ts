@@ -53,8 +53,18 @@ const Cookies = {
         cookies.remove(key);
     },
     clear(){
-        
+        let keys:string[] = cookies.keys();
+        keys.forEach( item =>{
+            cookies.remove(item)
+        })
     }
 }
 
-export {Local,Session,Cookies}
+
+const cacheClear = ()=>{
+    Local.clear();
+    Session.clear()
+    Cookies.clear();
+}
+
+export {Local,Session,Cookies,cacheClear}
