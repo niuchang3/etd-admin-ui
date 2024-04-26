@@ -61,6 +61,7 @@ export interface UserMenus{
     menuPath:string,
     menuRouter:string,
     menuIcon:string,
+    children:UserMenus[] | any
 
 }
 

@@ -5,19 +5,19 @@
       <a-menu v-model:selectedKeys="selectedKeys" theme="dark" mode="inline" @click="toRouter">
         <template v-for="item in userMenu.menus[0].children">
 
-          <a-menu-item :key="item.path" v-if="item.children && item.children.length === 0">
-            <component :is="item.icon"></component>
-            <span>{{ item.name }}</span>
+          <a-menu-item :key="item.menuPath" v-if="item.children && item.children.length === 0">
+            <component :is="item.menuIcon"></component>
+            <span>{{ item.menuName }}</span>
           </a-menu-item>
 
 
-          <a-sub-menu :key="item.path" v-if="item.children && item.children.length !== 0">
+          <a-sub-menu :key="item.menuPath" v-if="item.children && item.children.length !== 0">
             <template #title>
               <component :is="item.icon"></component>
-              <span>{{ item.name }}</span>
+              <span>{{ item.menuName }}</span>
             </template>
-            <a-menu-item :key="subItem.path" v-for="subItem in item.children">
-              <span>{{ subItem.name }}</span>
+            <a-menu-item :key="subItem.menuPath" v-for="subItem in item.children">
+              <span>{{ subItem.menuName }}</span>
             </a-menu-item>
           </a-sub-menu>
         </template>
@@ -60,7 +60,6 @@
 
         <a-breadcrumb style="margin: 16px 0">
           <a-breadcrumb-item v-for="item in breadcrum.data">{{ item }}</a-breadcrumb-item>
-          <!-- <a-breadcrumb-item>Bill</a-breadcrumb-item> -->
         </a-breadcrumb>
 
 
@@ -102,10 +101,10 @@
 
 <script setup lang="ts">
 
-import { onMounted, ref } from 'vue';
+import { ref } from 'vue';
 import { useRouter } from 'vue-router';
 import breadcrumbStore from '@/stores/modules/breadcrumb';
-import { tenantsStore, userStore, menusStore, clearStore} from '@/stores/modules/user';
+import { tenantsStore, userStore, menusStore, clearStore, currentMenu} from '@/stores/modules/user';
 import { cacheClear } from '@/utils/storage';
 
 
@@ -116,18 +115,14 @@ const userTenants = tenantsStore();
 const breadcrum = breadcrumbStore();
 const collapsed = ref<boolean>(false);
 const open = ref<boolean>(false);
-const selectedKeys = ref<string[]>([userMenu.menus[0].children[0].path]);
 
-
-
-// const instance  =  getCurrentInstance()
-
+const selectedKeys = ref<string[]>([currentMenu().current]);
 const router = useRouter();
-// router.push({ path: systemRouter[0].path })
 
 
-const toRouter = (_value: any) => {
-  router.push({ path: _value.key })
+const toRouter = (value: any) => {
+  currentMenu().setCurrentMenu(value.key);
+  router.push({ path: value.key })
 }
 
 

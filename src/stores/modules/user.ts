@@ -3,7 +3,7 @@ import { Tenant, UserInfo, UserMenus } from "@/apis/upms/login/userTypes";
 import router, { resetRouter } from "@/router";
 import { defineStore } from "pinia";
 import { ref } from "vue";
-const modules = import.meta.glob('@/views/**/*.vue')
+
 
 
 
@@ -84,16 +84,15 @@ export const tenantsStore = defineStore('tenantsInfo',()=>{
 
 
 export const menusStore = defineStore('menus',()=>{
-    const menus = ref();
-
+    const menus = ref<UserMenus[]>([]);
+    
     const getUserMenus = async ()=>{
         await selectUserMenus().then(res =>{
-            let userMenu = generateMenu(res.data);
-            menus.value = userMenu;
+            menus.value =  generateMenu(res.data);
             resetRouter()
+            currentMenu().setCurrentMenu(menus.value[0].children[0].menuPath)
         })
     }
-
     return {menus,getUserMenus}
 
 },{
@@ -103,50 +102,59 @@ export const menusStore = defineStore('menus',()=>{
 })
 
 
-const generateMenu = (userMenu:UserMenus[])=>{
-    let menu: { path: string; name: string; component: () => Promise<unknown>; children: any; }[] = []
-    userMenu.forEach(item =>{
-        if(item.parentId){
-            return;
-        }
-        let childrens = children(userMenu,item.id)
-        let routeRecord = { 
-            path:`${item.menuPath}`,
-            name:`${item.menuName}`,
-            component: modules[`${item.menuRouter}`],
-            children: childrens
-        }
-        menu.push(routeRecord);
-    });
-    return menu;
-}
+export const currentMenu = defineStore('currentMenu',()=>{
+    const current = ref('')
+    
+    const setCurrentMenu = (path:string) =>{
+        current.value = path;
+    }
+    const getCurrentMenu = () =>{
+        return current.value
+    }
 
-
-
-const children = (menus:UserMenus[],parentId:string):any =>{
-    let menu: { path: string; name: string; component: () => Promise<any>; children: any; }[] = [];
-    menus.forEach(item =>{
-        if(item.menuName==='部门管理'){
-            return
-        }
-        if(item.parentId !== parentId){
-            return;
-        }
-        let routeRecord = { 
-            path:`${item.menuPath}`,
-            name:`${item.menuName}`,
-            component:  modules[`${item.menuRouter}`],
-            children:children(menus,item.id)
-        }
-        menu.push(routeRecord)
-    })
-    return menu;
-}
+    return {current,setCurrentMenu,getCurrentMenu}
+},{
+    persist:{
+        storage:sessionStorage
+    }
+})
 
 
 export const switchTenant = async (index:number) =>{
     await tenantsStore().switchTenant(index)
-    // menusStore()
+}
+
+
+
+
+
+const generateMenu = (metaMenus:UserMenus[]):UserMenus[] =>{
+    let menus: UserMenus[] = [];
+    metaMenus.forEach((item: UserMenus) =>{
+        
+        if(item.parentId){
+            return;
+        }
+        item.children = children(metaMenus,item.id)
+        menus.push(item)
+        
+    });
+    return menus;
+}
+
+
+
+const children = (metaMenus:UserMenus[],parentId:string):UserMenus[] =>{
+    let menu: UserMenus[] = [];
+    
+    metaMenus.forEach((item: UserMenus) =>{
+        if(item.parentId !== parentId){
+            return;
+        }
+        item.children = children(metaMenus,item.id)
+        menu.push(item)
+    })
+    return menu;
 }
 
 
