@@ -65,6 +65,7 @@ const cacheClear = ()=>{
     Local.clear();
     Session.clear()
     Cookies.clear();
+    return Promise.resolve(true)
 }
 
 export {Local,Session,Cookies,cacheClear}

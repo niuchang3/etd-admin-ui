@@ -96,7 +96,7 @@
 </template>
 
 <script setup lang="ts">
-import { LoginType, LonginRequestParams } from '@/apis/upms/login/userTypes';
+import { LoginType, LonginRequestParams } from '@/apis/upms/login/type';
 import { UserOutlined, LockOutlined, MobileOutlined } from '@ant-design/icons-vue';
 import { onBeforeUnmount, onMounted, ref } from 'vue';
 import loginTabsStore from '@/stores/modules/loginTabs';
@@ -151,7 +151,6 @@ const login = () => {
         accountFormRef.value?.validate().then(values =>{
             accountLogin(values as LonginRequestParams).then( _res =>{
                 // 此处应该在获取下用户信息
-                
                 tenantsStore().getUserTenant().then(_res =>{
                     tenantsStore().switchTenant(0)
                     userStore().getUserInfo()    
@@ -296,4 +295,4 @@ onBeforeUnmount(()=>{
     }
 
 }
-</style>
+</style>@/apis/upms/api/userTypes

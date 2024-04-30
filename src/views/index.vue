@@ -2,8 +2,8 @@
   <a-layout style="min-height: 100vh">
     <a-layout-sider v-model:collapsed="collapsed" collapsible>
       <div class="logo"></div>
-      <a-menu v-model:selectedKeys="selectedKeys" theme="dark" mode="inline" @click="toRouter">
-        <template v-for="item in userMenu.menus[0].children">
+      <a-menu v-model:selectedKeys="selectedKeys"  theme="dark" mode="inline" @click="toRouter">
+        <template v-if="userMenu.menus.length >0"  v-for="item in userMenu.menus[0].children">
 
           <a-menu-item :key="item.menuPath" v-if="item.children && item.children.length === 0">
             <component :is="item.menuIcon"></component>
@@ -111,6 +111,7 @@ import { cacheClear } from '@/utils/storage';
 const user = userStore();
 
 const userMenu = menusStore();
+
 const userTenants = tenantsStore();
 const breadcrum = breadcrumbStore();
 const collapsed = ref<boolean>(false);
@@ -126,11 +127,10 @@ const toRouter = (value: any) => {
 }
 
 
-const logout = () => {
-  clearStore();
-  cacheClear();
+const logout = async () => {
+  await clearStore()
+  cacheClear()
   router.push({ path: '/login' })
-  
 }
 
 const selectTenant = () => {

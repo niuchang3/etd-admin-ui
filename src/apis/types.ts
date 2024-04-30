@@ -7,3 +7,15 @@ export interface Response<T>{
     message:string,
     url:string
 }
+
+
+export interface PageResponse<T>{
+    total:number,
+    records:T[],
+}
+
+
+export interface PageRequest{
+    current?:number,
+    size?:number,
+}

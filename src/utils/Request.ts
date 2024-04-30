@@ -1,9 +1,10 @@
 import axios, { AxiosInstance, InternalAxiosRequestConfig, AxiosResponse, AxiosError } from 'axios';
 import qs from 'qs';
 import { message } from 'ant-design-vue';
-import { getAccessToken } from '@/stores/modules/oauth';
+import { clear, getAccessToken, refreshToken } from '@/stores/modules/oauth';
 import {Response} from '@/apis/types'
 import { tenantsStore } from '@/stores/modules/user';
+import router from '@/router/index'
 
 
 
@@ -39,38 +40,52 @@ instance.interceptors.request.use((config:InternalAxiosRequestConfig) =>{
     if(currentTenant){
         config.headers['TENANT-CODE'] = currentTenant.id
     }
-    
-
     return config;
 },(error:any) =>{
     return Promise.reject(error);
 })
 
 
-
+let isRefreshing = false;
 /**
  * 增加Response 拦截器 对数据统一处理
  */
 instance.interceptors.response.use((config:AxiosResponse)=>{
 
+    
     return config;
-},(error:AxiosError<Response<any>>) =>{
-    // 请求已发出，但服务器响应的状态码不在 2xx 范围内
-    console.log(error,'error')
-    if(error.response && error.response.data){
-        message.error(`${error.response.data.message}`)
-        return Promise.reject(error.response.data)
+}, async (error) =>{
+    let config = error.config;
+    // config._retry
+    if(error.response.status === 401 && !isRefreshing && !config._retry ){
+        config._retry = true;
+        isRefreshing = true;
+
+        return await refreshToken().then(_res =>{
+            const token = getAccessToken();
+            config.headers['Authorization'] = 'Bearer '+ token;
+            instance(config);
+        }).catch(_err =>{
+            clear()
+            message.error('令牌失效,请重新登录。')
+            router.push({path:'/login'})
+            return Promise.reject(error)
+        }).finally(()=>{
+            isRefreshing = false;
+        })
+        
     }
+
     if(error.response?.status === 500){
-        message.error(`${error.response.statusText}`)
+        console.log('异常逻辑',1)
+        return await Promise.reject(error.response.data)
+    }
+    // 请求已发出，但服务器响应的状态码不在 2xx 范围内
+    if(error.response && error.response.data){
+        console.log('异常逻辑',3)
         return Promise.reject(error.response.data)
     }
 
-    
-    // if(error.request){
-    //     message.error('请求超时')
-    //     return Promise.reject(error.request);
-    // }
     message.error('请求出错')
     return Promise.reject(error.message);
 })

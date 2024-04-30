@@ -8,7 +8,7 @@ import breadcrumbStore from '@/stores/modules/breadcrumb';
 import { menusStore } from '@/stores/modules/user';
 
 import NProgress from '@/utils/nporgress'
-import { UserMenus } from '@/apis/upms/login/userTypes';
+import { UserMenus } from '@/apis/upms/login/type';
 
 const modules = import.meta.glob('../views/**/*.vue')
 

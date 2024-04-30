@@ -1,5 +1,5 @@
 import { selectUserInfo, selectUserMenus, selectUserTenant } from "@/apis/upms/login";
-import { Tenant, UserInfo, UserMenus } from "@/apis/upms/login/userTypes";
+import { Tenant, UserInfo, UserMenus } from "@/apis/upms/login/type";
 import router, { resetRouter } from "@/router";
 import { defineStore } from "pinia";
 import { ref } from "vue";
@@ -31,7 +31,18 @@ export const userStore = defineStore('user',()=>{
         })
     }
 
-    return {userInfo,getUserInfo}
+    const $reset = () =>{
+        userInfo.value = {
+            id: null,
+            userName: null,
+            birthday: null,
+            gender: null,
+            avatar: null,
+            nickName: null
+        }
+    }
+
+    return {userInfo,getUserInfo,$reset}
 },{
     persist:{
         storage:localStorage
@@ -72,7 +83,14 @@ export const tenantsStore = defineStore('tenantsInfo',()=>{
         router.push({path:'/'})
     }
 
-    return {userTenant,getUserTenant,switchTenant}
+    const $reset = () =>{
+        userTenant.value = {
+            currentTenant: {},
+            tenants: []
+        }
+    }
+
+    return {userTenant,getUserTenant,switchTenant,$reset}
 },{
     persist:{
         storage:localStorage
@@ -93,7 +111,11 @@ export const menusStore = defineStore('menus',()=>{
             currentMenu().setCurrentMenu(menus.value[0].children[0].menuPath)
         })
     }
-    return {menus,getUserMenus}
+    const $reset = () =>{
+        menus.value = []
+    }
+
+    return {menus,getUserMenus,$reset}
 
 },{
     persist:{
@@ -112,7 +134,11 @@ export const currentMenu = defineStore('currentMenu',()=>{
         return current.value
     }
 
-    return {current,setCurrentMenu,getCurrentMenu}
+    const $reset = () =>{
+        current.value = ''
+    }
+
+    return {current,setCurrentMenu,getCurrentMenu,$reset}
 },{
     persist:{
         storage:sessionStorage
@@ -162,4 +188,6 @@ export const clearStore = ()=>{
     userStore().$reset();
     tenantsStore().$reset()
     menusStore().$reset();
+    currentMenu().$reset();
+    return Promise.resolve(true)
 }

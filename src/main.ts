@@ -16,7 +16,6 @@ Object.keys(IConData).forEach(key => {
     app.component(key, IConData[key])
 })
 
-
 app.use(VueCookies)
     .use(pinia)
     .use(Antd)
