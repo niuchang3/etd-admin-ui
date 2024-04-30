@@ -2,7 +2,6 @@ import axios, { AxiosInstance, InternalAxiosRequestConfig, AxiosResponse, AxiosE
 import qs from 'qs';
 import { message } from 'ant-design-vue';
 import { clear, getAccessToken, refreshToken } from '@/stores/modules/oauth';
-import {Response} from '@/apis/types'
 import { tenantsStore } from '@/stores/modules/user';
 import router from '@/router/index'
 
@@ -77,8 +76,8 @@ instance.interceptors.response.use((config:AxiosResponse)=>{
     }
 
     if(error.response?.status === 500){
-        console.log('异常逻辑',1)
-        return await Promise.reject(error.response.data)
+        message.error(`${error.response.data.message}`)
+        return await Promise.reject(error)
     }
     // 请求已发出，但服务器响应的状态码不在 2xx 范围内
     if(error.response && error.response.data){
@@ -87,7 +86,7 @@ instance.interceptors.response.use((config:AxiosResponse)=>{
     }
 
     message.error('请求出错')
-    return Promise.reject(error.message);
+    return Promise.reject(error);
 })
 
 

@@ -78,9 +78,9 @@ export const tenantsStore = defineStore('tenantsInfo',()=>{
         }
 
         userTenant.value.currentTenant = userTenant.value.tenants[index];
-
         await menusStore().getUserMenus();
-        router.push({path:'/'})
+        
+        location.reload()
     }
 
     const $reset = () =>{
@@ -108,7 +108,10 @@ export const menusStore = defineStore('menus',()=>{
         await selectUserMenus().then(res =>{
             menus.value =  generateMenu(res.data);
             resetRouter()
-            currentMenu().setCurrentMenu(menus.value[0].children[0].menuPath)
+            if(!currentMenu().current){
+                currentMenu().setCurrentMenu(menus.value[0].children[0].menuPath)
+            }
+            
         })
     }
     const $reset = () =>{

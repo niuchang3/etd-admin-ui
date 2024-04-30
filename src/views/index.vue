@@ -122,6 +122,8 @@ const router = useRouter();
 
 
 const toRouter = (value: any) => {
+  console.log(value)
+
   currentMenu().setCurrentMenu(value.key);
   router.push({ path: value.key })
 }
