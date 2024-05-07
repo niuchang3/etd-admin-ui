@@ -2,7 +2,7 @@
   <a-layout style="min-height: 100vh">
     <a-layout-sider v-model:collapsed="collapsed" collapsible>
       <div class="logo"></div>
-      <a-menu v-model:selectedKeys="selectedKeys"  theme="dark" mode="inline" @click="toRouter">
+      <a-menu  v-model:selectedKeys="selectedKeys" v-model:openKeys="currentMenu().current"  theme="dark" mode="inline" @click="toRouter">
         <template v-if="userMenu.menus.length >0"  v-for="item in userMenu.menus[0].children">
 
           <a-menu-item :key="item.menuPath" v-if="item.children && item.children.length === 0">
@@ -117,14 +117,14 @@ const breadcrum = breadcrumbStore();
 const collapsed = ref<boolean>(false);
 const open = ref<boolean>(false);
 
-const selectedKeys = ref<string[]>([currentMenu().current]);
 const router = useRouter();
+
+const selectedKeys= ref<string[]>(currentMenu().current)
 
 
 const toRouter = (value: any) => {
-  console.log(value)
-
-  currentMenu().setCurrentMenu(value.key);
+  
+  currentMenu().setCurrentMenu(value.keyPath);
   router.push({ path: value.key })
 }
 

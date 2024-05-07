@@ -47,15 +47,15 @@ export interface UserInfo {
 
 
 export interface Tenant{
-    id:string,
-    parentId:string,
-    createTime:string,
-    logo:string,
-    tenantName:string,
-    creditCode:string,
-    tenantType:string,
-    locked:string,
-    description:string
+    id?:string,
+    parentId?:string,
+    createTime?:string,
+    logo?:string,
+    tenantName?:string,
+    creditCode?:string,
+    tenantType?:string,
+    locked?:string,
+    description?:string
 
 }
 

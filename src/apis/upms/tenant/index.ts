@@ -12,3 +12,9 @@ export const selectTenant = async (params:PageTenantParams) =>{
         params
     })
 }
+
+export const switchLockedStatus = async (params:any) =>{
+    return await request.patch<Response<any>>({
+        url:`/upms/api/v1/tenant/${params.id}/${params.status}`,
+    })
+}

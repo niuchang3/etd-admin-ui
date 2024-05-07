@@ -128,17 +128,17 @@ export const menusStore = defineStore('menus',()=>{
 
 
 export const currentMenu = defineStore('currentMenu',()=>{
-    const current = ref('')
+    const current = ref([''])
     
-    const setCurrentMenu = (path:string) =>{
+    const setCurrentMenu = (path:[]) =>{
         current.value = path;
     }
-    const getCurrentMenu = () =>{
+    const getCurrentMenu = ():Array<string> =>{
         return current.value
     }
 
     const $reset = () =>{
-        current.value = ''
+        current.value = []
     }
 
     return {current,setCurrentMenu,getCurrentMenu,$reset}

@@ -81,7 +81,6 @@ instance.interceptors.response.use((config:AxiosResponse)=>{
     }
     // 请求已发出，但服务器响应的状态码不在 2xx 范围内
     if(error.response && error.response.data){
-        console.log('异常逻辑',3)
         return Promise.reject(error.response.data)
     }
 
@@ -128,6 +127,10 @@ export default {
     },
     put: async <T = any>(option: any) => {
         const response = await request({ method: 'PUT', ...option })
+        return response.data as unknown as T
+    },
+    patch: async <T = any>(option: any) => {
+        const response = await request({ method: 'PATCH', ...option })
         return response.data as unknown as T
     },
     download: async <T = any>(option: any) => {
