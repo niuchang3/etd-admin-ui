@@ -1,3 +1,4 @@
+// Prettier 代码格式化规则，只调整排版，不修改业务逻辑。
 module.exports = {
     // 一行最多 100 字符
     printWidth: 100,
@@ -35,4 +36,3 @@ module.exports = {
     // 换行符使用 lf
     endOfLine: 'auto',
   };
-  

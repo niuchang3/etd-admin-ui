@@ -1,4 +1,4 @@
-# Logs
+# 运行与包管理器日志不提交到 Git。
 logs
 *.log
 npm-debug.log*
@@ -7,12 +7,13 @@ yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 
+# 依赖和构建产物可以重新生成，不需要提交。
 node_modules
 dist
 dist-ssr
 *.local
 
-# Editor directories and files
+# 编辑器、IDE 和操作系统生成的个人配置文件。
 .vscode/*
 !.vscode/extensions.json
 .idea

@@ -1,0 +1,83 @@
+/* 根节点始终占满视口，并为密集型后台设定最小宽度。 */
+html,
+body,
+#app {
+  width: 100%;
+  min-width: 1080px;
+  height: 100%;
+}
+
+/* 全局排版基线。 */
+body {
+  overflow: hidden;
+  color: var(--du-text);
+  background: var(--du-bg-app);
+  font-family: var(--du-font-sans);
+  font-size: 13px;
+  line-height: 1.45;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* 所有元素的尺寸计算都包含边框与内边距。 */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+/* 表单控件继承页面字体。 */
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}
+
+button {
+  color: inherit;
+}
+
+/* 统一文本选中颜色。 */
+::selection {
+  color: #fff;
+  background: var(--du-accent);
+}
+
+/* 数据类文本使用等宽字体与等宽数字。 */
+.du-mono {
+  font-family: var(--du-font-mono);
+  font-variant-numeric: tabular-nums;
+}
+
+/* 通用面板外观。 */
+.du-panel {
+  border: 1px solid var(--du-border);
+  border-radius: var(--du-radius-md);
+  background: var(--du-bg-surface);
+}
+
+/* 覆盖 Ant Design Vue 默认阴影，保持扁平密集风格。 */
+.ant-btn,
+.ant-input,
+.ant-select-selector,
+.ant-picker {
+  box-shadow: none !important;
+}
+
+.ant-btn {
+  font-weight: 500;
+}
+
+/* 表格表头使用小字号与强层级分隔线。 */
+.ant-table-wrapper .ant-table-thead > tr > th {
+  border-bottom-color: var(--du-border-strong);
+  color: var(--du-text-secondary);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.035em;
+  text-transform: uppercase;
+}
+
+.ant-table-wrapper .ant-table-tbody > tr > td {
+  border-bottom-color: #e7eaf0;
+}

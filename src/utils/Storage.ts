@@ -1,8 +1,9 @@
 import { useCookies } from "vue3-cookies";
+// 获取全局 Cookie 操作实例。
 const {cookies} = useCookies();
 
 /**
- * 本地缓存
+ * localStorage 封装：用于需要跨会话保留的数据。
  */
 const Local = {
 
@@ -21,7 +22,7 @@ const Local = {
     }
 }
 /**
- * 操作本地Session
+ * sessionStorage 封装：数据只在当前浏览器会话中有效。
  */
 const Session = {
 
@@ -40,6 +41,7 @@ const Session = {
     }
 }
 
+/** Cookie 封装：主要用于存储访问令牌与刷新令牌。 */
 const Cookies = {
 
     set<T>(key:string,value:T,expireTimes?: string | number | Date){
@@ -61,6 +63,7 @@ const Cookies = {
 }
 
 
+/** 清空应用使用的所有本地缓存容器。 */
 const cacheClear = ()=>{
     Local.clear();
     Session.clear()

@@ -1,5 +1,5 @@
 
-// 统一处理请求体
+/** 后端统一响应结构 */
 export interface Response<T>{
     code:Number,
     data:T,
@@ -9,12 +9,14 @@ export interface Response<T>{
 }
 
 
+/** 分页查询的统一响应数据 */
 export interface PageResponse<T>{
     total:number,
     records:T[],
 }
 
 
+/** 分页查询的通用请求参数 */
 export interface PageRequest{
     current?:number,
     size?:number,

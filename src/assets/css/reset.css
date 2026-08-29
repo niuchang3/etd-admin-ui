@@ -1,7 +1,6 @@
 /*
- * html5doctor.com Reset Stylesheet v1.6.1 (http://html5doctor.com/html-5-reset-stylesheet/)
- * Richard Clark (http://richclarkdesign.com)
- * http://www.58img.com/
+ * 基于 html5doctor Reset Stylesheet v1.6.1 的页面样式重置。
+ * 用于消除不同浏览器的默认间距与排版差异。
  */
  html, body, div, span, object, iframe,
  h1, h2, h3, h4, h5, h6, p, blockquote, pre,
@@ -23,16 +22,20 @@
      vertical-align:baseline;
      background:transparent;
  }
+ /* 清除浏览器默认行高。 */
  body {
      line-height:1;
  }
+ /* 让 HTML5 语义化布局元素以块级方式显示。 */
  article,aside,details,figcaption,figure,
  footer,header,hgroup,menu,nav,section {
      display:block;
  }
+ /* 导航列表不显示默认项目符号。 */
  nav ul {
      list-style:none;
  }
+ /* 清除引用元素的默认引号。 */
  blockquote, q {
      quotes:none;
  }
@@ -41,6 +44,7 @@
      content:'';
      content:none;
  }
+ /* 清除链接的额外间距与背景。 */
  a {
      margin:0;
      padding:0;
@@ -48,13 +52,13 @@
      vertical-align:baseline;
      background:transparent;
  }
- /* change colours to suit your needs */
+ /* 插入文本的默认高亮样式。 */
  ins {
      background-color:#ff9;
      color:#000;
      text-decoration:none;
  }
- /* change colours to suit your needs */
+ /* 标记文本的默认高亮样式。 */
  mark {
      background-color:#ff9;
      color:#000;
@@ -68,11 +72,12 @@
      border-bottom:1px dotted;
      cursor:help;
  }
+ /* 合并表格边框并清除单元格间距。 */
  table {
      border-collapse:collapse;
      border-spacing:0;
  }
- /* change border colour to suit your needs */
+ /* 统一水平分隔线的基础外观。 */
  hr {
      display:block;
      height:1px;
@@ -81,6 +86,7 @@
      margin:1em 0;
      padding:0;
  }
+ /* 输入与选择控件按中线对齐。 */
  input, select {
      vertical-align:middle;
  }

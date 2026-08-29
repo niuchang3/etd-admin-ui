@@ -1,10 +1,17 @@
 {
+  /* 专门用于检查 vite.config.ts 的 Node.js 端 TypeScript 配置。 */
   "compilerOptions": {
+    /* 生成项目引用所需的构建信息。 */
     "composite": true,
+    /* 跳过第三方类型声明检查。 */
     "skipLibCheck": true,
+    /* Vite 配置使用 ES Module 语法。 */
     "module": "ESNext",
+    /* 使用打包器的模块解析规则。 */
     "moduleResolution": "bundler",
+    /* 兼容 CommonJS 包的默认导入方式。 */
     "allowSyntheticDefaultImports": true
   },
+  /* Node 端配置只需要检查 Vite 配置文件。 */
   "include": ["vite.config.ts"]
 }

@@ -1,13 +1,17 @@
 <!doctype html>
-<html lang="en">
+<!-- Vue 应用的 HTML 入口，Vite 会从此文件开始构建。 -->
+<html lang="zh-CN">
   <head>
+    <!-- 使用 UTF-8 编码，保证中文正常显示。 -->
     <meta charset="UTF-8" />
-    <!-- <link rel="icon" type="image/svg+xml" href="/vite.svg" /> -->
+    <!-- 让页面宽度跟随设备屏幕，为响应式布局提供基础。 -->
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>ETD-UI</title>
   </head>
   <body>
+    <!-- Vue 应用最终会挂载到这个节点。 -->
     <div id="app"></div>
+    <!-- type=module 允许浏览器使用 ES Module，main.ts 是前端代码入口。 -->
     <script type="module" src="/src/main.ts"></script>
   </body>
 </html>

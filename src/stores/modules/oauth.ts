@@ -1,11 +1,12 @@
 
-import { LonginRequestParams, RefreshTokenParams, Token } from '@/apis/upms/login/type'
-import { Cookies } from '@/utils/storage'
+import { LoginCredentials, RefreshTokenParams, Token } from '@/apis/upms/login/type'
+import { Cookies } from '@/utils/Storage'
 import { loginByUserName, updateToken } from '@/apis/upms/login'
 import router from '@/router/index'
 
 
-export const accountLogin =  async (formData: LonginRequestParams) => {
+/** 执行账号密码登录，并按后端过期时间写入 Cookie。 */
+export const accountLogin =  async (formData: LoginCredentials) => {
     return await loginByUserName(formData).then(resData =>{
         Cookies.set<Token>('accessToken',resData.data.accessToken,new Date(resData.data.accessToken.expires));
         if(resData.data.refreshToken){
@@ -15,12 +16,7 @@ export const accountLogin =  async (formData: LonginRequestParams) => {
     })
 }
 
-export const smsLogin =(formData : LonginRequestParams) =>{
-
-}
-
-
-
+/** 使用 Refresh Token 更新当前认证会话。 */
 export const refreshToken = async () =>{
     const params:RefreshTokenParams  = {
         grant_type: 'refresh_token',
@@ -44,17 +40,20 @@ export const refreshToken = async () =>{
 
 
 
+/** 获取当前访问令牌的原始字符串。 */
 export const getAccessToken = ():string | null =>{
     const token = Cookies.get<Token>('accessToken');
     return token ? token.value : null;
 }
 
+/** 获取当前刷新令牌的原始字符串。 */
 export const getRefreshToken = ():string | null =>{
     const token = Cookies.get<Token>('refreshToken');
     return token ? token.value : null;
 }
 
 
+/** 退出登录时移除所有认证 Cookie。 */
 export const clear  = ()=>{
     Cookies.remove('accessToken')
     Cookies.remove('refreshToken')

@@ -1,4 +1,4 @@
-import axios, { AxiosInstance, InternalAxiosRequestConfig, AxiosResponse, AxiosError } from 'axios';
+import axios, { AxiosInstance, InternalAxiosRequestConfig, AxiosResponse } from 'axios';
 import qs from 'qs';
 import { message } from 'ant-design-vue';
 import { clear, getAccessToken, refreshToken } from '@/stores/modules/oauth';
@@ -7,16 +7,17 @@ import router from '@/router/index'
 
 
 
+// 跨域请求不自动携带浏览器默认凭证。
 axios.defaults.withCredentials = false
 axios.defaults.headers.post['Content-Type'] = 'application/json;charset=UTF-8'
-axios.defaults.headers.post['Access-Control-Allow-Origin'] = '*'
+// axios.defaults.headers.post['Access-Control-Allow-Origin'] = '*'
 
 
 /**
- * 创建Axios实例
+ * 创建 Axios 实例，统一设置超时时间与数组参数序列化方式。
  */
 const instance: AxiosInstance = axios.create({
-    // 超时时间
+    // 所有请求的默认超时时间为 5 秒。
     // baseURL: import.meta.env.VITE_SERVER_BASE_API,
     timeout: 5000,
     paramsSerializer: {
@@ -28,59 +29,69 @@ const instance: AxiosInstance = axios.create({
 });
 
 /**
- *  配置 Request 请求拦截器
+ * 请求拦截器：向所有业务请求注入访问令牌和当前租户 ID。
  */
-instance.interceptors.request.use((config:InternalAxiosRequestConfig) =>{
+instance.interceptors.request.use((config: InternalAxiosRequestConfig) => {
+    // 已登录请求统一使用 Bearer Token。
     const token = getAccessToken();
-    if(token){
-        config.headers['Authorization'] = 'Bearer '+ token;
+    if (token) {
+        config.headers['Authorization'] = 'Bearer ' + token;
     }
-    let currentTenant = tenantsStore().userTenant.currentTenant;
-    if(currentTenant){
-        config.headers['TENANT-CODE'] = currentTenant.id
+    // 租户列表请求阶段可能尚未选定租户，因此只在 ID 存在时添加请求头。
+    const tenantId = tenantsStore().userTenant.currentTenant?.id;
+    if (tenantId) {
+        config.headers['TENANT-CODE'] = tenantId
     }
     return config;
-},(error:any) =>{
+}, (error: any) => {
     return Promise.reject(error);
 })
 
 
+// 防止多个 401 响应同时触发重复刷新。
 let isRefreshing = false;
 /**
- * 增加Response 拦截器 对数据统一处理
+ * 响应拦截器：统一处理令牌刷新、错误提示和跳转登录页。
  */
-instance.interceptors.response.use((config:AxiosResponse)=>{
+instance.interceptors.response.use((config: AxiosResponse) => {
 
-    
+
     return config;
-}, async (error) =>{
+}, async (error) => {
     let config = error.config;
-    // config._retry
-    if(error.response.status === 401 && !isRefreshing && !config._retry ){
+
+    // 登录接口返回 401 时不应再尝试刷新令牌。
+    const isLoginUrl = config.url && (config.url.includes('/login') || config.url.includes('/oauth2/login') || config.url.includes('/internal/login'));
+
+    // 普通请求遇到 401 时，仅刷新一次令牌并重放原请求。
+    if (error.response && error.response.status === 401 && !isLoginUrl && !isRefreshing && !config._retry) {
         config._retry = true;
         isRefreshing = true;
 
-        return await refreshToken().then(_res =>{
+        return await refreshToken().then(_res => {
             const token = getAccessToken();
-            config.headers['Authorization'] = 'Bearer '+ token;
-            instance(config);
-        }).catch(_err =>{
+            config.headers['Authorization'] = 'Bearer ' + token;
+            return instance(config);
+        }).catch(_err => {
             clear()
             message.error('令牌失效,请重新登录。')
-            router.push({path:'/login'})
+            router.push({ path: '/login' })
             return Promise.reject(error)
-        }).finally(()=>{
+        }).finally(() => {
             isRefreshing = false;
         })
-        
+
     }
 
-    if(error.response?.status === 500){
-        message.error(`${error.response.data.message}`)
+    // 服务器内部错误优先展示后端返回的详细消息。
+    if (error.response?.status === 500) {
+        message.error(`${error.response.data.message || '服务器内部错误'}`)
         return await Promise.reject(error)
     }
-    // 请求已发出，但服务器响应的状态码不在 2xx 范围内
-    if(error.response && error.response.data){
+    // 其他非 2xx 响应统一转换为可读的页面提示。
+    if (error.response && error.response.data) {
+        const errorMsg = error.response.data.message || '请求出错';
+        message.error(errorMsg);
         return Promise.reject(error.response.data)
     }
 
@@ -92,6 +103,7 @@ instance.interceptors.response.use((config:AxiosResponse)=>{
 
 
 
+/** 将业务请求参数转换为 Axios 请求配置。 */
 const request = (options: any) => {
     const { url, method, params, data, contentType, responseType, ...config } = options
     return instance({
@@ -112,6 +124,7 @@ const request = (options: any) => {
 
 
 
+// 对外提供统一的 REST 请求方法，并直接返回后端业务数据。
 export default {
     get: async<T = any>(option: any) => {
         const response = await request({ method: 'GET', ...option });

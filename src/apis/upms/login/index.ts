@@ -1,71 +1,44 @@
-import request from "@/utils/request";
-import { LonginRequestParams, Oauth2Token , RefreshTokenParams, Tenant, UserInfo, UserMenus } from "./type";
-import {Response} from '@/apis/types'
+import request from "@/utils/Request";
+import { LoginCredentials, Oauth2Token, RefreshTokenParams, Tenant, UserInfo, UserMenus } from "./type";
+import { Response } from '@/apis/types'
 
 /**
- * 根据用户名登录
+ * 使用账号密码登录。
+ * 登录成功后由 OAuth 状态模块负责持久化令牌。
  * @param data 
  * @returns 
  */
-export const loginByUserName = async (data:LonginRequestParams) =>{
+export const loginByUserName = async (data: LoginCredentials) => {
     return await request.post<Response<Oauth2Token>>({
-        url: '/upms/api/oauth2/login',
-        data,
-        contentType: 'application/x-www-form-urlencoded'
-    }); 
-}
-
-/**
- * 根据手机号码登录
- * @param data 
- * @returns 
- */
-export const loginByMobile = async(data:LonginRequestParams) =>{
-    return await request.post<Response<Oauth2Token>>({
-        url: '/upms/api/oauth2/login',
-        data,
-        contentType: 'application/x-www-form-urlencoded'
+        url: '/upms/api/internal/login',
+        data
     });
 }
 
-/**
- * 查询当前用户个人信息
- * @returns 
- */
-export const selectUserInfo = async() =>{
+/** 查询当前租户上下文中的登录用户资料 */
+export const selectUserInfo = async () => {
     return await request.get<Response<UserInfo>>({
-        url:'/upms/api/v1/user/me'
+        url: '/upms/api/v1/user/me'
     });
 }
-/**
- * 查询当前用户所在租户
- * @returns 
- */
-export const selectUserTenant = async() =>{
+/** 查询当前用户可访问的租户列表 */
+export const selectUserTenant = async () => {
     return await request.get<Response<Tenant[]>>({
-        url:'/upms/api/v1/user/tenant'
+        url: '/upms/api/v1/user/tenant'
     })
 }
 
-/**
- * 查询用户当前租户下的菜单
- * @returns 
- */
-export const selectUserMenus = async () =>{
+/** 查询当前租户下的用户菜单 */
+export const selectUserMenus = async () => {
     return await request.get<Response<UserMenus[]>>({
-        url:'/upms/api/v1/user/menus'
+        url: '/upms/api/v1/user/menus'
     })
 }
 
-/**
- * 刷新Token
- * @param data 
- * @returns 
- */
-export const updateToken  = async(data:RefreshTokenParams) =>{
+/** 使用 Refresh Token 换取新的访问令牌 */
+export const updateToken = async (data: RefreshTokenParams) => {
     return await request.post({
-        url:'/upms/api/oauth2/refresh',
-        data,
-        contentType: 'application/x-www-form-urlencoded'
+        url: '/upms/api/oauth2/refresh',
+        data
     })
 }

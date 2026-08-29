@@ -1,21 +1,19 @@
-import { Component, createApp } from 'vue'
+import { createApp } from 'vue'
 import Antd from 'ant-design-vue';
 import App from './App.vue'
 import './assets/css/reset.css'
+import './assets/css/tokens.css'
+import './assets/css/global.css'
 import 'ant-design-vue/dist/reset.css';
-import * as Icons  from '@ant-design/icons-vue'
 import VueCookies from 'vue-cookies'
 import pinia from './stores';
 import router from './router/index'
 
 
+// 创建 Vue 根应用。
 const app = createApp(App)
 
-const IConData:Record<string,Component> = Icons;
-Object.keys(IConData).forEach(key => {
-    app.component(key, IConData[key])
-})
-
+// 按顺序注册 Cookie、状态管理、组件库和路由。
 app.use(VueCookies)
     .use(pinia)
     .use(Antd)
