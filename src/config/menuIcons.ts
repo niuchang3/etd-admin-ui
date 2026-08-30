@@ -36,9 +36,27 @@ const menuIconMap: Record<string, Component> = {
   teamoutlined: TeamOutlined,
   list: UnorderedListOutlined,
   unorderedlistoutlined: UnorderedListOutlined,
+  menu: MenuOutlined,
+  menuoutlined: MenuOutlined,
   user: UserOutlined,
   useroutlined: UserOutlined,
 }
+
+/** 菜单管理表单中允许选择的图标。 */
+export const menuIconOptions = [
+  { label: '首页', value: 'appstoreoutlined' },
+  { label: '租户/团队', value: 'teamoutlined' },
+  { label: '用户', value: 'useroutlined' },
+  { label: '系统设置', value: 'settingoutlined' },
+  { label: '系统字典', value: 'databaseoutlined' },
+  { label: '角色/权限', value: 'safetycertificateoutlined' },
+  { label: '菜单', value: 'menuoutlined' },
+  { label: '部门', value: 'apartmentoutlined' },
+  { label: '文件', value: 'filetextoutlined' },
+  { label: '目录', value: 'folderoutlined' },
+  { label: '列表', value: 'unorderedlistoutlined' },
+  { label: '通知', value: 'belloutlined' },
+]
 
 /** 未识别的后端图标使用通用菜单图标兜底。 */
 export const resolveMenuIcon = (iconName?: string): Component => {

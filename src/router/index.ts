@@ -5,6 +5,7 @@ import AdminView from '@/views/index.vue'
 
 // 当前模拟菜单统一进入 404 页面，后续开发时再逐个替换为真实页面。
 const NotFoundView = () => import('@/views/404.vue')
+const systemBreadcrumb = [{ label: '系统管理', path: '/system' }]
 
 // 应用由独立登录页和共享管理平台外壳组成。
 const router = createRouter({
@@ -28,43 +29,55 @@ const router = createRouter({
           path: 'dashboard',
           name: 'dashboard',
           component: NotFoundView,
-          meta: { title: '运营总览', description: '运营总览页面将在这里接入。' },
-        },
-        {
-          path: 'tasks',
-          name: 'tasks',
-          component: NotFoundView,
-          meta: { title: '任务中心', description: '任务管理页面将在这里接入。' },
-        },
-        {
-          path: 'alerts',
-          name: 'alerts',
-          component: NotFoundView,
-          meta: { title: '告警与事件', description: '告警与事件页面将在这里接入。' },
+          meta: { title: '首页', description: '首页正在建设中。' },
         },
         {
           path: 'tenants',
           name: 'tenants',
           component: NotFoundView,
-          meta: { title: '账户与租户', description: '账户与租户管理页面将在这里接入。' },
+          meta: { title: '租户管理', description: '租户管理页面将在这里接入。' },
         },
         {
-          path: 'resources',
-          name: 'resources',
+          path: 'users',
+          name: 'users',
           component: NotFoundView,
-          meta: { title: '资源目录', description: '资源目录页面将在这里接入。' },
+          meta: { title: '用户中心', description: '用户中心页面将在这里接入。' },
         },
         {
-          path: 'permissions',
-          name: 'permissions',
+          path: 'system',
+          name: 'system',
           component: NotFoundView,
-          meta: { title: '权限策略', description: '权限策略页面将在这里接入。' },
+          meta: { title: '系统管理', description: '请选择系统管理下的具体功能。' },
         },
         {
-          path: 'settings',
-          name: 'settings',
+          path: 'system/dictionaries',
+          name: 'system-dictionaries',
           component: NotFoundView,
-          meta: { title: '系统设置', description: '系统设置页面将在这里接入。' },
+          meta: { title: '系统字典', description: '系统字典页面将在这里接入。', breadcrumb: systemBreadcrumb },
+        },
+        {
+          path: 'system/roles',
+          name: 'system-roles',
+          component: NotFoundView,
+          meta: { title: '角色管理', description: '角色管理页面将在这里接入。', breadcrumb: systemBreadcrumb },
+        },
+        {
+          path: 'system/menus',
+          name: 'system-menus',
+          component: () => import('@/views/menu/index.vue'),
+          meta: { title: '菜单管理', breadcrumb: systemBreadcrumb },
+        },
+        {
+          path: 'system/departments',
+          name: 'system-departments',
+          component: NotFoundView,
+          meta: { title: '部门管理', description: '部门管理页面将在这里接入。', breadcrumb: systemBreadcrumb },
+        },
+        {
+          path: 'system/parameters',
+          name: 'system-parameters',
+          component: NotFoundView,
+          meta: { title: '系统参数', description: '系统参数页面将在这里接入。', breadcrumb: systemBreadcrumb },
         },
         {
           path: ':pathMatch(.*)*',

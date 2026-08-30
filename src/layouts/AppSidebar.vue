@@ -71,9 +71,9 @@ const loading = ref(false)
 const loadFailed = ref(false)
 const simpleImage = Empty.PRESENTED_IMAGE_SIMPLE
 
-// menuRouter 优先作为前端路由；未提供时兼容旧字段 menuPath。
+// 文档约定 menuPath 是页面访问路径，menuRouter 是组件地址。
 const getMenuRoute = (menu: UserMenus) => {
-  const rawPath = String(menu.menuRouter || menu.menuPath || '').trim()
+  const rawPath = String(menu.menuPath || '').trim()
   if (!rawPath || /^https?:\/\//i.test(rawPath)) return rawPath
   return rawPath.startsWith('/') ? rawPath : `/${rawPath}`
 }

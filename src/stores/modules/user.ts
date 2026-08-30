@@ -130,18 +130,26 @@ export const tenantsStore = defineStore('tenantsInfo',()=>{
 /** 保存当前租户下的树形菜单。 */
 export const menusStore = defineStore('menus',()=>{
     const menus = ref<UserMenus[]>([]);
+
+    // 使用指定的接口响应覆盖菜单状态，供菜单管理页同步刷新侧边栏。
+    const setUserMenus = (sourceMenus: UserMenus[]) => {
+        menus.value = normalizeMenuTree(sourceMenus)
+        return menus.value
+    }
     
     // 获取当前租户菜单；同时兼容后端直接返回树和返回扁平数组两种格式。
     const getUserMenus = async ()=>{
         const response = await selectUserMenus()
-        menus.value = normalizeMenuTree(response.data || [])
-        return menus.value
+        if (Number(response.code) !== 2000) {
+            throw new Error(response.message || response.devMessage || '用户菜单查询失败')
+        }
+        return setUserMenus(response.data || [])
     }
     const $reset = () =>{
         menus.value = []
     }
 
-    return {menus,getUserMenus,$reset}
+    return {menus,setUserMenus,getUserMenus,$reset}
 
 },{
     persist:{

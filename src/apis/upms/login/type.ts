@@ -56,13 +56,15 @@ export interface Tenant{
 
 /** 后端返回的树形菜单节点 */
 export interface UserMenus{
+    tenantId?:string,
     id:string,
-    createTime:string,
+    createTime:string | null,
     parentId?:string | null,
     menuName:string,
     menuPath:string,
     menuRouter:string,
     menuIcon:string,
+    sort?:number | null,
     children?:UserMenus[]
 
 }
