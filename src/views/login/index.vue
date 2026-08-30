@@ -22,7 +22,7 @@
         <dl class="system-facts">
           <div>
             <dt>Environment</dt>
-            <dd><span class="status-dot" /> Production</dd>
+            <dd :class="runtimeEnvironment.className"><span class="status-dot" /> {{ runtimeEnvironment.label }}</dd>
           </div>
           <div>
             <dt>Region</dt>
@@ -113,7 +113,8 @@ import {
 } from '@ant-design/icons-vue'
 import type { LoginCredentials } from '@/apis/upms/login/type'
 import { accountLogin, clear as clearSession } from '@/stores/modules/oauth'
-import { clearStore, tenantsStore, userStore } from '@/stores/modules/user'
+import { clearStore, menusStore, tenantsStore, userStore } from '@/stores/modules/user'
+import { runtimeEnvironment } from '@/config/runtimeEnvironment'
 
 // 路由实例用于登录成功后返回原目标页面。
 const router = useRouter()
@@ -122,6 +123,7 @@ const formRef = ref<FormInstance>()
 const submitting = ref(false)
 const currentUser = userStore()
 const currentTenant = tenantsStore()
+const currentMenus = menusStore()
 
 // 页面只维护账号和密码两个表单字段。
 const formState = reactive<LoginCredentials>({
@@ -142,8 +144,8 @@ const rules: FormProps['rules'] = {
 }
 
 /**
- * 完整登录链路：认证、获取租户、选定租户、获取用户资料、进入工作台。
- * 用户资料接口依赖租户 ID，因此不能调换初始化顺序。
+ * 完整登录链路：认证、获取租户、选定租户、获取用户资料与菜单、进入管理平台。
+ * 用户资料和菜单接口都依赖租户 ID，因此不能调换租户初始化顺序。
  */
 const submit = async () => {
   if (submitting.value) return
@@ -155,15 +157,15 @@ const submit = async () => {
     // 第二步：清除可能残留的旧租户，并建立新租户上下文。
     currentTenant.$reset()
     await currentTenant.initializeTenant()
-    // 第三步：此时请求拦截器已能写入租户 ID。
-    await currentUser.getUserInfo()
+    // 第三步：此时请求拦截器已能写入租户 ID，可并行获取用户资料和菜单树。
+    await Promise.all([currentUser.getUserInfo(), currentMenus.getUserMenus()])
     const redirect = typeof route.query.redirect === 'string' ? route.query.redirect : '/'
     await router.replace(redirect)
   } catch (error) {
     // 任一初始化阶段失败都回滚整个登录会话。
     clearSession()
     await clearStore()
-    if (error instanceof Error && error.message.includes('租户')) {
+    if (error instanceof Error && error.message) {
       message.error(error.message)
     }
     // Request interceptor presents the server-provided login error.
@@ -314,7 +316,7 @@ const submit = async () => {
   width: 6px;
   height: 6px;
   border-radius: 50%;
-  background: #36ad5c;
+  background: var(--runtime-environment-color, #36ad5c);
 }
 
 /* 安全连接提示固定在左侧面板底部。 */

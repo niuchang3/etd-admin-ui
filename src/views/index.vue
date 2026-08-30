@@ -1,10 +1,14 @@
 <template>
-  <!-- 应用外壳负责组合侧边导航、顶栏和业务内容区。 -->
+  <!-- 管理平台主页面负责组合侧边导航、顶栏和业务内容区。 -->
   <div class="app-shell">
+    <!-- 侧边栏 -->
     <AppSidebar :collapsed="collapsed" @toggle="collapsed = !collapsed" />
     <div class="app-main">
+      <!-- 顶部工具栏。 -->
       <AppHeader />
       <main class="app-content">
+        <!-- 所有子路由共用同一个动态面包屑。 -->
+        <AppBreadcrumb />
         <!-- 子路由页面统一渲染在应用外壳内部。 -->
         <router-view />
       </main>
@@ -14,8 +18,9 @@
 
 <script setup lang="ts">
 import { ref } from 'vue'
-import AppHeader from './AppHeader.vue'
-import AppSidebar from './AppSidebar.vue'
+import AppBreadcrumb from '@/layouts/AppBreadcrumb.vue'
+import AppHeader from '@/layouts/AppHeader.vue'
+import AppSidebar from '@/layouts/AppSidebar.vue'
 
 const collapsed = ref(false)
 </script>

@@ -81,3 +81,23 @@ button {
 .ant-table-wrapper .ant-table-tbody > tr > td {
   border-bottom-color: #e7eaf0;
 }
+/* 运行环境语义色供登录页和管理平台顶栏共同使用。 */
+.runtime-environment--development {
+  --runtime-environment-color: #3b82f6;
+  --runtime-environment-halo: #dbeafe;
+}
+
+.runtime-environment--test {
+  --runtime-environment-color: #d97706;
+  --runtime-environment-halo: #fef3c7;
+}
+
+.runtime-environment--staging {
+  --runtime-environment-color: #7c3aed;
+  --runtime-environment-halo: #ede9fe;
+}
+
+.runtime-environment--production {
+  --runtime-environment-color: #22a447;
+  --runtime-environment-halo: #dcf4e3;
+}

@@ -131,15 +131,11 @@ export const tenantsStore = defineStore('tenantsInfo',()=>{
 export const menusStore = defineStore('menus',()=>{
     const menus = ref<UserMenus[]>([]);
     
-    // 获取扁平菜单数据并转换为树形结构。
+    // 获取当前租户菜单；同时兼容后端直接返回树和返回扁平数组两种格式。
     const getUserMenus = async ()=>{
-        await selectUserMenus().then(res =>{
-            menus.value =  generateMenu(res.data);
-            if(!currentMenu().current){
-                currentMenu().setCurrentMenu(menus.value[0].children[0].menuPath)
-            }
-            
-        })
+        const response = await selectUserMenus()
+        menus.value = normalizeMenuTree(response.data || [])
+        return menus.value
     }
     const $reset = () =>{
         menus.value = []
@@ -186,35 +182,34 @@ export const switchTenant = async (index:number, isReload = true) =>{
 
 
 
-/** 从扁平菜单中挑选根节点，并递归填充子节点。 */
-const generateMenu = (metaMenus:UserMenus[]):UserMenus[] =>{
-    let menus: UserMenus[] = [];
-    metaMenus.forEach((item: UserMenus) =>{
-        
-        if(item.parentId){
-            return;
+/**
+ * 统一菜单接口的返回格式。
+ * 新接口若已经返回 children，直接递归复制；旧接口返回扁平数组时按 parentId 组装。
+ */
+const normalizeMenuTree = (sourceMenus: UserMenus[]): UserMenus[] => {
+    const hasTreeChildren = sourceMenus.some((item) => Array.isArray(item.children) && item.children.length > 0)
+
+    if (hasTreeChildren) {
+        return sourceMenus.map((item) => ({
+            ...item,
+            children: item.children ? normalizeMenuTree(item.children) : [],
+        }))
+    }
+
+    const menuMap = new Map<string, UserMenus>()
+    sourceMenus.forEach((item) => menuMap.set(item.id, { ...item, children: [] }))
+
+    const rootMenus: UserMenus[] = []
+    menuMap.forEach((item) => {
+        const parent = item.parentId ? menuMap.get(item.parentId) : undefined
+        if (parent) {
+            parent.children?.push(item)
+        } else {
+            rootMenus.push(item)
         }
-        item.children = children(metaMenus,item.id)
-        menus.push(item)
-        
-    });
-    return menus;
-}
-
-
-
-/** 根据父节点 ID 递归查找下级菜单。 */
-const children = (metaMenus:UserMenus[],parentId:string):UserMenus[] =>{
-    let menu: UserMenus[] = [];
-    
-    metaMenus.forEach((item: UserMenus) =>{
-        if(item.parentId !== parentId){
-            return;
-        }
-        item.children = children(metaMenus,item.id)
-        menu.push(item)
     })
-    return menu;
+
+    return rootMenus
 }
 
 

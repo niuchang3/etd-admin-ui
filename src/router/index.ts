@@ -1,7 +1,10 @@
 
 import { createRouter, createWebHistory } from 'vue-router'
 import { getAccessToken, getRefreshToken } from '@/stores/modules/oauth'
-import AppShell from '@/components/layout/AppShell.vue'
+import AdminView from '@/views/index.vue'
+
+// 当前模拟菜单统一进入 404 页面，后续开发时再逐个替换为真实页面。
+const NotFoundView = () => import('@/views/404.vue')
 
 // 应用由独立登录页和共享管理平台外壳组成。
 const router = createRouter({
@@ -15,7 +18,7 @@ const router = createRouter({
     },
     {
       path: '/',
-      component: AppShell,
+      component: AdminView,
       children: [
         {
           path: '',
@@ -24,50 +27,52 @@ const router = createRouter({
         {
           path: 'dashboard',
           name: 'dashboard',
-          component: () => import('@/views/dashboard/index.vue'),
-          meta: { title: '运营总览' },
+          component: NotFoundView,
+          meta: { title: '运营总览', description: '运营总览页面将在这里接入。' },
         },
         {
           path: 'tasks',
           name: 'tasks',
-          component: () => import('@/views/placeholder/index.vue'),
+          component: NotFoundView,
           meta: { title: '任务中心', description: '任务管理页面将在这里接入。' },
         },
         {
           path: 'alerts',
           name: 'alerts',
-          component: () => import('@/views/placeholder/index.vue'),
+          component: NotFoundView,
           meta: { title: '告警与事件', description: '告警与事件页面将在这里接入。' },
         },
         {
           path: 'tenants',
           name: 'tenants',
-          component: () => import('@/views/placeholder/index.vue'),
+          component: NotFoundView,
           meta: { title: '账户与租户', description: '账户与租户管理页面将在这里接入。' },
         },
         {
           path: 'resources',
           name: 'resources',
-          component: () => import('@/views/placeholder/index.vue'),
+          component: NotFoundView,
           meta: { title: '资源目录', description: '资源目录页面将在这里接入。' },
         },
         {
           path: 'permissions',
           name: 'permissions',
-          component: () => import('@/views/placeholder/index.vue'),
+          component: NotFoundView,
           meta: { title: '权限策略', description: '权限策略页面将在这里接入。' },
         },
         {
           path: 'settings',
           name: 'settings',
-          component: () => import('@/views/placeholder/index.vue'),
+          component: NotFoundView,
           meta: { title: '系统设置', description: '系统设置页面将在这里接入。' },
         },
+        {
+          path: ':pathMatch(.*)*',
+          name: 'not-found',
+          component: NotFoundView,
+          meta: { title: '功能页面', description: '该功能正在建设中。' },
+        },
       ],
-    },
-    {
-      path: '/:pathMatch(.*)*',
-      redirect: '/',
     },
   ],
 })

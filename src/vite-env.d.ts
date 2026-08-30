@@ -2,6 +2,7 @@
 
 // Vite 环境变量的 TypeScript 类型声明。
 interface ImportMetaEnv {
+    readonly VITE_APP_ENV: 'development' | 'test' | 'staging' | 'production';
     readonly VITE_SERVER_PORT: number;
     readonly VITE_SERVER_BASE_API:string;
     readonly VITE_SERVER_PROXY_TARGET: string;

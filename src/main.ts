@@ -13,7 +13,7 @@ import router from './router/index'
 // 创建 Vue 根应用。
 const app = createApp(App)
 
-// 按顺序注册 Cookie、状态管理、组件库和路由。
+// 按顺序注册 Cookie、状态管理、Ant Design Vue 和路由。
 app.use(VueCookies)
     .use(pinia)
     .use(Antd)

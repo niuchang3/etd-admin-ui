@@ -38,13 +38,14 @@ etd-admin-ui/
 ├── src/                       # 项目主要源代码
 │   ├── apis/                  # 后端接口函数和接口数据类型
 │   ├── assets/css/            # 全局样式、设计变量和样式重置
-│   ├── components/            # 可复用组件，按 layout、ui、data、dashboard 分层
+│   ├── components/            # 真正跨页面复用的公共组件，只包含 ui 和 data
 │   ├── config/                # 导航等全局界面配置
 │   ├── constant/              # 跨模块使用的常量
+│   ├── layouts/               # 应用专用布局，包括顶栏、侧栏和面包屑
 │   ├── router/                # 页面路由和登录访问控制
 │   ├── stores/                # Pinia 全局状态
 │   ├── utils/                 # 请求、缓存等工具代码
-│   ├── views/                 # 登录页、运营总览和各业务路由页面
+│   ├── views/                 # 管理平台入口、登录页和各业务路由页面
 │   ├── App.vue                # Vue 根组件和 Ant Design 全局主题
 │   └── main.ts                # 应用启动入口
 ├── .env                       # 所有模式共享的环境变量
@@ -150,6 +151,9 @@ Vite 负责两件主要工作：开发时启动本地服务器和热更新；发
 环境变量用于将“容易变化的地址和端口”移出业务代码：
 
 ```dotenv
+# 当前运行环境，用于登录页和顶栏的环境标识
+VITE_APP_ENV="development"
+
 # Vite 本地服务器端口
 VITE_SERVER_PORT=7000
 
@@ -163,6 +167,8 @@ VITE_SERVER_PROXY_TARGET="http://127.0.0.1:8100/"
 注意事项：
 
 - 前端可读取的变量必须以 `VITE_` 开头。
+- `VITE_APP_ENV` 支持 `development`、`test`、`staging` 和 `production`。
+- 登录页与管理平台顶栏会读取同一个 `VITE_APP_ENV`，确保环境名称和颜色一致。
 - 修改环境变量后需要重启 `npm run dev`。
 - 密码、私钥等秘密不能放进会打包到浏览器的环境变量。
 - `.env.development` 只在开发模式使用。
@@ -206,7 +212,7 @@ index.html
   → 获取当前用户可访问的租户列表
   → 默认选择第一个有效租户
   → Axios 请求头加入 TENANT-CODE: 当前租户 ID
-  → 获取当前用户资料
+  → 并行获取当前用户资料和菜单树
   → 进入运营总览（/dashboard）
 ```
 
@@ -215,29 +221,30 @@ index.html
 - `src/views/login/index.vue`：控制完整登录顺序。
 - `src/stores/modules/oauth.ts`：保存和刷新 Token。
 - `src/stores/modules/user.ts`：保存用户、租户和菜单状态。
+- `src/layouts/AppSidebar.vue`：读取菜单 Store 并递归渲染树形侧栏。
+- `src/config/menuIcons.ts`：将接口返回的图标名称转换为页面图标。
 - `src/utils/Request.ts`：向所有请求添加 Token 和租户请求头。
 - `src/router/index.ts`：阻止未登录用户进入管理平台。
 
 退出系统时会清除 Token、用户、租户、菜单和当前导航状态，然后返回登录页。
 
-## 七、组件分层规则
+## 七、当前页面状态
 
-为了避免完整页面越来越大，当前组件按职责分为四层：
+目前暂不保留 Dashboard、公共组件和组件库实现。侧边栏菜单来自 `/upms/api/v1/user/menus`，不再维护静态菜单配置。尚未实现的菜单路由统一加载：
 
-| 目录 | 负责内容 | 示例 |
-|---|---|---|
-| `src/components/layout` | 整个管理平台共用的布局 | 顶栏、侧栏、页面外壳 |
-| `src/components/ui` | 不包含业务含义的基础展示 | 页面标题、面板标题、状态标签、指标卡片 |
-| `src/components/data` | 多个业务模块可共用的数据展示 | 筛选栏、数据表格、进度、用户单元格、行操作 |
-| `src/components/dashboard` | 运营总览专用但可独立维护的区块 | 指标区、服务健康度、动态列表、配额面板 |
+```text
+src/views/404.vue
+```
 
-页面目录遵循以下规则：
+后续开发某个业务模块时，只需要在 `src/router/index.ts` 中将对应菜单的 `component` 从 `NotFoundView` 替换为真实页面。
 
-- `src/views/dashboard/index.vue` 只组合组件，不直接塞入表格列和大量业务细节。
-- `src/views/dashboard/components/TaskTable.vue` 保存任务模块自己的筛选、列配置和交互。
-- `dashboard.types.ts` 保存业务数据类型，`dashboard.mock.ts` 暂时保存模拟数据。
-- 后续接入真实接口时，用接口数据替换 `dashboard.mock.ts`，不需要重写通用组件。
-- 如果一个区块会被多个业务页面使用，应移动到 `src/components/data` 或 `src/components/ui`；只在单个页面使用的业务组件留在该页面自己的 `components` 目录。
+菜单接口字段用途：
+
+- `menuName`：侧边栏显示名称。
+- `menuIcon`：图标名称，由 `menuIcons.ts` 统一映射。
+- `menuRouter`：点击菜单后的前端路由，优先使用。
+- `menuPath`：旧数据的路由地址，作为 `menuRouter` 的兜底。
+- `children`：下级菜单；接口返回扁平数组时也会按照 `parentId` 自动组装。
 
 ## 八、样式系统
 

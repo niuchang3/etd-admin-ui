@@ -1,11 +1,10 @@
 <template>
-  <!-- 未实现业务模块的统一占位页面，后续可直接替换对应路由组件。 -->
+  <!-- 缺省页面使用友好的建设中提示，不直接向用户展示 404。 -->
   <section>
-    <PageHeader section="ETD Console" :title="title" :description="description" />
     <div class="placeholder-panel du-panel">
       <ToolOutlined />
       <strong>{{ title }}正在搭建</strong>
-      <span>当前应用外壳、导航和基础组件已经可以直接复用。</span>
+      <span>{{ description }}</span>
     </div>
   </section>
 </template>
@@ -14,7 +13,6 @@
 import { computed } from 'vue'
 import { useRoute } from 'vue-router'
 import { ToolOutlined } from '@ant-design/icons-vue'
-import PageHeader from '@/components/ui/PageHeader.vue'
 
 const route = useRoute()
 const title = computed(() => String(route.meta.title ?? '功能页面'))
@@ -22,7 +20,7 @@ const description = computed(() => String(route.meta.description ?? '该功能�
 </script>
 
 <style scoped>
-/* 占位区域维持与管理页面一致的边框和紧凑间距。 */
+/* 缺省区域维持与管理平台一致的边框和紧凑间距。 */
 .placeholder-panel {
   display: grid;
   min-height: 320px;

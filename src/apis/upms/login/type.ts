@@ -58,12 +58,12 @@ export interface Tenant{
 export interface UserMenus{
     id:string,
     createTime:string,
-    parentId:string,
+    parentId?:string | null,
     menuName:string,
     menuPath:string,
     menuRouter:string,
     menuIcon:string,
-    children:UserMenus[] | any
+    children?:UserMenus[]
 
 }
 

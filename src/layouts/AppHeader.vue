@@ -1,10 +1,10 @@
 <template>
-  <!-- 顶部工具栏：环境、搜索、通知与当前用户操作。 -->
+  <!-- 应用顶栏：环境、搜索、通知与当前用户操作。 -->
   <header class="header">
-    <div class="environment">
+    <div class="environment" :class="runtimeEnvironment.className">
       <span class="environment-dot" />
-      <span>Production</span>
-      <DownOutlined />
+      <span>{{ runtimeEnvironment.label }}</span>
+      <!-- <DownOutlined /> -->
     </div>
 
     <div class="header-tools">
@@ -56,6 +56,7 @@ import type { MenuProps } from 'ant-design-vue'
 import { BellOutlined, DownOutlined, LogoutOutlined, QuestionCircleOutlined, SearchOutlined } from '@ant-design/icons-vue'
 import { clear as clearSession } from '@/stores/modules/oauth'
 import { clearStore, tenantsStore, userStore } from '@/stores/modules/user'
+import { runtimeEnvironment } from '@/config/runtimeEnvironment'
 
 const router = useRouter()
 const currentUser = userStore()
@@ -129,8 +130,8 @@ onMounted(() => {
   width: 7px;
   height: 7px;
   border-radius: 50%;
-  background: #22a447;
-  box-shadow: 0 0 0 2px #dcf4e3;
+  background: var(--runtime-environment-color, #22a447);
+  box-shadow: 0 0 0 2px var(--runtime-environment-halo, #dcf4e3);
 }
 
 .environment :deep(.anticon) {
