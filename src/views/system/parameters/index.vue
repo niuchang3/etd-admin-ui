@@ -13,10 +13,7 @@
           >
             <template #prefix><SearchOutlined /></template>
           </a-input>
-          <a-select v-model:value="query.enabled" allow-clear class="status-select" placeholder="启用状态">
-            <a-select-option :value="true">启用</a-select-option>
-            <a-select-option :value="false">禁用</a-select-option>
-          </a-select>
+          <a-select v-model:value="query.enabled" :options="statusOptions" allow-clear class="status-select" placeholder="启用状态" />
           <a-button type="primary" @click="handleSearch"><SearchOutlined />查询</a-button>
           <a-button @click="resetSearch"><ReloadOutlined />重置</a-button>
         </div>
@@ -35,24 +32,25 @@
       >
         <template #bodyCell="{ column, record }">
           <code v-if="column.key === 'parameterKey'" class="code-value">{{ record.parameterKey }}</code>
-          <a-tag v-else-if="column.key === 'valueType'" color="blue">{{ record.valueType }}</a-tag>
+          <a-tag v-else-if="column.key === 'valueType'" color="blue">{{ getSystemDictLabel(valueTypeDict, record.valueType) }}</a-tag>
           <span v-else-if="column.key === 'parameterValue'" class="value-preview" :title="record.parameterValue || ''">
             {{ record.parameterValue ?? '—' }}
           </span>
           <a-tag v-else-if="column.key === 'builtIn'" :color="record.builtIn ? 'gold' : 'default'">
-            {{ record.builtIn ? '内置' : '自定义' }}
+            {{ getSystemDictLabel(builtInDict, record.builtIn) }}
           </a-tag>
           <a-switch
             v-else-if="column.key === 'enabled'"
             :checked="record.enabled"
             :loading="statusChangingId === record.id"
-            :disabled="!canWrite"
-            checked-children="启用"
-            un-checked-children="禁用"
+            :disabled="!canWrite || record.builtIn"
+            :checked-children="getSystemDictLabel(statusDict, '1')"
+            :un-checked-children="getSystemDictLabel(statusDict, '0')"
             @change="changeEnabled(record, Boolean($event))"
           />
           <div v-else-if="column.key === 'actions'" class="row-actions">
-            <a-button v-if="canWrite" type="link" size="small" @click="openEdit(record)"><EditOutlined />编辑</a-button>
+            <span v-if="canWrite && record.builtIn" class="readonly-label">内置数据只读</span>
+            <a-button v-if="canWrite && !record.builtIn" type="link" size="small" @click="openEdit(record)"><EditOutlined />编辑</a-button>
             <a-popconfirm
               v-if="canWrite && !record.builtIn"
               title="确认删除该系统参数吗？"
@@ -68,7 +66,7 @@
       </a-table>
     </div>
 
-    <!-- 新增和编辑共用完整表单；内置参数编辑时参数键不可修改。 -->
+    <!-- 新增和编辑共用完整表单；内置参数不提供编辑入口。 -->
     <a-modal
       v-model:open="editorOpen"
       :title="formState.id ? '编辑系统参数' : '新增系统参数'"
@@ -130,8 +128,11 @@ import {
   getSystemConfigPage,
   updateSystemConfig,
 } from '@/apis/upms/config'
+import { getEnabledDictData } from '@/apis/upms/dict'
 import type { SystemConfig, SystemConfigSaveDTO, SystemConfigValueType } from '@/apis/upms/config/type'
+import type { SystemDictData } from '@/apis/upms/dict/type'
 import { menusStore } from '@/stores/modules/user'
+import { getSystemDictLabel, SYSTEM_DICT_TYPE, toSystemDictOptions } from '@/utils/SystemDict'
 
 interface ConfigFormState extends SystemConfigSaveDTO {
   id?: string
@@ -146,6 +147,9 @@ const saving = ref(false)
 const editorOpen = ref(false)
 const statusChangingId = ref('')
 const records = ref<SystemConfig[]>([])
+const statusDict = ref<SystemDictData[]>([])
+const builtInDict = ref<SystemDictData[]>([])
+const valueTypeDict = ref<SystemDictData[]>([])
 const total = ref(0)
 const formRef = ref<FormInstance>()
 // enabled 为 undefined 时不会形成有效筛选条件，表示查询全部状态。
@@ -166,13 +170,19 @@ const createEmptyForm = (): ConfigFormState => ({
 })
 const formState = reactive<ConfigFormState>(createEmptyForm())
 
-// 四种基础类型决定参数值编辑控件及对应的前端校验方式。
-const valueTypeOptions: Array<{ label: string, value: SystemConfigValueType }> = [
-  { label: '字符串（string）', value: 'string' },
-  { label: '数字（number）', value: 'number' },
-  { label: '布尔值（boolean）', value: 'boolean' },
-  { label: 'JSON（json）', value: 'json' },
-]
+const statusOptions = computed(() => toSystemDictOptions(statusDict.value, (value) => value === '1'))
+const valueTypeOptions = computed(() => toSystemDictOptions(valueTypeDict.value, (value) => value as SystemConfigValueType))
+
+const loadDictionaries = async () => {
+  const [statusResponse, builtInResponse, valueTypeResponse] = await Promise.all([
+    getEnabledDictData(SYSTEM_DICT_TYPE.commonStatus),
+    getEnabledDictData(SYSTEM_DICT_TYPE.commonBuiltIn),
+    getEnabledDictData(SYSTEM_DICT_TYPE.configValueType),
+  ])
+  statusDict.value = statusResponse.data || []
+  builtInDict.value = builtInResponse.data || []
+  valueTypeDict.value = valueTypeResponse.data || []
+}
 
 const columns: TableColumnsType<SystemConfig> = [
   { title: '参数键', dataIndex: 'parameterKey', key: 'parameterKey', width: 210 },
@@ -268,6 +278,8 @@ const openCreate = () => {
 
 /** 编辑前重新查询详情，确保提交的是后端最新的完整表单。 */
 const openEdit = async (record: SystemConfig) => {
+  // 内置参数由系统初始化维护，事件层再次拦截，避免仅依赖按钮显隐。
+  if (record.builtIn) return
   const response = await getSystemConfig(record.id)
   if (!response.data) {
     message.warning('该系统参数已不存在，请刷新列表')
@@ -314,6 +326,7 @@ const saveConfig = async () => {
 
 /** 启停状态不混入编辑 DTO，严格调用独立 PATCH 接口。 */
 const changeEnabled = async (record: SystemConfig, enabled: boolean) => {
+  if (record.builtIn) return
   statusChangingId.value = record.id
   try {
     const response = await changeSystemConfigEnabled(record.id, enabled)
@@ -330,6 +343,7 @@ const changeEnabled = async (record: SystemConfig, enabled: boolean) => {
 
 /** 删除成功后在当前页已空时自动回退一页。 */
 const removeConfig = async (record: SystemConfig) => {
+  if (record.builtIn) return
   const response = await deleteSystemConfig(record.id)
   if (!response.data) {
     message.warning('系统参数删除未生效，请刷新后重试')
@@ -340,7 +354,10 @@ const removeConfig = async (record: SystemConfig) => {
   await loadConfigs()
 }
 
-onMounted(() => void loadConfigs())
+onMounted(() => {
+  void loadConfigs()
+  void loadDictionaries()
+})
 </script>
 
 <style scoped>
@@ -353,6 +370,7 @@ onMounted(() => void loadConfigs())
 .value-preview { display: block; max-width: 360px; overflow: hidden; color: var(--du-text-secondary); text-overflow: ellipsis; white-space: nowrap; }
 .row-actions { justify-content: flex-end; }
 .row-actions :deep(.ant-btn) { padding-inline: 5px; font-size: 11px; }
+.readonly-label { color: var(--du-text-muted); font-size: 10px; }
 .table-panel :deep(.ant-table-cell) { padding-top: 8px !important; padding-bottom: 8px !important; }
 .editor-form { padding-top: var(--du-space-3); }
 .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0 var(--du-space-4); }

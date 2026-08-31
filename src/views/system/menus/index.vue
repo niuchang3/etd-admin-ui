@@ -48,8 +48,8 @@
             :checked="record.dataStatus === 1"
             :loading="statusChangingId === record.id"
             :disabled="!canWrite"
-            checked-children="启用"
-            un-checked-children="禁用"
+            :checked-children="getSystemDictLabel(statusDict, '1')"
+            :un-checked-children="getSystemDictLabel(statusDict, '0')"
             @change="changeStatus(record, Boolean($event))"
           />
 
@@ -96,8 +96,9 @@
 
           <a-form-item label="菜单类型" name="menuType">
             <a-radio-group v-model:value="formState.menuType">
-              <a-radio-button value="DIRECTORY">目录</a-radio-button>
-              <a-radio-button value="MENU">菜单</a-radio-button>
+              <a-radio-button v-for="option in menuTypeOptions" :key="option.value" :value="option.value">
+                {{ option.label }}
+              </a-radio-button>
             </a-radio-group>
           </a-form-item>
 
@@ -146,9 +147,12 @@ import {
   selectSystemMenu,
   updateSystemMenu,
 } from '@/apis/upms/menu'
+import { getEnabledDictData } from '@/apis/upms/dict'
 import type { MenuType, SaveSystemMenu, SystemMenu } from '@/apis/upms/menu/type'
+import type { SystemDictData } from '@/apis/upms/dict/type'
 import { menuIconOptions, resolveMenuIcon } from '@/config/menuIcons'
 import { menusStore } from '@/stores/modules/user'
+import { getSystemDictLabel, SYSTEM_DICT_TYPE, toSystemDictOptions } from '@/utils/SystemDict'
 
 interface TreeSelectOption {
   value: string
@@ -178,6 +182,8 @@ const statusChangingId = ref('')
 const editorOpen = ref(false)
 const keyword = ref('')
 const menuTree = ref<SystemMenu[]>([])
+const statusDict = ref<SystemDictData[]>([])
+const menuTypeDict = ref<SystemDictData[]>([])
 const expandedRowKeys = ref<string[]>([])
 const formRef = ref<FormInstance>()
 
@@ -192,6 +198,16 @@ const createEmptyForm = (): MenuFormState => ({
 })
 
 const formState = reactive<MenuFormState>(createEmptyForm())
+const menuTypeOptions = computed(() => toSystemDictOptions(menuTypeDict.value, (value) => value as MenuType))
+
+const loadDictionaries = async () => {
+  const [statusResponse, menuTypeResponse] = await Promise.all([
+    getEnabledDictData(SYSTEM_DICT_TYPE.commonStatus),
+    getEnabledDictData(SYSTEM_DICT_TYPE.menuType),
+  ])
+  statusDict.value = statusResponse.data || []
+  menuTypeDict.value = menuTypeResponse.data || []
+}
 
 const columns: TableColumnsType<SystemMenu> = [
   { title: '菜单名称', dataIndex: 'menuName', key: 'menuName', width: 230 },
@@ -328,8 +344,8 @@ const loadMenus = async () => {
 
 // 用户菜单接口未返回 menuType 时，有下级的节点按目录展示，其余按菜单展示。
 const getMenuTypeLabel = (menu: SystemMenu) => {
-  if (menu.menuType) return menu.menuType === 'DIRECTORY' ? '目录' : '菜单'
-  return menu.children?.length ? '目录' : '菜单'
+  const menuType = menu.menuType || (menu.children?.length ? 'DIRECTORY' : 'MENU')
+  return getSystemDictLabel(menuTypeDict.value, menuType)
 }
 
 const resetForm = () => Object.assign(formState, createEmptyForm())
@@ -409,7 +425,10 @@ const removeMenu = async (menu: SystemMenu) => {
   await loadMenus()
 }
 
-onMounted(() => void loadMenus())
+onMounted(() => {
+  void loadMenus()
+  void loadDictionaries()
+})
 </script>
 
 <style scoped>

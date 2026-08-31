@@ -7,10 +7,7 @@
           <a-input v-model:value="query.keyword" allow-clear class="search-input" placeholder="搜索角色名称或角色编码" @press-enter="handleSearch">
             <template #prefix><SearchOutlined /></template>
           </a-input>
-          <a-select v-model:value="query.dataStatus" allow-clear class="status-select" placeholder="启用状态">
-            <a-select-option :value="1">启用</a-select-option>
-            <a-select-option :value="0">禁用</a-select-option>
-          </a-select>
+          <a-select v-model:value="query.dataStatus" :options="statusOptions" allow-clear class="status-select" placeholder="启用状态" />
           <a-button type="primary" @click="handleSearch"><SearchOutlined />查询</a-button>
           <a-button @click="resetSearch"><ReloadOutlined />重置</a-button>
         </div>
@@ -21,7 +18,7 @@
         <template #bodyCell="{ column, record }">
           <div v-if="column.key === 'roleName'" class="role-name">
             <strong>{{ record.roleName }}</strong>
-            <a-tag v-if="record.builtIn" color="gold">内置</a-tag>
+            <a-tag v-if="record.builtIn" color="gold">{{ getSystemDictLabel(builtInDict, record.builtIn) }}</a-tag>
           </div>
           <code v-else-if="column.key === 'roleCode'" class="code-value">{{ record.roleCode }}</code>
           <span v-else-if="column.key === 'permissionType'">{{ getPermissionTypeLabel(record.permissionType) }}</span>
@@ -29,14 +26,15 @@
             v-else-if="column.key === 'dataStatus'"
             :checked="record.dataStatus === 1"
             :loading="statusChangingId === record.id"
-            :disabled="!canWrite"
-            checked-children="启用"
-            un-checked-children="禁用"
+            :disabled="!canWrite || record.builtIn"
+            :checked-children="getSystemDictLabel(statusDict, '1')"
+            :un-checked-children="getSystemDictLabel(statusDict, '0')"
             @change="changeStatus(record, Boolean($event))"
           />
           <div v-else-if="column.key === 'actions'" class="row-actions">
-            <a-button v-if="canWrite" type="link" size="small" @click="openAuthorization(record)"><SafetyCertificateOutlined />菜单授权</a-button>
-            <a-button v-if="canWrite" type="link" size="small" @click="openEdit(record)"><EditOutlined />编辑</a-button>
+            <span v-if="canWrite && record.builtIn" class="readonly-label">内置数据只读</span>
+            <a-button v-if="canWrite && !record.builtIn" type="link" size="small" @click="openAuthorization(record)"><SafetyCertificateOutlined />菜单授权</a-button>
+            <a-button v-if="canWrite && !record.builtIn" type="link" size="small" @click="openEdit(record)"><EditOutlined />编辑</a-button>
             <a-popconfirm
               v-if="canWrite && !record.builtIn"
               title="已分配给用户的角色将无法删除，确认继续吗？"
@@ -52,7 +50,7 @@
       </a-table>
     </div>
 
-    <!-- 新增和编辑共用完整表单，内置角色的角色编码只读。 -->
+    <!-- 新增和编辑共用完整表单；内置角色不提供编辑入口。 -->
     <a-modal v-model:open="editorOpen" :title="formState.id ? '编辑角色' : '新增角色'" :confirm-loading="saving" width="620px" ok-text="保存" cancel-text="取消" @ok="saveRole">
       <a-form ref="formRef" :model="formState" :rules="rules" layout="vertical" class="editor-form">
         <div class="form-grid">
@@ -84,7 +82,7 @@
             <strong>{{ authorizationRole?.roleName }}</strong>
             <code>{{ authorizationRole?.roleCode }}</code>
           </div>
-          <span>已选择 {{ checkedMenuIds.length }} 个菜单；新选择菜单默认读写</span>
+          <span>已选择 {{ checkedMenuIds.length }} 个菜单；新选择菜单默认{{ getSystemDictLabel(accessLevelDict, 2) }}</span>
         </div>
         <a-alert message="取消全部勾选并保存，将清空该角色的菜单权限。" type="info" show-icon />
         <div class="tree-toolbar">
@@ -112,8 +110,9 @@
                 @click.stop
                 @change="setMenuAccessLevel(String(node.key), $event)"
               >
-                <a-select-option :value="1">只读</a-select-option>
-                <a-select-option :value="2">读写</a-select-option>
+                <a-select-option v-for="option in accessLevelOptions" :key="option.value" :value="option.value">
+                  {{ option.label }}
+                </a-select-option>
               </a-select>
             </div>
           </template>
@@ -130,6 +129,7 @@ import { useRoute } from 'vue-router'
 import { message, type FormInstance, type FormProps, type TableColumnsType } from 'ant-design-vue'
 import { DeleteOutlined, EditOutlined, PlusOutlined, ReloadOutlined, SafetyCertificateOutlined, SearchOutlined } from '@ant-design/icons-vue'
 import { selectUserMenus } from '@/apis/upms/login'
+import { getEnabledDictData } from '@/apis/upms/dict'
 import {
   assignSystemRoleMenus,
   changeSystemRoleStatus,
@@ -141,7 +141,9 @@ import {
   updateSystemRole,
 } from '@/apis/upms/role'
 import type { MenuAccessLevel, RolePermissionType, SystemRole, SystemRoleSaveDTO } from '@/apis/upms/role/type'
+import type { SystemDictData } from '@/apis/upms/dict/type'
 import { menusStore, normalizeMenuTree } from '@/stores/modules/user'
+import { getSystemDictLabel, SYSTEM_DICT_TYPE, toSystemDictOptions } from '@/utils/SystemDict'
 
 interface RoleFormState extends SystemRoleSaveDTO { id?: string, builtIn: boolean }
 interface MenuTreeNode { key: string, title: string, children?: MenuTreeNode[] }
@@ -154,6 +156,10 @@ const saving = ref(false)
 const editorOpen = ref(false)
 const statusChangingId = ref('')
 const records = ref<SystemRole[]>([])
+const statusDict = ref<SystemDictData[]>([])
+const builtInDict = ref<SystemDictData[]>([])
+const permissionTypeDict = ref<SystemDictData[]>([])
+const accessLevelDict = ref<SystemDictData[]>([])
 const total = ref(0)
 const formRef = ref<FormInstance>()
 const query = reactive<{ current: number, size: number, keyword: string, dataStatus?: 0 | 1 }>({ current: 1, size: 10, keyword: '', dataStatus: undefined })
@@ -168,16 +174,23 @@ const checkedMenuIds = ref<string[]>([])
 const expandedMenuIds = ref<string[]>([])
 const menuAccessLevels = reactive<Record<string, MenuAccessLevel>>({})
 
-// 数据权限编码严格使用后端约定的字符串枚举，不转换为数字。
-const permissionTypeLabels: Record<RolePermissionType, string> = {
-  '1': '不限制',
-  '2': '仅本人',
-  '3': '仅当前组织',
-  '4': '当前组织及下级组织',
-  '5': '自定义跨组织',
+const statusOptions = computed(() => toSystemDictOptions(statusDict.value, (value) => Number(value) as 0 | 1))
+const permissionTypeOptions = computed(() => toSystemDictOptions(permissionTypeDict.value, (value) => value as RolePermissionType))
+const accessLevelOptions = computed(() => toSystemDictOptions(accessLevelDict.value, (value) => Number(value) as MenuAccessLevel))
+const getPermissionTypeLabel = (value: unknown) => getSystemDictLabel(permissionTypeDict.value, value)
+
+const loadDictionaries = async () => {
+  const [statusResponse, builtInResponse, permissionTypeResponse, accessLevelResponse] = await Promise.all([
+    getEnabledDictData(SYSTEM_DICT_TYPE.commonStatus),
+    getEnabledDictData(SYSTEM_DICT_TYPE.commonBuiltIn),
+    getEnabledDictData(SYSTEM_DICT_TYPE.rolePermissionType),
+    getEnabledDictData(SYSTEM_DICT_TYPE.menuAccessLevel),
+  ])
+  statusDict.value = statusResponse.data || []
+  builtInDict.value = builtInResponse.data || []
+  permissionTypeDict.value = permissionTypeResponse.data || []
+  accessLevelDict.value = accessLevelResponse.data || []
 }
-const permissionTypeOptions = Object.entries(permissionTypeLabels).map(([value, label]) => ({ value: value as RolePermissionType, label }))
-const getPermissionTypeLabel = (value: unknown) => permissionTypeLabels[value as RolePermissionType] || '未知'
 const emptyForm = (): RoleFormState => ({ roleName: '', roleCode: '', roleDesc: null, permissionType: '1', builtIn: false })
 const formState = reactive<RoleFormState>(emptyForm())
 
@@ -214,6 +227,8 @@ const handleTableChange = (page: { current?: number, pageSize?: number }) => { q
 const openCreate = () => { Object.assign(formState, emptyForm()); editorOpen.value = true }
 /** 编辑前重新读取角色详情，确保 builtIn 和完整字段均为最新值。 */
 const openEdit = async (record: SystemRole) => {
+  // 内置角色由系统初始化维护，事件层再次拦截所有修改入口。
+  if (record.builtIn) return
   const response = await getSystemRole(record.id)
   if (!response.data) return void message.warning('该角色已不存在，请刷新列表')
   Object.assign(formState, { id: response.data.id, roleName: response.data.roleName, roleCode: response.data.roleCode, roleDesc: response.data.roleDesc, permissionType: response.data.permissionType, builtIn: response.data.builtIn })
@@ -234,6 +249,7 @@ const saveRole = async () => {
 }
 /** 角色状态使用独立 PATCH 接口维护。 */
 const changeStatus = async (record: SystemRole, enabled: boolean) => {
+  if (record.builtIn) return
   statusChangingId.value = record.id
   try {
     const response = await changeSystemRoleStatus(record.id, enabled ? 1 : 0)
@@ -244,6 +260,7 @@ const changeStatus = async (record: SystemRole, enabled: boolean) => {
 }
 /** 删除非内置角色；已分配用户时展示后端返回的拒绝原因。 */
 const removeRole = async (record: SystemRole) => {
+  if (record.builtIn) return
   const response = await deleteSystemRole(record.id)
   if (!response.data) return void message.warning('角色删除未生效，请刷新后重试')
   message.success('角色删除成功')
@@ -255,6 +272,7 @@ const removeRole = async (record: SystemRole) => {
 const flattenTreeKeys = (nodes: MenuTreeNode[]): string[] => nodes.flatMap((node) => [node.key, ...flattenTreeKeys(node.children || [])])
 /** 同时加载当前用户可见菜单和角色已有授权，避免抽屉出现错误回显。 */
 const openAuthorization = async (role: SystemRole) => {
+  if (role.builtIn) return
   authorizationRole.value = role
   authorizationOpen.value = true
   authorizationLoading.value = true
@@ -307,7 +325,10 @@ const saveAuthorization = async () => {
   } finally { authorizationSaving.value = false }
 }
 
-onMounted(() => void loadRoles())
+onMounted(() => {
+  void loadRoles()
+  void loadDictionaries()
+})
 </script>
 
 <style scoped>
@@ -320,6 +341,7 @@ onMounted(() => void loadRoles())
 .code-value, .authorization-summary code { color: var(--du-text-secondary); font-family: var(--du-font-mono); font-size: 10px; }
 .row-actions { justify-content: flex-end; }
 .row-actions :deep(.ant-btn) { padding-inline: 5px; font-size: 10px; }
+.readonly-label { color: var(--du-text-muted); font-size: 10px; }
 .table-panel :deep(.ant-table-cell) { padding-top: 8px !important; padding-bottom: 8px !important; }
 .editor-form { padding-top: var(--du-space-3); }
 .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0 var(--du-space-4); }

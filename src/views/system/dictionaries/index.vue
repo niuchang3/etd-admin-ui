@@ -11,10 +11,7 @@
           <a-input v-model:value="typeQuery.keyword" allow-clear placeholder="编码或名称" @press-enter="searchTypes">
             <template #prefix><SearchOutlined /></template>
           </a-input>
-          <a-select v-model:value="typeQuery.enabled" allow-clear class="status-select" placeholder="状态">
-            <a-select-option :value="true">启用</a-select-option>
-            <a-select-option :value="false">禁用</a-select-option>
-          </a-select>
+          <a-select v-model:value="typeQuery.enabled" :options="statusOptions" allow-clear class="status-select" placeholder="状态" />
           <a-button @click="searchTypes">查询</a-button>
           <a-button @click="resetTypeSearch"><ReloadOutlined /></a-button>
         </div>
@@ -30,19 +27,20 @@
         >
           <template #bodyCell="{ column, record }">
             <div v-if="column.key === 'type'" class="type-main">
-              <div><strong>{{ record.typeName }}</strong><a-tag v-if="record.builtIn" color="gold">内置</a-tag></div>
+              <div><strong>{{ record.typeName }}</strong><a-tag v-if="record.builtIn" color="gold">{{ getSystemDictLabel(builtInDict, record.builtIn) }}</a-tag></div>
               <code>{{ record.typeCode }}</code>
             </div>
             <a-switch
               v-else-if="column.key === 'enabled'"
               :checked="record.enabled"
               :loading="typeStatusChangingId === record.id"
-              :disabled="!canWrite"
+              :disabled="!canWrite || record.builtIn"
               size="small"
               @change="changeTypeEnabled(record, Boolean($event))"
             />
             <div v-else-if="column.key === 'actions' && canWrite" class="type-actions" @click.stop>
-              <a-tooltip title="编辑"><a-button type="text" size="small" @click="openTypeEdit(record)"><EditOutlined /></a-button></a-tooltip>
+              <span v-if="record.builtIn" class="readonly-label">只读</span>
+              <a-tooltip v-if="!record.builtIn" title="编辑"><a-button type="text" size="small" @click="openTypeEdit(record)"><EditOutlined /></a-button></a-tooltip>
               <a-popconfirm v-if="!record.builtIn" title="存在字典项时后端将拒绝删除，确认继续吗？" ok-text="删除" cancel-text="取消" @confirm="removeType(record)">
                 <a-tooltip title="删除"><a-button type="text" size="small" danger><DeleteOutlined /></a-button></a-tooltip>
               </a-popconfirm>
@@ -65,10 +63,7 @@
           <a-input v-model:value="dataQuery.keyword" allow-clear class="data-search" placeholder="搜索编码、标签或值" :disabled="!selectedType" @press-enter="searchData">
             <template #prefix><SearchOutlined /></template>
           </a-input>
-          <a-select v-model:value="dataQuery.enabled" allow-clear class="status-select" placeholder="状态" :disabled="!selectedType">
-            <a-select-option :value="true">启用</a-select-option>
-            <a-select-option :value="false">禁用</a-select-option>
-          </a-select>
+          <a-select v-model:value="dataQuery.enabled" :options="statusOptions" allow-clear class="status-select" placeholder="状态" :disabled="!selectedType" />
           <a-button :disabled="!selectedType" @click="searchData">查询</a-button>
           <a-button :disabled="!selectedType" @click="resetDataSearch"><ReloadOutlined />重置</a-button>
         </div>
@@ -90,8 +85,8 @@
               :checked="record.enabled"
               :loading="dataStatusChangingId === record.id"
               :disabled="!canWrite"
-              checked-children="启用"
-              un-checked-children="禁用"
+              :checked-children="getSystemDictLabel(statusDict, '1')"
+              :un-checked-children="getSystemDictLabel(statusDict, '0')"
               @change="changeDataEnabled(record, Boolean($event))"
             />
             <div v-else-if="column.key === 'actions'" class="row-actions">
@@ -106,7 +101,7 @@
       </div>
     </div>
 
-    <!-- 字典类型新增与编辑共用完整表单，内置类型编码只读。 -->
+    <!-- 字典类型新增与编辑共用完整表单；内置类型不提供编辑入口。 -->
     <a-modal v-model:open="typeEditorOpen" :title="typeForm.id ? '编辑字典类型' : '新增字典类型'" :confirm-loading="typeSaving" ok-text="保存" cancel-text="取消" @ok="saveType">
       <a-form ref="typeFormRef" :model="typeForm" :rules="typeRules" layout="vertical" class="editor-form">
         <a-form-item label="类型编码" name="typeCode">
@@ -162,6 +157,7 @@ import {
   getSystemDictDataPage,
   getSystemDictType,
   getSystemDictTypePage,
+  getEnabledDictData,
   updateSystemDictData,
   updateSystemDictType,
 } from '@/apis/upms/dict'
@@ -172,6 +168,7 @@ import type {
   SystemDictTypeSaveDTO,
 } from '@/apis/upms/dict/type'
 import { menusStore } from '@/stores/modules/user'
+import { getSystemDictLabel, SYSTEM_DICT_TYPE, toSystemDictOptions } from '@/utils/SystemDict'
 
 interface DictTypeFormState extends SystemDictTypeSaveDTO { id?: string, builtIn: boolean }
 interface DictDataFormState extends SystemDictDataSaveDTO { id?: string }
@@ -189,6 +186,8 @@ const typeStatusChangingId = ref('')
 const dataStatusChangingId = ref('')
 const dictTypes = ref<SystemDictType[]>([])
 const dictData = ref<SystemDictData[]>([])
+const statusDict = ref<SystemDictData[]>([])
+const builtInDict = ref<SystemDictData[]>([])
 const selectedTypeId = ref('')
 const typeTotal = ref(0)
 const dataTotal = ref(0)
@@ -204,6 +203,16 @@ const emptyTypeForm = (): DictTypeFormState => ({ typeCode: '', typeName: '', re
 const emptyDataForm = (): DictDataFormState => ({ dictTypeId: '', dictCode: '', dictLabel: '', dictValue: '', sort: 0, remark: null })
 const typeForm = reactive<DictTypeFormState>(emptyTypeForm())
 const dataForm = reactive<DictDataFormState>(emptyDataForm())
+const statusOptions = computed(() => toSystemDictOptions(statusDict.value, (value) => value === '1'))
+
+const loadDictionaries = async () => {
+  const [statusResponse, builtInResponse] = await Promise.all([
+    getEnabledDictData(SYSTEM_DICT_TYPE.commonStatus),
+    getEnabledDictData(SYSTEM_DICT_TYPE.commonBuiltIn),
+  ])
+  statusDict.value = statusResponse.data || []
+  builtInDict.value = builtInResponse.data || []
+}
 
 const typeColumns: TableColumnsType<SystemDictType> = [
   { title: '类型', key: 'type' },
@@ -287,8 +296,9 @@ const changeDataPage = (page: { current?: number, pageSize?: number }) => { data
 
 /** 打开字典类型新增表单。 */
 const openTypeCreate = () => { Object.assign(typeForm, emptyTypeForm()); typeEditorOpen.value = true }
-/** 编辑前读取类型详情，以后端最新 builtIn 状态控制编码只读。 */
+/** 编辑前读取类型详情；内置类型在事件层再次拦截。 */
 const openTypeEdit = async (record: SystemDictType) => {
+  if (record.builtIn) return
   const response = await getSystemDictType(record.id)
   if (!response.data) return void message.warning('该字典类型已不存在，请刷新列表')
   Object.assign(typeForm, { id: response.data.id, typeCode: response.data.typeCode, typeName: response.data.typeName, remark: response.data.remark, builtIn: response.data.builtIn })
@@ -309,6 +319,7 @@ const saveType = async () => {
 }
 /** 字典类型状态由独立 PATCH 接口维护。 */
 const changeTypeEnabled = async (record: SystemDictType, enabled: boolean) => {
+  if (record.builtIn) return
   typeStatusChangingId.value = record.id
   try {
     const response = await changeSystemDictTypeEnabled(record.id, enabled)
@@ -319,6 +330,7 @@ const changeTypeEnabled = async (record: SystemDictType, enabled: boolean) => {
 }
 /** 删除字典类型；存在字典项时由后端校验并返回具体 message。 */
 const removeType = async (record: SystemDictType) => {
+  if (record.builtIn) return
   const response = await deleteSystemDictType(record.id)
   if (!response.data) return void message.warning('字典类型删除未生效，请刷新后重试')
   message.success('字典类型删除成功')
@@ -371,7 +383,10 @@ const removeData = async (record: SystemDictData) => {
   await loadData()
 }
 
-onMounted(() => void loadTypes())
+onMounted(() => {
+  void loadTypes()
+  void loadDictionaries()
+})
 </script>
 
 <style scoped>
@@ -392,6 +407,7 @@ onMounted(() => void loadTypes())
 .row-actions { display: flex; justify-content: flex-end; align-items: center; }
 .type-actions { display: flex; justify-content: center; align-items: center; }
 .type-actions :deep(.ant-btn) { padding-inline: 4px; }
+.readonly-label { color: var(--du-text-muted); font-size: 10px; }
 .row-actions :deep(.ant-btn) { padding-inline: 5px; font-size: 10px; }
 .panel :deep(.ant-table-cell) { padding-top: 7px !important; padding-bottom: 7px !important; }
 .type-panel :deep(.ant-table-tbody > tr) { cursor: pointer; }
