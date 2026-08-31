@@ -32,4 +32,5 @@ export interface SystemConfigQuery {
   size: number
   keyword?: string
   enabled?: boolean
+  valueType?: string
 }

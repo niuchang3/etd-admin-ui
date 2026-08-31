@@ -31,3 +31,10 @@ export const deleteSystemConfig = (id: string) =>
 /** 使用独立接口切换系统参数启用状态。 */
 export const changeSystemConfigEnabled = (id: string, enabled: boolean) =>
   request.patch<ResultModel<boolean>>({ url: `${CONFIG_API}/${id}/enabled/${enabled}` })
+
+/** 批量查询启用参数值。 */
+export const getSystemConfigValues = (parameterKeys: string[]) =>
+  request.get<ResultModel<Record<string, string>>>({
+    url: `${CONFIG_API}/values`,
+    params: { parameterKeys },
+  })

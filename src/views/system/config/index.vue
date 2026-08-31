@@ -14,13 +14,14 @@
             <template #prefix><SearchOutlined /></template>
           </a-input>
           <a-select v-model:value="query.enabled" :options="statusOptions" allow-clear class="status-select" placeholder="启用状态" />
+          <a-select v-model:value="query.valueType" :options="valueTypeOptions" allow-clear class="value-type-select" placeholder="参数值类型" />
           <a-button type="primary" @click="handleSearch"><SearchOutlined />查询</a-button>
           <a-button @click="resetSearch"><ReloadOutlined />重置</a-button>
         </div>
         <a-button v-if="canWrite" type="primary" @click="openCreate"><PlusOutlined />新增参数</a-button>
       </header>
 
-      <!-- 列表状态、空状态和分页均由 Ant Design Vue 表格统一承载。 -->
+      <!-- 列表状态、空状态 and 分页均由 Ant Design Vue 表格统一承载。 -->
       <a-table
         :columns="columns"
         :data-source="records"
@@ -48,6 +49,7 @@
             :un-checked-children="getSystemDictLabel(statusDict, '0')"
             @change="changeEnabled(record, Boolean($event))"
           />
+          <span v-else-if="column.key === 'updateTime'" class="code-value">{{ record.updateTime }}</span>
           <div v-else-if="column.key === 'actions'" class="row-actions">
             <span v-if="canWrite && record.builtIn" class="readonly-label">内置数据只读</span>
             <a-button v-if="canWrite && !record.builtIn" type="link" size="small" @click="openEdit(record)"><EditOutlined />编辑</a-button>
@@ -153,11 +155,12 @@ const valueTypeDict = ref<SystemDictData[]>([])
 const total = ref(0)
 const formRef = ref<FormInstance>()
 // enabled 为 undefined 时不会形成有效筛选条件，表示查询全部状态。
-const query = reactive<{ current: number, size: number, keyword: string, enabled?: boolean }>({
+const query = reactive<{ current: number, size: number, keyword: string, enabled?: boolean, valueType?: string }>({
   current: 1,
   size: 10,
   keyword: '',
   enabled: undefined,
+  valueType: undefined,
 })
 
 const createEmptyForm = (): ConfigFormState => ({
@@ -191,6 +194,7 @@ const columns: TableColumnsType<SystemConfig> = [
   { title: '类型', dataIndex: 'valueType', key: 'valueType', width: 90 },
   { title: '来源', dataIndex: 'builtIn', key: 'builtIn', width: 80 },
   { title: '状态', dataIndex: 'enabled', key: 'enabled', width: 85 },
+  { title: '更新时间', dataIndex: 'updateTime', key: 'updateTime', width: 150 },
   { title: '操作', key: 'actions', width: 140, align: 'right' },
 ]
 
@@ -240,6 +244,7 @@ const loadConfigs = async () => {
       size: query.size,
       keyword: query.keyword.trim(),
       enabled: query.enabled,
+      valueType: query.valueType,
     })
     records.value = response.data?.records || []
     total.value = response.data?.total || 0
@@ -259,6 +264,7 @@ const resetSearch = () => {
   query.size = 10
   query.keyword = ''
   query.enabled = undefined
+  query.valueType = undefined
   void loadConfigs()
 }
 
@@ -366,6 +372,7 @@ onMounted(() => {
 .filters, .row-actions { display: flex; align-items: center; gap: var(--du-space-2); }
 .search-input { width: 240px; }
 .status-select { width: 120px; }
+.value-type-select { width: 120px; }
 .code-value { color: var(--du-text-secondary); font-family: var(--du-font-mono); font-size: 11px; }
 .value-preview { display: block; max-width: 360px; overflow: hidden; color: var(--du-text-secondary); text-overflow: ellipsis; white-space: nowrap; }
 .row-actions { justify-content: flex-end; }
