@@ -1,5 +1,5 @@
 import request from "@/utils/Request";
-import { LoginCredentials, Oauth2Token, RefreshTokenParams, Tenant, UserInfo, UserMenus } from "./type";
+import { LoginCredentials, Oauth2Token, RefreshTokenParams, Tenant, UserInfo, UserMenu, UserRole } from "./type";
 import { Response } from '@/apis/types'
 
 /**
@@ -30,8 +30,15 @@ export const selectUserTenant = async () => {
 
 /** 查询当前租户下的用户菜单 */
 export const selectUserMenus = async () => {
-    return await request.get<Response<UserMenus[]>>({
+    return await request.get<Response<UserMenu[]>>({
         url: '/upms/api/v1/user/menus'
+    })
+}
+
+/** 查询当前用户角色；角色不再携带菜单字段。 */
+export const selectUserRole = async () => {
+    return await request.get<Response<UserRole[]>>({
+        url: '/upms/api/v1/user/role'
     })
 }
 

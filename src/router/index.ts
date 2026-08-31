@@ -1,83 +1,28 @@
-
-import { createRouter, createWebHistory } from 'vue-router'
+import { createRouter, createWebHistory, type RouteRecordRaw } from 'vue-router'
+import type { UserMenu } from '@/apis/upms/login/type'
 import { getAccessToken, getRefreshToken } from '@/stores/modules/oauth'
 import AdminView from '@/views/index.vue'
 
-// 当前模拟菜单统一进入 404 页面，后续开发时再逐个替换为真实页面。
 const NotFoundView = () => import('@/views/404.vue')
-const systemBreadcrumb = [{ label: '系统管理', path: '/system' }]
+const viewModules = import.meta.glob(['../views/**/*.vue', '!../views/index.vue'])
+const dynamicRouteRemovers: Array<() => void> = []
+let dynamicRoutesReady = false
 
-// 应用由独立登录页和共享管理平台外壳组成。
 const router = createRouter({
   history: createWebHistory(),
   routes: [
-    {
-      path: '/login',
-      name: 'login',
-      component: () => import('@/views/login/index.vue'),
-      meta: { public: true },
-    },
+    { path: '/login', name: 'login', component: () => import('@/views/login/index.vue'), meta: { public: true } },
     {
       path: '/',
+      name: 'admin',
       component: AdminView,
+      redirect: '/no-permission',
       children: [
         {
-          path: '',
-          redirect: '/dashboard',
-        },
-        {
-          path: 'dashboard',
-          name: 'dashboard',
+          path: 'no-permission',
+          name: 'no-permission',
           component: NotFoundView,
-          meta: { title: '首页', description: '首页正在建设中。' },
-        },
-        {
-          path: 'tenants',
-          name: 'tenants',
-          component: NotFoundView,
-          meta: { title: '租户管理', description: '租户管理页面将在这里接入。' },
-        },
-        {
-          path: 'users',
-          name: 'users',
-          component: NotFoundView,
-          meta: { title: '用户中心', description: '用户中心页面将在这里接入。' },
-        },
-        {
-          path: 'system',
-          name: 'system',
-          component: NotFoundView,
-          meta: { title: '系统管理', description: '请选择系统管理下的具体功能。' },
-        },
-        {
-          path: 'system/dictionaries',
-          name: 'system-dictionaries',
-          component: NotFoundView,
-          meta: { title: '系统字典', description: '系统字典页面将在这里接入。', breadcrumb: systemBreadcrumb },
-        },
-        {
-          path: 'system/roles',
-          name: 'system-roles',
-          component: NotFoundView,
-          meta: { title: '角色管理', description: '角色管理页面将在这里接入。', breadcrumb: systemBreadcrumb },
-        },
-        {
-          path: 'system/menus',
-          name: 'system-menus',
-          component: () => import('@/views/menu/index.vue'),
-          meta: { title: '菜单管理', breadcrumb: systemBreadcrumb },
-        },
-        {
-          path: 'system/departments',
-          name: 'system-departments',
-          component: NotFoundView,
-          meta: { title: '部门管理', description: '部门管理页面将在这里接入。', breadcrumb: systemBreadcrumb },
-        },
-        {
-          path: 'system/parameters',
-          name: 'system-parameters',
-          component: NotFoundView,
-          meta: { title: '系统参数', description: '系统参数页面将在这里接入。', breadcrumb: systemBreadcrumb },
+          meta: { title: '暂无权限', description: '当前租户下暂无可访问的菜单。' },
         },
         {
           path: ':pathMatch(.*)*',
@@ -90,20 +35,80 @@ const router = createRouter({
   ],
 })
 
-// 路由守卫：根据本地令牌判断是否允许进入受保护页面。
-router.beforeEach((to) => {
+const normalizePath = (path: string) => path.trim().replace(/^\/+/, '')
+
+const resolveView = (menuRouter: string | null) => {
+  if (!menuRouter) return NotFoundView
+  let path = menuRouter.trim().replace(/^@\//, '../').replace(/^\/src\//, '../').replace(/^src\//, '../')
+  if (!path.endsWith('.vue')) path = `${path}.vue`
+  return viewModules[path] || NotFoundView
+}
+
+export const clearDynamicRoutes = () => {
+  dynamicRouteRemovers.splice(0).forEach((removeRoute) => removeRoute())
+  dynamicRoutesReady = false
+}
+
+/** 用当前用户菜单全量替换路由，避免租户切换后残留旧权限。 */
+export const syncDynamicRoutes = (menus: UserMenu[]) => {
+  clearDynamicRoutes()
+  const usedPaths = new Set<string>()
+  const menuMap = new Map(menus.map((menu) => [menu.id, menu]))
+  menus.forEach((menu) => {
+    const path = menu.menuPath ? normalizePath(menu.menuPath) : ''
+    if (!path || /^https?:\/\//i.test(menu.menuPath || '') || usedPaths.has(path)) return
+    usedPaths.add(path)
+    const breadcrumb: Array<{ label: string, path?: string }> = []
+    const visited = new Set([menu.id])
+    let parentId = menu.parentId
+    while (parentId && !visited.has(parentId)) {
+      visited.add(parentId)
+      const parent = menuMap.get(parentId)
+      if (!parent) break
+      breadcrumb.unshift({
+        label: parent.menuName || '未命名菜单',
+        path: parent.menuPath ? `/${normalizePath(parent.menuPath)}` : undefined,
+      })
+      parentId = parent.parentId
+    }
+    const route: RouteRecordRaw = {
+      path,
+      name: `menu-${menu.id}`,
+      component: resolveView(menu.menuRouter),
+      meta: { title: menu.menuName || '未命名菜单', menuId: menu.id, accessLevel: menu.accessLevel, breadcrumb },
+    }
+    dynamicRouteRemovers.push(router.addRoute('admin', route))
+  })
+  dynamicRoutesReady = true
+}
+
+router.beforeEach(async (to) => {
   const hasSession = Boolean(getAccessToken() || getRefreshToken())
+  if (!to.meta.public && !hasSession) return { name: 'login', query: { redirect: to.fullPath } }
+  if (to.name === 'login') return hasSession ? { path: '/' } : true
+  if (!hasSession) return true
 
-  // 未登录时跳转登录页，并记录原始目标地址。
-  if (!to.meta.public && !hasSession) {
-    return { name: 'login', query: { redirect: to.fullPath } }
+  if (!dynamicRoutesReady) {
+    try {
+      const { menusStore, tenantsStore, userStore } = await import('@/stores/modules/user')
+      const tenants = tenantsStore()
+      if (!tenants.userTenant.currentTenant?.id) await tenants.initializeTenant()
+      const [menus] = await Promise.all([
+        menusStore().getUserMenus(),
+        userStore().getUserInfo(),
+        userStore().getUserRoles(),
+      ])
+      const firstPath = menusStore().firstReadablePath()
+      if (!menus.length || !firstPath) return { name: 'no-permission', replace: true }
+      if (to.name === 'no-permission' || to.name === 'not-found') {
+        const target = firstPath.startsWith('/') ? firstPath : `/${firstPath}`
+        return { path: target, replace: true }
+      }
+      return { path: to.fullPath, replace: true }
+    } catch {
+      return true
+    }
   }
-
-  // 已登录用户无需重复进入登录页。
-  if (to.name === 'login' && hasSession) {
-    return { name: 'dashboard' }
-  }
-
   return true
 })
 

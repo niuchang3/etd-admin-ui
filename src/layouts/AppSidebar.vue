@@ -52,9 +52,8 @@ import { computed, h, onMounted, ref } from 'vue'
 import { Empty, type MenuProps } from 'ant-design-vue'
 import { ExclamationCircleOutlined, MenuFoldOutlined, MenuUnfoldOutlined } from '@ant-design/icons-vue'
 import { useRoute, useRouter } from 'vue-router'
-import type { UserMenus } from '@/apis/upms/login/type'
 import { resolveMenuIcon } from '@/config/menuIcons'
-import { menusStore } from '@/stores/modules/user'
+import { menusStore, type UserMenuNode } from '@/stores/modules/user'
 
 defineProps<{
   collapsed: boolean
@@ -72,7 +71,7 @@ const loadFailed = ref(false)
 const simpleImage = Empty.PRESENTED_IMAGE_SIMPLE
 
 // 文档约定 menuPath 是页面访问路径，menuRouter 是组件地址。
-const getMenuRoute = (menu: UserMenus) => {
+const getMenuRoute = (menu: UserMenuNode) => {
   const rawPath = String(menu.menuPath || '').trim()
   if (!rawPath || /^https?:\/\//i.test(rawPath)) return rawPath
   return rawPath.startsWith('/') ? rawPath : `/${rawPath}`
@@ -81,7 +80,7 @@ const getMenuRoute = (menu: UserMenus) => {
 // 菜单 key 使用后端 ID，实际跳转地址单独保存，避免父节点没有路由时发生误跳转。
 const menuRouteMap = computed(() => {
   const routeMap = new Map<string, string>()
-  const collectRoutes = (menus: UserMenus[]) => {
+  const collectRoutes = (menus: UserMenuNode[]) => {
     menus.forEach((menu) => {
       const targetPath = getMenuRoute(menu)
       if (targetPath) routeMap.set(menu.id, targetPath)
@@ -93,10 +92,10 @@ const menuRouteMap = computed(() => {
 })
 
 // 将后端菜单节点转换为 Ant Design Vue 所需的树形 items。
-const convertMenuItem = (menu: UserMenus): NonNullable<MenuProps['items']>[number] => ({
+const convertMenuItem = (menu: UserMenuNode): NonNullable<MenuProps['items']>[number] => ({
   key: menu.id,
   label: menu.menuName,
-  icon: h(resolveMenuIcon(menu.menuIcon)),
+  icon: h(resolveMenuIcon(menu.menuIcon || undefined)),
   children: menu.children?.length ? menu.children.map(convertMenuItem) : undefined,
 })
 

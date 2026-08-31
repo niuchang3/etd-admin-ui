@@ -2,7 +2,7 @@ import axios, { AxiosInstance, InternalAxiosRequestConfig, AxiosResponse } from 
 import qs from 'qs';
 import { message } from 'ant-design-vue';
 import { clear, getAccessToken, refreshToken } from '@/stores/modules/oauth';
-import { tenantsStore } from '@/stores/modules/user';
+import { clearStore, tenantsStore } from '@/stores/modules/user';
 import router from '@/router/index'
 
 
@@ -54,8 +54,12 @@ let isRefreshing = false;
  * 响应拦截器：统一处理令牌刷新、错误提示和跳转登录页。
  */
 instance.interceptors.response.use((config: AxiosResponse) => {
-
-
+    const result = config.data;
+    if (result && typeof result === 'object' && 'code' in result && result.code !== 2000) {
+        const errorMessage = result.message || result.devMessage || '请求失败';
+        message.error(errorMessage);
+        return Promise.reject(new Error(errorMessage));
+    }
     return config;
 }, async (error) => {
     let config = error.config;
@@ -74,6 +78,7 @@ instance.interceptors.response.use((config: AxiosResponse) => {
             return instance(config);
         }).catch(_err => {
             clear()
+            void clearStore()
             message.error('令牌失效,请重新登录。')
             router.push({ path: '/login' })
             return Promise.reject(error)

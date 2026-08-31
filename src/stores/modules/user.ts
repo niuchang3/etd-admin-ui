@@ -1,231 +1,178 @@
-import { selectUserInfo, selectUserMenus, selectUserTenant } from "@/apis/upms/login";
-import { Tenant, UserInfo, UserMenus } from "@/apis/upms/login/type";
-import { defineStore } from "pinia";
-import { ref } from "vue";
+import { selectUserInfo, selectUserMenus, selectUserRole, selectUserTenant } from '@/apis/upms/login'
+import type { Tenant, UserInfo, UserMenu, UserRole } from '@/apis/upms/login/type'
+import { clearDynamicRoutes, syncDynamicRoutes } from '@/router'
+import { canReadMenu, canWriteMenu } from '@/utils/menuPermission'
+import { defineStore } from 'pinia'
+import { ref } from 'vue'
 
+export const userStore = defineStore('user', () => {
+  const userInfo = ref<UserInfo>({ id: null, userName: null, birthday: null, gender: null, avatar: null, nickName: null })
+  const roles = ref<UserRole[]>([])
 
+  const getUserInfo = async () => {
+    const response = await selectUserInfo()
+    userInfo.value = response.data
+    return userInfo.value
+  }
+  const getUserRoles = async () => {
+    const response = await selectUserRole()
+    roles.value = response.data || []
+    return roles.value
+  }
+  const $reset = () => {
+    userInfo.value = { id: null, userName: null, birthday: null, gender: null, avatar: null, nickName: null }
+    roles.value = []
+  }
+  return { userInfo, roles, getUserInfo, getUserRoles, $reset }
+}, { persist: { storage: localStorage } })
 
-
-
-
-
-
-
-/** 管理当前登录用户的基本资料。 */
-export const userStore = defineStore('user',()=>{
-
-    const userInfo  = ref<UserInfo>({
-        id: null,
-        userName: null,
-        birthday: null,
-        gender: null,
-        avatar: null,
-        nickName: null
-    })
-
-
-    // 该接口依赖租户请求头，必须在租户初始化后调用。
-    const getUserInfo = async ()=>{
-        return await selectUserInfo().then((user) =>{
-            userInfo.value = user.data
-            return  userInfo.value;
-        })
-    }
-
-    // 退出登录时恢复为空用户。
-    const $reset = () =>{
-        userInfo.value = {
-            id: null,
-            userName: null,
-            birthday: null,
-            gender: null,
-            avatar: null,
-            nickName: null
-        }
-    }
-
-    return {userInfo,getUserInfo,$reset}
-},{
-    persist:{
-        storage:localStorage
-    }
-})
-
-
-
-
-/** 当前用户的租户列表和正在使用的租户。 */
 interface UserTenant {
-    currentTenant: Tenant | null
-    tenants: Tenant[]
+  currentTenant: Tenant | null
+  tenants: Tenant[]
 }
 
-/** 管理租户列表、默认租户和租户切换。 */
-export const tenantsStore = defineStore('tenantsInfo',()=>{
+export const tenantsStore = defineStore('tenantsInfo', () => {
+  const userTenant = ref<UserTenant>({ currentTenant: null, tenants: [] })
+  const getUserTenant = async () => {
+    const response = await selectUserTenant()
+    userTenant.value.tenants = response.data || []
+    return userTenant.value.tenants
+  }
+  const initializeTenant = async () => {
+    const tenants = await getUserTenant()
+    const tenant = tenants[0]
+    if (!tenant?.id) throw new Error('当前账号未分配可用租户')
+    userTenant.value.currentTenant = tenant
+    return tenant
+  }
+  const switchTenant = async (index: number, isReload = true) => {
+    if (!userTenant.value.tenants.length) await getUserTenant()
+    const tenant = userTenant.value.tenants[index]
+    if (!tenant?.id) throw new Error('无法切换到指定租户')
 
-    const userTenant  = ref<UserTenant>({
-        currentTenant: null,
-        tenants: []
-    });
+    menusStore().$reset()
+    userStore().$reset()
+    userTenant.value.currentTenant = tenant
+    await Promise.all([menusStore().getUserMenus(), userStore().getUserInfo(), userStore().getUserRoles()])
+    if (isReload) location.reload()
+  }
+  const $reset = () => { userTenant.value = { currentTenant: null, tenants: [] } }
+  return { userTenant, getUserTenant, initializeTenant, switchTenant, $reset }
+}, { persist: { storage: localStorage } })
 
-    // 认证成功后首先获取用户可访问的租户。
-    const getUserTenant = async ()=>{
-        return await selectUserTenant().then((tenants)=>{
-            userTenant.value.tenants = tenants.data;
-            return userTenant.value.tenants;
-        })
-    }
-
-    // 默认选择第一个有效租户，为后续请求建立租户上下文。
-    const initializeTenant = async () => {
-        const tenants = await getUserTenant()
-        const tenant = tenants[0]
-
-        if (!tenant?.id) {
-            throw new Error('当前账号未分配可用租户')
-        }
-
-        userTenant.value.currentTenant = tenant
-        return tenant
-    }
-
-    // 切换租户后同步刷新菜单，并可选重载当前页面。
-    const switchTenant  = async (index:number, isReload = true)=>{
-        if(!userTenant.value.tenants.length){
-           await getUserTenant();
-        }
-
-        const tenant = userTenant.value.tenants[index]
-        if (!tenant?.id) {
-            throw new Error('无法切换到指定租户')
-        }
-
-        userTenant.value.currentTenant = tenant;
-        await menusStore().getUserMenus();
-        
-        if (isReload) {
-            location.reload()
-        }
-    }
-
-    // 退出时清空租户列表和当前租户。
-    const $reset = () =>{
-        userTenant.value = {
-            currentTenant: null,
-            tenants: []
-        }
-    }
-
-    return {userTenant,getUserTenant,initializeTenant,switchTenant,$reset}
-},{
-    persist:{
-        storage:localStorage
-    }
-})
-
-
-
-
-
-/** 保存当前租户下的树形菜单。 */
-export const menusStore = defineStore('menus',()=>{
-    const menus = ref<UserMenus[]>([]);
-
-    // 使用指定的接口响应覆盖菜单状态，供菜单管理页同步刷新侧边栏。
-    const setUserMenus = (sourceMenus: UserMenus[]) => {
-        menus.value = normalizeMenuTree(sourceMenus)
-        return menus.value
-    }
-    
-    // 获取当前租户菜单；同时兼容后端直接返回树和返回扁平数组两种格式。
-    const getUserMenus = async ()=>{
-        const response = await selectUserMenus()
-        if (Number(response.code) !== 2000) {
-            throw new Error(response.message || response.devMessage || '用户菜单查询失败')
-        }
-        return setUserMenus(response.data || [])
-    }
-    const $reset = () =>{
-        menus.value = []
-    }
-
-    return {menus,setUserMenus,getUserMenus,$reset}
-
-},{
-    persist:{
-        storage:localStorage
-    }
-})
-
-
-/** 记录当前选中的菜单路径。 */
-export const currentMenu = defineStore('currentMenu',()=>{
-    const current = ref([''])
-    
-    const setCurrentMenu = (path:[]) =>{
-        current.value = path;
-    }
-    const getCurrentMenu = ():Array<string> =>{
-        return current.value
-    }
-
-    const $reset = () =>{
-        current.value = []
-    }
-
-    return {current,setCurrentMenu,getCurrentMenu,$reset}
-},{
-    persist:{
-        storage:sessionStorage
-    }
-})
-
-
-/** 向外暴露的租户切换快捷方法。 */
-export const switchTenant = async (index:number, isReload = true) =>{
-    await tenantsStore().switchTenant(index, isReload)
+const compareId = (left: string, right: string) => {
+  if (left.length !== right.length) return left.length - right.length
+  return left.localeCompare(right)
 }
 
+export interface UserMenuNode extends UserMenu {
+  children: UserMenuNode[]
+}
 
-
-
-
-/**
- * 统一菜单接口的返回格式。
- * 新接口若已经返回 children，直接递归复制；旧接口返回扁平数组时按 parentId 组装。
- */
-const normalizeMenuTree = (sourceMenus: UserMenus[]): UserMenus[] => {
-    const hasTreeChildren = sourceMenus.some((item) => Array.isArray(item.children) && item.children.length > 0)
-
-    if (hasTreeChildren) {
-        return sourceMenus.map((item) => ({
-            ...item,
-            children: item.children ? normalizeMenuTree(item.children) : [],
-        }))
+/** 去重、标准化并构造不会因缺失父节点或环关系而崩溃的菜单树。 */
+export const normalizeMenuTree = (sourceMenus: UserMenu[]): { raw: UserMenu[], tree: UserMenuNode[] } => {
+  const menuMap = new Map<string, UserMenuNode>()
+  ;(Array.isArray(sourceMenus) ? sourceMenus : []).forEach((source) => {
+    const id = typeof source.id === 'string' ? source.id : ''
+    if (!id) return
+    if (menuMap.has(id)) {
+      if (import.meta.env.DEV) console.warn(`[menus] 忽略重复菜单 ID: ${id}`)
+      return
     }
-
-    const menuMap = new Map<string, UserMenus>()
-    sourceMenus.forEach((item) => menuMap.set(item.id, { ...item, children: [] }))
-
-    const rootMenus: UserMenus[] = []
-    menuMap.forEach((item) => {
-        const parent = item.parentId ? menuMap.get(item.parentId) : undefined
-        if (parent) {
-            parent.children?.push(item)
-        } else {
-            rootMenus.push(item)
-        }
+    const accessLevel = source.accessLevel === null || source.accessLevel === 1 || source.accessLevel === 2
+      ? source.accessLevel
+      : 1
+    if (accessLevel !== source.accessLevel && import.meta.env.DEV) {
+      console.warn(`[menus] 菜单 ${id} 的 accessLevel 无效，已按只读处理`)
+    }
+    menuMap.set(id, {
+      ...source,
+      id,
+      parentId: typeof source.parentId === 'string' && source.parentId ? source.parentId : null,
+      accessLevel,
+      children: [],
     })
+  })
 
-    return rootMenus
+  const createsCycle = (item: UserMenuNode) => {
+    const visited = new Set([item.id])
+    let parentId = item.parentId
+    while (parentId) {
+      if (visited.has(parentId)) return true
+      visited.add(parentId)
+      parentId = menuMap.get(parentId)?.parentId || null
+    }
+    return false
+  }
+
+  const roots: UserMenuNode[] = []
+  menuMap.forEach((item) => {
+    const parent = item.parentId ? menuMap.get(item.parentId) : undefined
+    const cyclic = createsCycle(item)
+    if (parent && !cyclic) parent.children?.push(item)
+    else {
+      if ((item.parentId && !parent || cyclic) && import.meta.env.DEV) {
+        console.warn(`[menus] 菜单 ${item.id} 的父子关系异常，已作为顶层菜单处理`)
+      }
+      roots.push(item)
+    }
+  })
+  const sortTree = (items: UserMenuNode[]): UserMenuNode[] => items
+    .sort((left, right) => (left.sort ?? 0) - (right.sort ?? 0) || compareId(left.id, right.id))
+    .map((item) => ({ ...item, children: sortTree(item.children || []) }))
+  const tree = sortTree(roots)
+  return { raw: Array.from(menuMap.values()).map(({ children: _children, ...menu }) => menu), tree }
 }
 
+export const menusStore = defineStore('menus', () => {
+  const rawMenus = ref<UserMenu[]>([])
+  const menus = ref<UserMenuNode[]>([])
+  const dynamicRoutesRegistered = ref(false)
+  const setUserMenus = (sourceMenus: UserMenu[]) => {
+    const normalized = normalizeMenuTree(sourceMenus)
+    rawMenus.value = normalized.raw
+    menus.value = normalized.tree
+    syncDynamicRoutes(rawMenus.value.filter(canReadMenu))
+    dynamicRoutesRegistered.value = true
+    return menus.value
+  }
+  const getUserMenus = async () => {
+    const response = await selectUserMenus()
+    return setUserMenus(response.data || [])
+  }
+  const findByPath = (path: string) => rawMenus.value.find((menu) => {
+    const menuPath = menu.menuPath?.trim()
+    if (!menuPath) return false
+    return (menuPath.startsWith('/') ? menuPath : `/${menuPath}`) === path
+  })
+  const canWritePath = (path: string) => {
+    const menu = findByPath(path)
+    return Boolean(menu && canWriteMenu(menu))
+  }
+  const firstReadablePath = () => rawMenus.value.find((menu) => canReadMenu(menu) && menu.menuPath)?.menuPath || null
+  const $reset = () => {
+    rawMenus.value = []
+    menus.value = []
+    dynamicRoutesRegistered.value = false
+    clearDynamicRoutes()
+  }
+  return { rawMenus, menus, dynamicRoutesRegistered, setUserMenus, getUserMenus, findByPath, canWritePath, firstReadablePath, $reset }
+}, { persist: { storage: localStorage } })
 
-/** 退出系统时统一清空所有与用户会话相关的状态。 */
-export const clearStore = ()=>{
-    userStore().$reset();
-    tenantsStore().$reset()
-    menusStore().$reset();
-    currentMenu().$reset();
-    return Promise.resolve(true)
+export const currentMenu = defineStore('currentMenu', () => {
+  const current = ref<string[]>([])
+  const setCurrentMenu = (path: string[]) => { current.value = path }
+  const getCurrentMenu = () => current.value
+  const $reset = () => { current.value = [] }
+  return { current, setCurrentMenu, getCurrentMenu, $reset }
+}, { persist: { storage: sessionStorage } })
+
+export const switchTenant = async (index: number, isReload = true) => tenantsStore().switchTenant(index, isReload)
+
+export const clearStore = () => {
+  userStore().$reset()
+  tenantsStore().$reset()
+  menusStore().$reset()
+  currentMenu().$reset()
+  return Promise.resolve(true)
 }

@@ -15,8 +15,8 @@ export const selectTenant = async (params:PageTenantParams) =>{
 }
 
 /** 切换指定租户的锁定状态 */
-export const switchLockedStatus = async (params:any) =>{
-    return await request.patch<Response<any>>({
+export const switchLockedStatus = async (params:{ id:string, status:boolean }) =>{
+    return await request.patch<Response<boolean>>({
         url:`/upms/api/v1/tenant/${params.id}/${params.status}`,
     })
 }

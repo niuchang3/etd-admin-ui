@@ -1,7 +1,7 @@
 <template>
   <!-- 应用面包屑根据当前路由自动生成，并支持点击返回上级页面。 -->
   <nav class="app-breadcrumb" aria-label="页面面包屑">
-    <router-link class="breadcrumb-link root-link" to="/dashboard">ETD Console</router-link>
+    <router-link class="breadcrumb-link root-link" :to="homePath">ETD Console</router-link>
     <RightOutlined />
 
     <!-- 详情页可以通过路由 meta.breadcrumb 增加任意数量的中间层级。 -->
@@ -19,6 +19,7 @@
 import { computed } from 'vue'
 import { useRoute } from 'vue-router'
 import { RightOutlined } from '@ant-design/icons-vue'
+import { menusStore } from '@/stores/modules/user'
 
 interface BreadcrumbItem {
   label: string
@@ -26,6 +27,12 @@ interface BreadcrumbItem {
 }
 
 const route = useRoute()
+const currentMenus = menusStore()
+const homePath = computed(() => {
+  const path = currentMenus.firstReadablePath()
+  if (!path) return '/no-permission'
+  return path.startsWith('/') ? path : `/${path}`
+})
 
 // 菜单页面直接读取 title；详情页面可额外配置可点击的父级 breadcrumb。
 const currentTitle = computed(() => String(route.meta.title || '当前页面'))

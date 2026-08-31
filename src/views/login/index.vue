@@ -158,7 +158,7 @@ const submit = async () => {
     currentTenant.$reset()
     await currentTenant.initializeTenant()
     // 第三步：此时请求拦截器已能写入租户 ID，可并行获取用户资料和菜单树。
-    await Promise.all([currentUser.getUserInfo(), currentMenus.getUserMenus()])
+    await Promise.all([currentUser.getUserInfo(), currentUser.getUserRoles(), currentMenus.getUserMenus()])
     const redirect = typeof route.query.redirect === 'string' ? route.query.redirect : '/'
     await router.replace(redirect)
   } catch (error) {

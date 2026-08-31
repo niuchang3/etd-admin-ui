@@ -3,16 +3,16 @@
   <section class="menu-page">
     <div class="menu-panel du-panel">
       <header class="page-toolbar">
-        <div>
+        <!-- <div>
           <strong>菜单管理</strong>
           <span>{{ flatMenuCount }} 个菜单节点</span>
-        </div>
+        </div> -->
         <div class="toolbar-actions">
           <a-input v-model:value="keyword" allow-clear class="search-input" placeholder="搜索菜单名称或路由">
             <template #prefix><SearchOutlined /></template>
           </a-input>
           <a-button :loading="loading" @click="loadMenus"><ReloadOutlined />刷新</a-button>
-          <a-button type="primary" @click="openCreate()"><PlusOutlined />新增一级菜单</a-button>
+          <a-button v-if="canWrite" type="primary" @click="openCreate()"><PlusOutlined />新增一级菜单</a-button>
         </div>
       </header>
 
@@ -47,15 +47,16 @@
             v-else-if="column.key === 'dataStatus'"
             :checked="record.dataStatus === 1"
             :loading="statusChangingId === record.id"
+            :disabled="!canWrite"
             checked-children="启用"
             un-checked-children="禁用"
             @change="changeStatus(record, Boolean($event))"
           />
 
-          <div v-else-if="column.key === 'actions'" class="row-actions">
+          <div v-else-if="column.key === 'actions' && canWrite" class="row-actions">
             <a-button type="link" size="small" @click="openCreate(record.id)"><BranchesOutlined />添加下级</a-button>
             <a-button type="link" size="small" @click="openEdit(record)"><EditOutlined />编辑</a-button>
-            <a-popconfirm title="确定删除这个菜单吗？" ok-text="删除" cancel-text="取消" @confirm="removeMenu(record)">
+            <a-popconfirm title="删除后将同时删除该菜单的全部下级菜单，并清理租户、角色和接口权限关系，是否继续？" ok-text="删除" cancel-text="取消" @confirm="removeMenu(record)">
               <a-button type="link" size="small" danger><DeleteOutlined />删除</a-button>
             </a-popconfirm>
           </div>
@@ -128,6 +129,7 @@
 
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import { message, type FormInstance, type FormProps, type TableColumnsType } from 'ant-design-vue'
 import {
   BranchesOutlined,
@@ -144,7 +146,6 @@ import {
   selectSystemMenu,
   updateSystemMenu,
 } from '@/apis/upms/menu'
-import { selectUserMenus } from '@/apis/upms/login'
 import type { MenuType, SaveSystemMenu, SystemMenu } from '@/apis/upms/menu/type'
 import { menuIconOptions, resolveMenuIcon } from '@/config/menuIcons'
 import { menusStore } from '@/stores/modules/user'
@@ -168,6 +169,9 @@ interface MenuFormState extends SaveSystemMenu {
 }
 
 const currentMenus = menusStore()
+const route = useRoute()
+const router = useRouter()
+const canWrite = computed(() => currentMenus.canWritePath(route.path))
 const loading = ref(false)
 const saving = ref(false)
 const statusChangingId = ref('')
@@ -196,7 +200,7 @@ const columns: TableColumnsType<SystemMenu> = [
   { title: '组件地址', dataIndex: 'menuRouter', key: 'menuRouter', width: 220 },
   { title: '排序', dataIndex: 'sort', key: 'sort', width: 70, align: 'center' },
   { title: '状态', dataIndex: 'dataStatus', key: 'dataStatus', width: 80 },
-  { title: '操作', key: 'actions', width: 250, align: 'right' },
+  { title: '操作', key: 'actions', width: 250, align: 'center' },
 ]
 
 // 菜单名称最多 10 个字符，与数据库字段长度保持一致。
@@ -205,9 +209,15 @@ const rules: FormProps['rules'] = {
     { required: true, message: '请输入菜单名称', trigger: 'blur' },
     { max: 10, message: '菜单名称不能超过 10 个字符', trigger: 'blur' },
   ],
-  menuType: [{ required: true, message: '请选择菜单类型', trigger: 'change' }],
-  menuIcon: [{ required: true, message: '请选择菜单图标', trigger: 'change' }],
+  menuType: [
+    { required: true, message: '请选择菜单类型', trigger: 'change' },
+    { max: 20, message: '菜单类型不能超过 20 个字符', trigger: 'change' },
+  ],
   menuPath: [{
+    max: 100,
+    message: '访问路径不能超过 100 个字符',
+    trigger: 'blur',
+  }, {
     validator: async () => {
       if (formState.menuType === 'MENU' && !formState.menuPath.trim()) {
         throw new Error('页面菜单必须填写访问路径')
@@ -215,6 +225,11 @@ const rules: FormProps['rules'] = {
     },
     trigger: 'blur',
   }],
+  menuRouter: [{ max: 100, message: '组件地址不能超过 100 个字符', trigger: 'blur' }],
+  menuIcon: [
+    { required: true, message: '请选择菜单图标', trigger: 'change' },
+    { max: 200, message: '菜单图标不能超过 200 个字符', trigger: 'change' },
+  ],
 }
 
 // 同时兼容管理接口返回树形数组或扁平数组。
@@ -246,8 +261,6 @@ const flattenMenus = (menus: SystemMenu[]): SystemMenu[] => menus.flatMap((menu)
   menu,
   ...flattenMenus(menu.children || []),
 ])
-
-const flatMenuCount = computed(() => flattenMenus(menuTree.value).length)
 
 // 搜索时保留命中的菜单及其完整上级，保证树形上下文不会丢失。
 const filteredMenus = computed(() => {
@@ -283,19 +296,12 @@ const loadMenus = async () => {
   try {
     // 列表必须使用当前用户菜单接口，确保租户和角色权限过滤始终生效。
     // 页面每次都直接请求用户菜单接口，不读取 Pinia 中可能已经过期的持久化数据。
-    const response = await selectUserMenus()
-    if (Number(response.code) !== 2000) {
-      throw new Error(response.message || response.devMessage || '用户菜单查询失败')
-    }
-    const userMenus = response.data || []
-
-    // 同一份最新响应同步给侧边栏，Store 这里只作为布局状态容器。
-    currentMenus.setUserMenus(userMenus)
+    const userMenus = await currentMenus.getUserMenus()
 
     // 用户菜单接口不返回状态和类型；能返回的菜单必然已启用，类型在树组装后推断显示。
     const convertAuthorizedMenus = (menus: typeof userMenus): SystemMenu[] => menus.map((menu) => ({
-      id: String(menu.id),
-      parentId: menu.parentId ? String(menu.parentId) : null,
+      id: menu.id,
+      parentId: menu.parentId,
       createTime: menu.createTime,
       dataStatus: 1,
       menuName: menu.menuName,
@@ -311,6 +317,10 @@ const loadMenus = async () => {
     expandedRowKeys.value = flattenMenus(menuTree.value)
       .filter((menu) => menu.children?.length)
       .map((menu) => menu.id)
+    if (!currentMenus.findByPath(route.path)) {
+      const fallback = currentMenus.firstReadablePath()
+      await router.replace(fallback ? (fallback.startsWith('/') ? fallback : `/${fallback}`) : '/no-permission')
+    }
   } finally {
     loading.value = false
   }
@@ -325,12 +335,14 @@ const getMenuTypeLabel = (menu: SystemMenu) => {
 const resetForm = () => Object.assign(formState, createEmptyForm())
 
 const openCreate = (parentId?: string) => {
+  if (!canWrite.value) return
   resetForm()
   formState.parentId = parentId || null
   editorOpen.value = true
 }
 
 const openEdit = async (menu: SystemMenu) => {
+  if (!canWrite.value) return
   const response = await selectSystemMenu(menu.id)
   if (!response.data) {
     message.warning('该菜单已不存在，请刷新列表')
@@ -351,6 +363,7 @@ const openEdit = async (menu: SystemMenu) => {
 }
 
 const saveMenu = async () => {
+  if (!canWrite.value) return
   await formRef.value?.validate()
   saving.value = true
   try {
@@ -376,6 +389,7 @@ const saveMenu = async () => {
 
 // 菜单状态不随编辑表单提交，严格调用文档规定的独立 PATCH 接口。
 const changeStatus = async (menu: SystemMenu, enabled: boolean) => {
+  if (!canWrite.value) return
   statusChangingId.value = menu.id
   try {
     await changeSystemMenuStatus(menu.id, enabled ? 1 : 0)
@@ -389,10 +403,7 @@ const changeStatus = async (menu: SystemMenu, enabled: boolean) => {
 }
 
 const removeMenu = async (menu: SystemMenu) => {
-  if (menu.children?.length) {
-    message.warning('请先删除该菜单下的子菜单')
-    return
-  }
+  if (!canWrite.value) return
   await deleteSystemMenu(menu.id)
   message.success('菜单删除成功')
   await loadMenus()

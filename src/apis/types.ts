@@ -1,7 +1,9 @@
 
 /** 后端统一响应结构 */
+export type Id = string
+
 export interface Response<T>{
-    code:Number,
+    code:number,
     data:T,
     devMessage:string,
     message:string,
@@ -18,6 +20,6 @@ export interface PageResponse<T>{
 
 /** 分页查询的通用请求参数 */
 export interface PageRequest{
-    current?:number,
-    size?:number,
+    current:number,
+    size:number,
 }

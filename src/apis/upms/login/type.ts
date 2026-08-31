@@ -1,4 +1,4 @@
-
+import type { Id } from '@/apis/types'
 
 /** 账号密码登录参数 */
 export interface LoginCredentials {
@@ -30,7 +30,7 @@ export interface Oauth2Token{
 
 /** 当前登录用户的基本资料 */
 export interface UserInfo {
-    id:string | null,
+    id:Id | null,
     userName:string | null,
     birthday:Date | null,
     gender:number | null,
@@ -42,31 +42,42 @@ export interface UserInfo {
 
 /** 租户基础信息 */
 export interface Tenant{
-    id?:string,
-    parentId?:string,
-    createTime?:string,
-    logo?:string,
-    tenantName?:string,
-    creditCode?:string,
-    tenantType?:string,
-    locked?:string,
-    description?:string
-
+    id:Id,
+    createTime:string | null,
+    dataStatus:0 | 1,
+    logo:string | null,
+    tenantName:string | null,
+    description:string | null,
+    creditCode:string | null,
+    tenantType:string | null,
+    tenantAdminUser:Id | null,
+    adminUser:string | null,
+    locked:boolean | null,
 }
 
-/** 后端返回的树形菜单节点 */
-export interface UserMenus{
-    tenantId?:string,
-    id:string,
+/** 当前租户下由后端完成权限计算的菜单。 */
+export interface UserMenu{
+    tenantId:Id,
+    id:Id,
     createTime:string | null,
-    parentId?:string | null,
-    menuName:string,
-    menuPath:string,
-    menuRouter:string,
-    menuIcon:string,
-    sort?:number | null,
-    children?:UserMenus[]
+    parentId:Id | null,
+    menuName:string | null,
+    menuPath:string | null,
+    menuRouter:string | null,
+    menuIcon:string | null,
+    sort:number | null,
+    accessLevel:1 | 2 | null,
+}
 
+/** 当前用户角色仅用于身份判断，不参与菜单权限计算。 */
+export interface UserRole {
+    id:Id,
+    tenantId:Id,
+    userId:Id,
+    roleId:Id,
+    roleCode:string | null,
+    roleName:string | null,
+    permissionType:string | null,
 }
 
 
