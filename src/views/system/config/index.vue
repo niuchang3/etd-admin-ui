@@ -51,8 +51,7 @@
           />
           <span v-else-if="column.key === 'updateTime'" class="code-value">{{ record.updateTime }}</span>
           <div v-else-if="column.key === 'actions'" class="row-actions">
-            <span v-if="canWrite && record.builtIn" class="readonly-label">内置数据只读</span>
-            <a-button v-if="canWrite && !record.builtIn" type="link" size="small" @click="openEdit(record)"><EditOutlined />编辑</a-button>
+            <a-button v-if="canWrite" type="link" size="small" @click="openEdit(record)"><EditOutlined />编辑</a-button>
             <a-popconfirm
               v-if="canWrite && !record.builtIn"
               title="确认删除该系统参数吗？"
@@ -93,7 +92,7 @@
             <a-input v-model:value="formState.parameterName" :maxlength="100" show-count placeholder="请输入参数名称" />
           </a-form-item>
           <a-form-item label="值类型" name="valueType" class="full-row">
-            <a-select v-model:value="formState.valueType" :options="valueTypeOptions" />
+            <a-select v-model:value="formState.valueType" :options="valueTypeOptions" :disabled="formState.builtIn" />
           </a-form-item>
           <a-form-item label="参数值" name="parameterValue" class="full-row">
             <a-textarea
@@ -284,8 +283,6 @@ const openCreate = () => {
 
 /** 编辑前重新查询详情，确保提交的是后端最新的完整表单。 */
 const openEdit = async (record: SystemConfig) => {
-  // 内置参数由系统初始化维护，事件层再次拦截，避免仅依赖按钮显隐。
-  if (record.builtIn) return
   const response = await getSystemConfig(record.id)
   if (!response.data) {
     message.warning('该系统参数已不存在，请刷新列表')

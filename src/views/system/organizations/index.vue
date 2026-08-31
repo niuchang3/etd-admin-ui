@@ -146,6 +146,7 @@ import type { Organization, OrganizationSaveRequest } from '@/apis/upms/organiza
 import { getEnabledDictData } from '@/apis/upms/dict'
 import type { SystemDictData } from '@/apis/upms/dict/type'
 import { menusStore } from '@/stores/modules/user'
+import { useSystemConfigStore } from '@/stores/modules/config'
 import { getSystemDictLabel, SYSTEM_DICT_TYPE, toSystemDictOptions } from '@/utils/SystemDict'
 
 interface TreeSelectOption {
@@ -316,8 +317,47 @@ const openEdit = async (org: Organization) => {
   editorOpen.value = true
 }
 
+const configStore = useSystemConfigStore()
+
+// 递归寻找组织节点深度（根节点为 1）
+const getDepthById = (nodes: Organization[], id: string, currentDepth = 1): number => {
+  for (const node of nodes) {
+    if (node.id === id) return currentDepth
+    if (node.children && node.children.length > 0) {
+      const depth = getDepthById(node.children, id, currentDepth + 1)
+      if (depth > 0) return depth
+    }
+  }
+  return 0
+}
+
+// 递归计算子树的最大高度（单节点为 1）
+const getSubtreeHeight = (node: Organization): number => {
+  if (!node.children || node.children.length === 0) return 1
+  return 1 + Math.max(...node.children.map(getSubtreeHeight))
+}
+
 const saveOrg = async () => {
   if (!canWrite.value) return
+
+  // 校验最大层级深度限制
+  if (formState.parentId) {
+    const parentDepth = getDepthById(orgTree.value, formState.parentId)
+    let subtreeHeight = 1
+    if (formState.id) {
+      const currentNode = flattenOrgs(orgTree.value).find((org) => org.id === formState.id)
+      if (currentNode) {
+        subtreeHeight = getSubtreeHeight(currentNode)
+      }
+    }
+    const totalDepth = parentDepth + subtreeHeight
+    const maxDepth = configStore.resource.organization.maxDepth
+    if (totalDepth > maxDepth) {
+      message.error(`组织架构的最大层级深度限制为 ${maxDepth} 层（当前选择将导致深度达到 ${totalDepth} 层）`)
+      return
+    }
+  }
+
   await formRef.value?.validate()
   saving.value = true
   try {

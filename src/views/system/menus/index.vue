@@ -152,6 +152,7 @@ import type { MenuType, SaveSystemMenu, SystemMenu } from '@/apis/upms/menu/type
 import type { SystemDictData } from '@/apis/upms/dict/type'
 import { menuIconOptions, resolveMenuIcon } from '@/config/menuIcons'
 import { menusStore } from '@/stores/modules/user'
+import { useSystemConfigStore } from '@/stores/modules/config'
 import { getSystemDictLabel, SYSTEM_DICT_TYPE, toSystemDictOptions } from '@/utils/SystemDict'
 
 interface TreeSelectOption {
@@ -378,8 +379,47 @@ const openEdit = async (menu: SystemMenu) => {
   editorOpen.value = true
 }
 
+const configStore = useSystemConfigStore()
+
+// 递归寻找菜单节点深度（根节点为 1）
+const getDepthById = (nodes: SystemMenu[], id: string, currentDepth = 1): number => {
+  for (const node of nodes) {
+    if (String(node.id) === String(id)) return currentDepth
+    if (node.children && node.children.length > 0) {
+      const depth = getDepthById(node.children, id, currentDepth + 1)
+      if (depth > 0) return depth
+    }
+  }
+  return 0
+}
+
+// 递归计算子树的最大高度（单节点为 1）
+const getSubtreeHeight = (node: SystemMenu): number => {
+  if (!node.children || node.children.length === 0) return 1
+  return 1 + Math.max(...node.children.map(getSubtreeHeight))
+}
+
 const saveMenu = async () => {
   if (!canWrite.value) return
+
+  // 校验最大层级深度限制
+  if (formState.parentId) {
+    const parentDepth = getDepthById(menuTree.value, formState.parentId)
+    let subtreeHeight = 1
+    if (formState.id) {
+      const currentNode = flattenMenus(menuTree.value).find((menu) => String(menu.id) === String(formState.id))
+      if (currentNode) {
+        subtreeHeight = getSubtreeHeight(currentNode)
+      }
+    }
+    const totalDepth = parentDepth + subtreeHeight
+    const maxDepth = configStore.resource.menu.maxDepth
+    if (totalDepth > maxDepth) {
+      message.error(`菜单最大层级限制为 ${maxDepth} 层（当前选择将导致层级达到 ${totalDepth} 层）`)
+      return
+    }
+  }
+
   await formRef.value?.validate()
   saving.value = true
   try {

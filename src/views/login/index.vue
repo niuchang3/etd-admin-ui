@@ -77,6 +77,19 @@
             </a-input-password>
           </a-form-item>
 
+          <a-form-item
+            v-if="loginFailCount >= configStore.security.captcha.triggerOnFailCount"
+            label="验证码"
+            name="captcha"
+          >
+            <div class="captcha-wrapper">
+              <a-input v-model:value="formState.captcha" placeholder="请输入验证码" class="captcha-input" />
+              <div class="captcha-box" @click="generateCaptchaText" title="点击刷新验证码">
+                {{ generatedCaptcha }}
+              </div>
+            </div>
+          </a-form-item>
+
           <a-button class="submit-button" type="primary" html-type="submit" :loading="submitting" block>
             登录
             <ArrowRightOutlined v-if="!submitting" />
@@ -100,7 +113,7 @@
 </template>
 
 <script setup lang="ts">
-import { reactive, ref } from 'vue'
+import { onMounted, reactive, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import type { FormInstance, FormProps } from 'ant-design-vue'
 import { message } from 'ant-design-vue'
@@ -114,6 +127,7 @@ import {
 import type { LoginCredentials } from '@/apis/upms/login/type'
 import { accountLogin, clear as clearSession } from '@/stores/modules/oauth'
 import { clearStore, menusStore, tenantsStore, userStore } from '@/stores/modules/user'
+import { useSystemConfigStore } from '@/stores/modules/config'
 import { runtimeEnvironment } from '@/config/runtimeEnvironment'
 
 // 路由实例用于登录成功后返回原目标页面。
@@ -124,11 +138,13 @@ const submitting = ref(false)
 const currentUser = userStore()
 const currentTenant = tenantsStore()
 const currentMenus = menusStore()
+const configStore = useSystemConfigStore()
 
-// 页面只维护账号和密码两个表单字段。
-const formState = reactive<LoginCredentials>({
+// 页面只维护账号、密码及图形验证码。
+const formState = reactive<LoginCredentials & { captcha?: string }>({
   username: '',
   password: '',
+  captcha: '',
 })
 
 // 登录字段的必填和长度校验规则。
@@ -141,7 +157,36 @@ const rules: FormProps['rules'] = {
     { required: true, message: '请输入密码', trigger: 'blur' },
     { min: 6, max: 128, message: '密码长度应为 6–128 个字符', trigger: 'blur' },
   ],
+  captcha: [{
+    validator: async (_rule, value: string | null) => {
+      if (loginFailCount.value >= configStore.security.captcha.triggerOnFailCount) {
+        if (!value || !value.trim()) {
+          throw new Error('请输入验证码')
+        }
+        if (value.toLowerCase() !== generatedCaptcha.value.toLowerCase()) {
+          throw new Error('验证码输入不正确')
+        }
+      }
+    },
+    trigger: 'blur',
+  }],
 }
+
+const loginFailCount = ref(0)
+const generatedCaptcha = ref('')
+
+const generateCaptchaText = () => {
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789'
+  let text = ''
+  for (let i = 0; i < 4; i++) {
+    text += chars.charAt(Math.floor(Math.random() * chars.length))
+  }
+  generatedCaptcha.value = text
+}
+
+onMounted(() => {
+  void configStore.fetchConfigs()
+})
 
 /**
  * 完整登录链路：认证、获取租户、选定租户、获取用户资料与菜单、进入管理平台。
@@ -162,6 +207,10 @@ const submit = async () => {
     const redirect = typeof route.query.redirect === 'string' ? route.query.redirect : '/'
     await router.replace(redirect)
   } catch (error) {
+    loginFailCount.value++
+    if (loginFailCount.value >= configStore.security.captcha.triggerOnFailCount) {
+      generateCaptchaText()
+    }
     // 任一初始化阶段失败都回滚整个登录会话。
     clearSession()
     await clearStore()
@@ -420,5 +469,34 @@ const submit = async () => {
 .page-footer b {
   color: var(--du-positive);
   font-weight: 600;
+}
+
+.captcha-wrapper {
+  display: flex;
+  gap: var(--du-space-2);
+  align-items: center;
+}
+.captcha-input {
+  flex: 1;
+}
+.captcha-box {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  width: 90px;
+  height: 36px;
+  color: #2d5ec4;
+  border: 1px solid #bec6d2;
+  border-radius: var(--du-radius-sm);
+  background: #edf2fc;
+  font-family: var(--du-font-mono);
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 2px;
+  cursor: pointer;
+  user-select: none;
+}
+.captcha-box:hover {
+  background: #e1ecf7;
 }
 </style>
