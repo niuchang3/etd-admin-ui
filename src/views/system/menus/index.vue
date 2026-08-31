@@ -106,7 +106,7 @@
           </a-form-item>
 
           <a-form-item label="组件地址" name="menuRouter">
-            <a-input v-model:value="formState.menuRouter" :maxlength="100" placeholder="例如：@/views/menu/index.vue" />
+            <a-input v-model:value="formState.menuRouter" :maxlength="100" placeholder="例如：@/views/system/menus/index.vue" />
           </a-form-item>
 
           <a-form-item label="菜单图标" name="menuIcon">
