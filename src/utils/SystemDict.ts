@@ -7,6 +7,7 @@ export const SYSTEM_DICT_TYPE = {
   rolePermissionType: 'system_role_permission_type',
   menuAccessLevel: 'system_menu_access_level',
   menuType: 'system_menu_type',
+  orgType: 'system_org_type',
 } as const
 
 export interface SystemDictOption<T> {

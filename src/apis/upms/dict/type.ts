@@ -30,6 +30,7 @@ export interface SystemDictData {
   dictValue: string
   sort: number | null
   enabled: boolean
+  builtIn: boolean
   remark: string | null
 }
 

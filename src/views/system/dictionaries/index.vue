@@ -84,16 +84,23 @@
               v-else-if="column.key === 'enabled'"
               :checked="record.enabled"
               :loading="dataStatusChangingId === record.id"
-              :disabled="!canWrite"
+              :disabled="!canWrite || record.builtIn"
               :checked-children="getSystemDictLabel(statusDict, '1')"
               :un-checked-children="getSystemDictLabel(statusDict, '0')"
               @change="changeDataEnabled(record, Boolean($event))"
             />
             <div v-else-if="column.key === 'actions'" class="row-actions">
-              <a-button v-if="canWrite" type="link" size="small" @click="openDataEdit(record)"><EditOutlined />编辑</a-button>
-              <a-popconfirm v-if="canWrite" title="确认删除该字典项吗？" ok-text="删除" cancel-text="取消" @confirm="removeData(record)">
-                <a-button type="link" size="small" danger><DeleteOutlined />删除</a-button>
-              </a-popconfirm>
+              <template v-if="record.builtIn">
+                <a-tooltip title="系统内置字典项，不允许修改或删除">
+                  <span class="readonly-label">内置</span>
+                </a-tooltip>
+              </template>
+              <template v-else-if="canWrite">
+                <a-button type="link" size="small" @click="openDataEdit(record)"><EditOutlined />编辑</a-button>
+                <a-popconfirm title="确认删除该字典项吗？" ok-text="删除" cancel-text="取消" @confirm="removeData(record)">
+                  <a-button type="link" size="small" danger><DeleteOutlined />删除</a-button>
+                </a-popconfirm>
+              </template>
             </div>
           </template>
           <template #emptyText><a-empty :description="selectedType ? '暂无字典项' : '请先选择字典类型'" /></template>
@@ -346,6 +353,7 @@ const openDataCreate = () => {
 }
 /** 编辑前重新获取字典项完整详情。 */
 const openDataEdit = async (record: SystemDictData) => {
+  if (record.builtIn) return
   const response = await getSystemDictData(record.id)
   if (!response.data) return void message.warning('该字典项已不存在，请刷新列表')
   Object.assign(dataForm, { id: response.data.id, dictTypeId: response.data.dictTypeId, dictCode: response.data.dictCode, dictLabel: response.data.dictLabel, dictValue: response.data.dictValue, sort: response.data.sort, remark: response.data.remark })
@@ -366,6 +374,7 @@ const saveData = async () => {
 }
 /** 字典项状态由独立 PATCH 接口维护。 */
 const changeDataEnabled = async (record: SystemDictData, enabled: boolean) => {
+  if (record.builtIn) return
   dataStatusChangingId.value = record.id
   try {
     const response = await changeSystemDictDataEnabled(record.id, enabled)
@@ -376,6 +385,7 @@ const changeDataEnabled = async (record: SystemDictData, enabled: boolean) => {
 }
 /** 删除字典项并在当前页已空时回退一页。 */
 const removeData = async (record: SystemDictData) => {
+  if (record.builtIn) return
   const response = await deleteSystemDictData(record.id)
   if (!response.data) return void message.warning('字典项删除未生效，请刷新后重试')
   message.success('字典项删除成功')
