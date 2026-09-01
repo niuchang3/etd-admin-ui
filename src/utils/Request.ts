@@ -3,7 +3,8 @@ import qs from 'qs';
 import { message } from 'ant-design-vue';
 import { clear, getAccessToken, refreshToken } from '@/stores/modules/oauth';
 import { clearStore, tenantsStore } from '@/stores/modules/user';
-import router from '@/router/index'
+import router from '@/router/index';
+import { APP_NAME, APP_VERSION, getDeviceId, getDeviceFingerprint } from './device';
 
 
 
@@ -29,9 +30,17 @@ const instance: AxiosInstance = axios.create({
 });
 
 /**
- * 请求拦截器：向所有业务请求注入访问令牌和当前租户 ID。
+ * 请求拦截器：向所有业务请求注入访问令牌、租户、应用元数据与设备指纹。
  */
 instance.interceptors.request.use((config: InternalAxiosRequestConfig) => {
+    // 注入应用名称与版本标识
+    config.headers['x-application-header'] = APP_NAME;
+    config.headers['x-application-version-header'] = APP_VERSION;
+
+    // 注入客户端设备唯一标识 ID 与指纹
+    config.headers['x-device-id'] = getDeviceId();
+    config.headers['x-device-fingerprint'] = getDeviceFingerprint();
+
     // 已登录请求统一使用 Bearer Token。
     const token = getAccessToken();
     if (token) {

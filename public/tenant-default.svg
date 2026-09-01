@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" width="48" height="48" fill="none">
+  <defs>
+    <linearGradient id="tenantBg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#3B82F6"/>
+      <stop offset="100%" stop-color="#1D4ED8"/>
+    </linearGradient>
+  </defs>
+  <rect width="48" height="48" rx="10" fill="url(#tenantBg)"/>
+  <!-- 立体租户空间图形 -->
+  <path d="M24 11L37 18.5V33.5L24 41L11 33.5V18.5L24 11Z" stroke="white" stroke-width="1.5" stroke-opacity="0.3" fill="none"/>
+  <path d="M24 12L36 19L24 26L12 19L24 12Z" fill="white" fill-opacity="0.95"/>
+  <path d="M12 19L24 26V39L12 32V19Z" fill="white" fill-opacity="0.75"/>
+  <path d="M36 19L24 26V39L36 32V19Z" fill="white" fill-opacity="0.85"/>
+  <!-- 顶面微折光 -->
+  <path d="M24 13.5L34 19L24 24.5L14 19L24 13.5Z" fill="#EFF6FF" fill-opacity="0.4"/>
+</svg>

@@ -80,6 +80,7 @@ button {
 
 .ant-table-wrapper .ant-table-tbody > tr > td {
   border-bottom-color: #e7eaf0;
+  vertical-align: middle;
 }
 /* 运行环境语义色供登录页和管理平台顶栏共同使用。 */
 .runtime-environment--development {

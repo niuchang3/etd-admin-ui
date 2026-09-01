@@ -3,6 +3,8 @@ import type { Id, PageResponse, Response } from "@/apis/types";
 import type {
   PageTenantParams,
   TenantCreateForm,
+  TenantMenuAssignPayload,
+  TenantMenuSettings,
   TenantRecord,
   TenantUpdateForm,
 } from "./type";
@@ -52,5 +54,20 @@ export const changeTenantLocked = async (id: Id, locked: boolean) => {
 export const deleteTenant = async (id: Id) => {
   return await request.delete<Response<boolean>>({
     url: `/upms/api/v1/tenant/${encodeURIComponent(id)}`,
+  });
+};
+
+/** 查询指定租户的菜单配置及已选菜单 */
+export const getTenantMenuSettings = async (tenantId: Id) => {
+  return await request.get<Response<TenantMenuSettings>>({
+    url: `/upms/api/v1/tenant/${encodeURIComponent(tenantId)}/menus`,
+  });
+};
+
+/** 全量覆盖保存租户菜单配置 */
+export const replaceTenantMenus = async (tenantId: Id, data: TenantMenuAssignPayload) => {
+  return await request.put<Response<boolean>>({
+    url: `/upms/api/v1/tenant/${encodeURIComponent(tenantId)}/menus`,
+    data,
   });
 };

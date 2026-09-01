@@ -5,8 +5,16 @@
       <!-- 左侧只展示平台品牌、运行环境和安全信息。 -->
       <aside class="system-panel">
         <div class="brand">
-          <img v-if="configStore.branding.logo" :src="configStore.branding.logo" alt="Logo" class="brand-logo-img" />
-          <span v-else class="brand-mark">E</span>
+          <img
+            v-if="configStore.branding.logo && !logoError"
+            :src="configStore.branding.logo"
+            alt="Logo"
+            class="brand-logo-img"
+            @error="logoError = true"
+          />
+          <span v-else class="brand-mark">
+            {{ (configStore.branding.name || 'E').charAt(0).toUpperCase() }}
+          </span>
           <div>
             <strong>{{ configStore.branding.name || 'ETD Console' }}</strong>
             <small>Operations Suite</small>
@@ -115,7 +123,7 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, reactive, ref } from 'vue'
+import { onMounted, reactive, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import type { FormInstance, FormProps } from 'ant-design-vue'
 import { message } from 'ant-design-vue'
@@ -137,10 +145,15 @@ const router = useRouter()
 const route = useRoute()
 const formRef = ref<FormInstance>()
 const submitting = ref(false)
+const logoError = ref(false)
 const currentUser = userStore()
 const currentTenant = tenantsStore()
 const currentMenus = menusStore()
 const configStore = useSystemConfigStore()
+
+watch(() => configStore.branding.logo, () => {
+  logoError.value = false
+})
 
 // 页面只维护账号、密码及图形验证码。
 const formState = reactive<LoginCredentials & { captcha?: string }>({

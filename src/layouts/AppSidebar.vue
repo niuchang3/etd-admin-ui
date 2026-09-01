@@ -2,8 +2,16 @@
   <!-- 应用侧栏从当前租户的菜单接口读取树形导航。 -->
   <aside class="sidebar" :class="{ 'is-collapsed': collapsed }">
     <div class="brand">
-      <img v-if="configStore.branding.logo" :src="configStore.branding.logo" alt="Logo" class="brand-logo-img" />
-      <div v-else class="brand-mark">E</div>
+      <img
+        v-if="configStore.branding.logo && !logoError"
+        :src="configStore.branding.logo"
+        alt="Logo"
+        class="brand-logo-img"
+        @error="logoError = true"
+      />
+      <div v-else class="brand-mark">
+        {{ (configStore.branding.name || 'E').charAt(0).toUpperCase() }}
+      </div>
       <div v-if="!collapsed" class="brand-copy">
         <strong>{{ configStore.branding.name || 'ETD Console' }}</strong>
         <span>Operations Suite</span>
@@ -49,7 +57,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, h, onMounted, ref } from 'vue'
+import { computed, h, onMounted, ref, watch } from 'vue'
 import { Empty, type MenuProps } from 'ant-design-vue'
 import { ExclamationCircleOutlined, MenuFoldOutlined, MenuUnfoldOutlined } from '@ant-design/icons-vue'
 import { useRoute, useRouter } from 'vue-router'
@@ -71,7 +79,12 @@ const currentMenus = menusStore()
 const configStore = useSystemConfigStore()
 const loading = ref(false)
 const loadFailed = ref(false)
+const logoError = ref(false)
 const simpleImage = Empty.PRESENTED_IMAGE_SIMPLE
+
+watch(() => configStore.branding.logo, () => {
+  logoError.value = false
+})
 
 // 文档约定 menuPath 是页面访问路径，menuRouter 是组件地址。
 const getMenuRoute = (menu: UserMenuNode) => {

@@ -34,9 +34,7 @@
         <template #bodyCell="{ column, record }">
           <code v-if="column.key === 'parameterKey'" class="code-value">{{ record.parameterKey }}</code>
           <a-tag v-else-if="column.key === 'valueType'" color="blue">{{ getSystemDictLabel(valueTypeDict, record.valueType) }}</a-tag>
-          <span v-else-if="column.key === 'parameterValue'" class="value-preview" :title="record.parameterValue || ''">
-            {{ record.parameterValue ?? '—' }}
-          </span>
+          <EllipsisText v-else-if="column.key === 'parameterValue'" :text="record.parameterValue" max-width="260px" />
           <a-tag v-else-if="column.key === 'builtIn'" :color="record.builtIn ? 'gold' : 'default'">
             {{ getSystemDictLabel(builtInDict, record.builtIn) }}
           </a-tag>
@@ -49,7 +47,7 @@
             :un-checked-children="getSystemDictLabel(statusDict, '0')"
             @change="changeEnabled(record, Boolean($event))"
           />
-          <span v-else-if="column.key === 'updateTime'" class="code-value">{{ record.updateTime }}</span>
+          <span v-else-if="column.key === 'updateTime'" class="code-value du-mono">{{ formatDateTime(record.updateTime) }}</span>
           <div v-else-if="column.key === 'actions'" class="row-actions">
             <a-button v-if="canWrite" type="link" size="small" @click="openEdit(record)"><EditOutlined />编辑</a-button>
             <a-popconfirm
@@ -130,10 +128,13 @@ import {
   updateSystemConfig,
 } from '@/apis/upms/config'
 import { getEnabledDictData } from '@/apis/upms/dict'
-import type { SystemConfig, SystemConfigSaveDTO, SystemConfigValueType } from '@/apis/upms/config/type'
+import type { SystemConfig, SystemConfigQuery, SystemConfigSaveDTO, SystemConfigValueType } from '@/apis/upms/config/type'
 import type { SystemDictData } from '@/apis/upms/dict/type'
 import { menusStore } from '@/stores/modules/user'
 import { getSystemDictLabel, SYSTEM_DICT_TYPE, toSystemDictOptions } from '@/utils/SystemDict'
+import { formatDateTime } from '@/utils/format'
+import { useTablePagination } from '@/composables/useTablePagination'
+import EllipsisText from '@/components/EllipsisText.vue'
 
 interface ConfigFormState extends SystemConfigSaveDTO {
   id?: string
@@ -143,24 +144,40 @@ interface ConfigFormState extends SystemConfigSaveDTO {
 // 页面写权限完全取自当前路由对应菜单的 accessLevel，避免只在导航层控制权限。
 const route = useRoute()
 const canWrite = computed(() => menusStore().canWritePath(route.path))
-const loading = ref(false)
 const saving = ref(false)
 const editorOpen = ref(false)
 const statusChangingId = ref('')
-const records = ref<SystemConfig[]>([])
 const statusDict = ref<SystemDictData[]>([])
 const builtInDict = ref<SystemDictData[]>([])
 const valueTypeDict = ref<SystemDictData[]>([])
-const total = ref(0)
 const formRef = ref<FormInstance>()
-// enabled 为 undefined 时不会形成有效筛选条件，表示查询全部状态。
-const query = reactive<{ current: number, size: number, keyword: string, enabled?: boolean, valueType?: string }>({
-  current: 1,
-  size: 10,
-  keyword: '',
-  enabled: undefined,
-  valueType: undefined,
-})
+
+// 使用通用表格分页 Hook
+const {
+  loading,
+  records,
+  query,
+  pagination,
+  loadData: loadConfigs,
+  handleSearch,
+  resetSearch,
+  handleTableChange,
+  refreshAfterDelete,
+} = useTablePagination<SystemConfig, SystemConfigQuery>(
+  (params) =>
+    getSystemConfigPage({
+      ...params,
+      keyword: params.keyword?.trim() || '',
+    }),
+  {
+    current: 1,
+    size: 10,
+    keyword: '',
+    enabled: undefined,
+    valueType: undefined,
+  },
+  { defaultSize: 10 }
+)
 
 const createEmptyForm = (): ConfigFormState => ({
   parameterKey: '',
@@ -197,14 +214,6 @@ const columns: TableColumnsType<SystemConfig> = [
   { title: '操作', key: 'actions', width: 140, align: 'right' },
 ]
 
-const pagination = computed(() => ({
-  current: query.current,
-  pageSize: query.size,
-  total: total.value,
-  showSizeChanger: true,
-  showTotal: (count: number) => `共 ${count} 条`,
-}))
-
 // JSON 和数字在提交前先做格式校验，字段长度与后端 DTO 约束保持一致。
 const rules: FormProps['rules'] = {
   parameterKey: [
@@ -232,45 +241,6 @@ const rules: FormProps['rules'] = {
     trigger: 'blur',
   }],
   remark: [{ max: 500, message: '备注不能超过 500 个字符', trigger: 'blur' }],
-}
-
-/** 按当前查询条件加载一页系统参数。 */
-const loadConfigs = async () => {
-  loading.value = true
-  try {
-    const response = await getSystemConfigPage({
-      current: query.current,
-      size: query.size,
-      keyword: query.keyword.trim(),
-      enabled: query.enabled,
-      valueType: query.valueType,
-    })
-    records.value = response.data?.records || []
-    total.value = response.data?.total || 0
-  } finally {
-    loading.value = false
-  }
-}
-
-// 查询和重置都回到第一页，避免旧页码导致结果为空。
-const handleSearch = () => {
-  query.current = 1
-  void loadConfigs()
-}
-
-const resetSearch = () => {
-  query.current = 1
-  query.size = 10
-  query.keyword = ''
-  query.enabled = undefined
-  query.valueType = undefined
-  void loadConfigs()
-}
-
-const handleTableChange = (page: { current?: number, pageSize?: number }) => {
-  query.current = page.current || 1
-  query.size = page.pageSize || 10
-  void loadConfigs()
 }
 
 const resetForm = () => Object.assign(formState, createEmptyForm())
@@ -353,8 +323,7 @@ const removeConfig = async (record: SystemConfig) => {
     return
   }
   message.success('系统参数删除成功')
-  if (records.value.length === 1 && query.current > 1) query.current -= 1
-  await loadConfigs()
+  await refreshAfterDelete()
 }
 
 onMounted(() => {

@@ -47,3 +47,28 @@ export interface TenantUpdateForm {
   creditCode?: string
   tenantType?: string
 }
+
+/** 租户菜单项 */
+export interface TenantMenuItem {
+  id: Id
+  parentId?: Id | null
+  createTime?: string
+  dataStatus: 0 | 1
+  menuName: string
+  menuPath?: string
+  menuRouter?: string
+  menuIcon?: string
+  menuType: string
+  sort?: number
+}
+
+/** 租户菜单配置查询响应 */
+export interface TenantMenuSettings {
+  menus: TenantMenuItem[]
+  selectedMenuIds: Id[]
+}
+
+/** 租户菜单全量分配请求体 */
+export interface TenantMenuAssignPayload {
+  menuIds: Id[]
+}

@@ -22,6 +22,7 @@
           </div>
           <code v-else-if="column.key === 'roleCode'" class="code-value">{{ record.roleCode }}</code>
           <span v-else-if="column.key === 'permissionType'">{{ getPermissionTypeLabel(record.permissionType) }}</span>
+          <EllipsisText v-else-if="column.key === 'roleDesc'" :text="record.roleDesc" max-width="260px" />
           <a-switch
             v-else-if="column.key === 'dataStatus'"
             :checked="record.dataStatus === 1"
@@ -140,10 +141,12 @@ import {
   getSystemRolePage,
   updateSystemRole,
 } from '@/apis/upms/role'
-import type { MenuAccessLevel, RolePermissionType, SystemRole, SystemRoleSaveDTO } from '@/apis/upms/role/type'
+import type { MenuAccessLevel, RolePermissionType, SystemRole, SystemRoleQuery, SystemRoleSaveDTO } from '@/apis/upms/role/type'
 import type { SystemDictData } from '@/apis/upms/dict/type'
 import { menusStore, normalizeMenuTree } from '@/stores/modules/user'
 import { getSystemDictLabel, SYSTEM_DICT_TYPE, toSystemDictOptions } from '@/utils/SystemDict'
+import { useTablePagination } from '@/composables/useTablePagination'
+import EllipsisText from '@/components/EllipsisText.vue'
 
 interface RoleFormState extends SystemRoleSaveDTO { id?: string, builtIn: boolean }
 interface MenuTreeNode { key: string, title: string, children?: MenuTreeNode[] }
@@ -151,18 +154,31 @@ interface MenuTreeNode { key: string, title: string, children?: MenuTreeNode[] }
 // 当前菜单只有读写级别为 2 时才显示角色管理写操作。
 const route = useRoute()
 const canWrite = computed(() => menusStore().canWritePath(route.path))
-const loading = ref(false)
 const saving = ref(false)
 const editorOpen = ref(false)
 const statusChangingId = ref('')
-const records = ref<SystemRole[]>([])
 const statusDict = ref<SystemDictData[]>([])
 const builtInDict = ref<SystemDictData[]>([])
 const permissionTypeDict = ref<SystemDictData[]>([])
 const accessLevelDict = ref<SystemDictData[]>([])
-const total = ref(0)
 const formRef = ref<FormInstance>()
-const query = reactive<{ current: number, size: number, keyword: string, dataStatus?: 0 | 1 }>({ current: 1, size: 10, keyword: '', dataStatus: undefined })
+
+// 使用通用表格分页 Hook
+const {
+  loading,
+  records,
+  query,
+  pagination,
+  loadData: loadRoles,
+  handleSearch,
+  resetSearch,
+  handleTableChange,
+  refreshAfterDelete,
+} = useTablePagination<SystemRole, SystemRoleQuery>(
+  (params) => getSystemRolePage({ ...params, keyword: params.keyword?.trim() || '' }),
+  { current: 1, size: 10, keyword: '', dataStatus: undefined },
+  { defaultSize: 10 }
+)
 
 // 授权抽屉独立保存菜单树、选中项和每个菜单的访问级别。
 const authorizationOpen = ref(false)
@@ -202,26 +218,13 @@ const columns: TableColumnsType<SystemRole> = [
   { title: '状态', dataIndex: 'dataStatus', key: 'dataStatus', width: 85 },
   { title: '操作', key: 'actions', width: 240, align: 'right' },
 ]
-const pagination = computed(() => ({ current: query.current, pageSize: query.size, total: total.value, showSizeChanger: true, showTotal: (count: number) => `共 ${count} 条` }))
+
 // 角色名称和编码长度与后端 DTO 校验规则保持一致。
 const rules: FormProps['rules'] = {
   roleName: [{ required: true, whitespace: true, message: '请输入角色名称', trigger: 'blur' }, { max: 20, message: '角色名称不能超过 20 个字符', trigger: 'blur' }],
   roleCode: [{ required: true, whitespace: true, message: '请输入角色编码', trigger: 'blur' }, { max: 50, message: '角色编码不能超过 50 个字符', trigger: 'blur' }],
   permissionType: [{ required: true, message: '请选择数据权限', trigger: 'change' }],
 }
-
-/** 按查询条件加载一页角色。 */
-const loadRoles = async () => {
-  loading.value = true
-  try {
-    const response = await getSystemRolePage({ ...query, keyword: query.keyword.trim() })
-    records.value = response.data?.records || []
-    total.value = response.data?.total || 0
-  } finally { loading.value = false }
-}
-const handleSearch = () => { query.current = 1; void loadRoles() }
-const resetSearch = () => { Object.assign(query, { current: 1, size: 10, keyword: '', dataStatus: undefined }); void loadRoles() }
-const handleTableChange = (page: { current?: number, pageSize?: number }) => { query.current = page.current || 1; query.size = page.pageSize || 10; void loadRoles() }
 
 /** 打开角色新增表单。 */
 const openCreate = () => { Object.assign(formState, emptyForm()); editorOpen.value = true }
@@ -264,8 +267,7 @@ const removeRole = async (record: SystemRole) => {
   const response = await deleteSystemRole(record.id)
   if (!response.data) return void message.warning('角色删除未生效，请刷新后重试')
   message.success('角色删除成功')
-  if (records.value.length === 1 && query.current > 1) query.current -= 1
-  await loadRoles()
+  await refreshAfterDelete()
 }
 
 // 递归收集菜单键，仅用于一键展开树，不对字符串 ID 做数值转换。

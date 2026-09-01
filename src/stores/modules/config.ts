@@ -65,7 +65,7 @@ export interface NetworkPolicy {
 // 本地兜底默认值
 export const DEFAULT_BRANDING: BrandingConfig = {
   name: 'ETD 后台管理系统',
-  logo: '/assets/images/logo.png',
+  logo: '',
   favicon: '/favicon.ico',
   copyright: 'Copyright © 2026 ETD. All Rights Reserved.',
   watermark: {
@@ -135,33 +135,65 @@ export const useSystemConfigStore = defineStore('system-config', () => {
       const response = await getSystemConfigValues(keys)
       const data = response.data || {}
 
+      const safeParse = (val: unknown) => {
+        if (!val) return null
+        if (typeof val === 'object') return val
+        if (typeof val === 'string') {
+          try {
+            return JSON.parse(val)
+          } catch {
+            return null
+          }
+        }
+        return null
+      }
+
       // 如果获取成功，解析 JSON。如果解析失败或值不存在，执行回滚兜底。
-      if (data[SYSTEM_CONFIG_KEY.branding]) {
-        try {
-          branding.value = { ...DEFAULT_BRANDING, ...JSON.parse(data[SYSTEM_CONFIG_KEY.branding]) }
-        } catch {
-          branding.value = { ...DEFAULT_BRANDING }
+      const rawBranding = safeParse(data[SYSTEM_CONFIG_KEY.branding])
+      if (rawBranding) {
+        branding.value = {
+          ...DEFAULT_BRANDING,
+          ...rawBranding,
+          watermark: {
+            ...DEFAULT_BRANDING.watermark,
+            ...(rawBranding.watermark || {}),
+          },
         }
       }
-      if (data[SYSTEM_CONFIG_KEY.securityPolicy]) {
-        try {
-          security.value = { ...DEFAULT_SECURITY_POLICY, ...JSON.parse(data[SYSTEM_CONFIG_KEY.securityPolicy]) }
-        } catch {
-          security.value = { ...DEFAULT_SECURITY_POLICY }
+
+      const rawSecurity = safeParse(data[SYSTEM_CONFIG_KEY.securityPolicy])
+      if (rawSecurity) {
+        security.value = {
+          captcha: {
+            ...DEFAULT_SECURITY_POLICY.captcha,
+            ...(rawSecurity.captcha || {}),
+          },
+          password: {
+            ...DEFAULT_SECURITY_POLICY.password,
+            ...(rawSecurity.password || {}),
+          },
         }
       }
-      if (data[SYSTEM_CONFIG_KEY.resourceLimit]) {
-        try {
-          resource.value = { ...DEFAULT_RESOURCE_LIMIT, ...JSON.parse(data[SYSTEM_CONFIG_KEY.resourceLimit]) }
-        } catch {
-          resource.value = { ...DEFAULT_RESOURCE_LIMIT }
+
+      const rawResource = safeParse(data[SYSTEM_CONFIG_KEY.resourceLimit])
+      if (rawResource) {
+        resource.value = {
+          ...DEFAULT_RESOURCE_LIMIT,
+          ...rawResource,
+          upload: { ...DEFAULT_RESOURCE_LIMIT.upload, ...(rawResource.upload || {}) },
+          organization: { ...DEFAULT_RESOURCE_LIMIT.organization, ...(rawResource.organization || {}) },
+          menu: { ...DEFAULT_RESOURCE_LIMIT.menu, ...(rawResource.menu || {}) },
+          pagination: { ...DEFAULT_RESOURCE_LIMIT.pagination, ...(rawResource.pagination || {}) },
         }
       }
-      if (data[SYSTEM_CONFIG_KEY.networkPolicy]) {
-        try {
-          network.value = { ...DEFAULT_NETWORK_POLICY, ...JSON.parse(data[SYSTEM_CONFIG_KEY.networkPolicy]) }
-        } catch {
-          network.value = { ...DEFAULT_NETWORK_POLICY }
+
+      const rawNetwork = safeParse(data[SYSTEM_CONFIG_KEY.networkPolicy])
+      if (rawNetwork) {
+        network.value = {
+          ...DEFAULT_NETWORK_POLICY,
+          ...rawNetwork,
+          request: { ...DEFAULT_NETWORK_POLICY.request, ...(rawNetwork.request || {}) },
+          cache: { ...DEFAULT_NETWORK_POLICY.cache, ...(rawNetwork.cache || {}) },
         }
       }
       isLoaded.value = true

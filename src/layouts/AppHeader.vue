@@ -20,7 +20,7 @@
       <a-dropdown :trigger="['click']" placement="bottomRight">
         <button type="button" class="profile-button" aria-label="打开用户菜单">
           <span class="avatar">
-            <img v-if="userInfo.avatar" :src="userInfo.avatar" alt="" />
+            <img v-if="userInfo.avatar && !avatarError" :src="userInfo.avatar" alt="" @error="avatarError = true" />
             <span v-else>{{ userInitials }}</span>
           </span>
           <span class="profile-copy">
@@ -50,7 +50,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import type { MenuProps } from 'ant-design-vue'
 import { BellOutlined, DownOutlined, LogoutOutlined, QuestionCircleOutlined, SearchOutlined } from '@ant-design/icons-vue'
@@ -61,6 +61,12 @@ import { runtimeEnvironment } from '@/config/runtimeEnvironment'
 const router = useRouter()
 const currentUser = userStore()
 const currentTenant = tenantsStore()
+const avatarError = ref(false)
+
+watch(() => currentUser.userInfo.avatar, () => {
+  avatarError.value = false
+})
+
 // 所有展示字段都从 Pinia 用户状态派生，避免静态占位内容。
 const userInfo = computed(() => currentUser.userInfo)
 const displayName = computed(() => userInfo.value.nickName || userInfo.value.userName || '当前用户')

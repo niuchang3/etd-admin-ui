@@ -8,6 +8,7 @@ export const SYSTEM_DICT_TYPE = {
   menuAccessLevel: 'system_menu_access_level',
   menuType: 'system_menu_type',
   orgType: 'system_org_type',
+  tenantType: 'system_tenant_type',
 } as const
 
 export interface SystemDictOption<T> {
