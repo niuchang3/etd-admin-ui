@@ -1,6 +1,7 @@
 import type { Id } from '@/apis/types'
 import type { UserInfo, UserRole, Tenant } from '@/apis/upms/login/type'
 import type { UserRecord, UserRoleItem } from '@/apis/upms/user/type'
+import { SYSTEM_ROLE_CODE } from '@/constant'
 
 /**
  * 角色编码规范化：去除空格、下划线、短横线并统一转为小写。
@@ -16,7 +17,7 @@ export const normalizeRoleCode = (roleCode?: string | null): string => {
  */
 export const isPlatformAdminRole = (role?: { roleCode?: string | null } | null): boolean => {
   if (!role) return false
-  return normalizeRoleCode(role.roleCode) === 'platformadmin'
+  return normalizeRoleCode(role.roleCode) === SYSTEM_ROLE_CODE.PLATFORM_ADMIN
 }
 
 /**
@@ -25,7 +26,7 @@ export const isPlatformAdminRole = (role?: { roleCode?: string | null } | null):
  */
 export const isTenantAdminRole = (role?: { roleCode?: string | null } | null): boolean => {
   if (!role) return false
-  return normalizeRoleCode(role.roleCode) === 'tenantadmin'
+  return normalizeRoleCode(role.roleCode) === SYSTEM_ROLE_CODE.TENANT_ADMIN
 }
 
 /**

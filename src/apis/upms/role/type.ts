@@ -31,6 +31,12 @@ export interface SystemRoleSaveDTO {
   roleCode: string
   roleDesc: string | null
   permissionType: RolePermissionType
+  organizationIds: Id[]
+}
+
+/** 角色组织数据权限全量授权请求体（仅用于 permissionType === '5' 的独立维护场景）。 */
+export interface SystemRoleOrganizationAssignDTO {
+  organizationIds: Id[]
 }
 
 /** 单个角色菜单授权项，menuId 按字符串传递。 */

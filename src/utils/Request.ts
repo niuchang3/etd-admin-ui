@@ -4,6 +4,7 @@ import { message } from 'ant-design-vue';
 import { clear, getAccessToken, refreshToken } from '@/stores/modules/oauth';
 import { clearStore, tenantsStore } from '@/stores/modules/user';
 import router from '@/router/index';
+import { AUTH_TOKEN_PREFIX, HTTP_HEADER, RESULT_CODE } from '@/constant';
 import { APP_NAME, APP_VERSION, getDeviceId, getDeviceFingerprint } from './device';
 
 
@@ -34,22 +35,22 @@ const instance: AxiosInstance = axios.create({
  */
 instance.interceptors.request.use((config: InternalAxiosRequestConfig) => {
     // 注入应用名称与版本标识
-    config.headers['x-application'] = APP_NAME;
-    config.headers['x-version'] = APP_VERSION;
+    config.headers[HTTP_HEADER.APPLICATION] = APP_NAME;
+    config.headers[HTTP_HEADER.VERSION] = APP_VERSION;
 
     // 注入客户端设备唯一标识 ID 与指纹
-    config.headers['x-device-id'] = getDeviceId();
-    config.headers['x-device-fingerprint'] = getDeviceFingerprint();
+    config.headers[HTTP_HEADER.DEVICE_ID] = getDeviceId();
+    config.headers[HTTP_HEADER.DEVICE_FINGERPRINT] = getDeviceFingerprint();
 
     // 已登录请求统一使用 Bearer Token。
     const token = getAccessToken();
     if (token) {
-        config.headers['Authorization'] = 'Bearer ' + token;
+        config.headers[HTTP_HEADER.AUTHORIZATION] = AUTH_TOKEN_PREFIX + token;
     }
     // 租户列表请求阶段可能尚未选定租户，因此只在 ID 存在时添加请求头。
     const tenantId = tenantsStore().userTenant.currentTenant?.id;
     if (tenantId) {
-        config.headers['TENANT-CODE'] = tenantId
+        config.headers[HTTP_HEADER.TENANT_CODE] = tenantId
     }
     return config;
 }, (error: any) => {
@@ -64,7 +65,7 @@ let isRefreshing = false;
  */
 instance.interceptors.response.use((config: AxiosResponse) => {
     const result = config.data;
-    if (result && typeof result === 'object' && 'code' in result && result.code !== 2000) {
+    if (result && typeof result === 'object' && 'code' in result && result.code !== RESULT_CODE.SUCCESS) {
         const errorMessage = result.message || result.devMessage || '请求失败';
         message.error(errorMessage);
         return Promise.reject(new Error(errorMessage));
@@ -83,7 +84,7 @@ instance.interceptors.response.use((config: AxiosResponse) => {
 
         return await refreshToken().then(_res => {
             const token = getAccessToken();
-            config.headers['Authorization'] = 'Bearer ' + token;
+            config.headers[HTTP_HEADER.AUTHORIZATION] = AUTH_TOKEN_PREFIX + token;
             return instance(config);
         }).catch(_err => {
             clear()

@@ -1,9 +1,10 @@
-import type { PageResult, ResultModel } from '@/apis/types'
+import type { Id, PageResult, ResultModel } from '@/apis/types'
 import request from '@/utils/Request'
 import type {
   SystemRole,
   SystemRoleMenu,
   SystemRoleMenuAssignDTO,
+  SystemRoleOrganizationAssignDTO,
   SystemRoleQuery,
   SystemRoleSaveDTO,
 } from './type'
@@ -41,3 +42,12 @@ export const getSystemRoleMenus = (id: string) =>
 /** 全量保存角色菜单授权，menus 为空数组时清空授权。 */
 export const assignSystemRoleMenus = (id: string, data: SystemRoleMenuAssignDTO) =>
   request.put<ResultModel<boolean>>({ url: `${ROLE_API}/${id}/menus`, data })
+
+/** 查询角色当前关联的组织 ID 列表（当 permissionType === '5' 时）。 */
+export const getSystemRoleOrganizations = (id: string) =>
+  request.get<ResultModel<Id[]>>({ url: `${ROLE_API}/${id}/organizations` })
+
+/** 全量保存角色组织数据权限范围（仅在 permissionType === '5' 的非内置角色独立维护时使用）。 */
+export const assignSystemRoleOrganizations = (id: string, data: SystemRoleOrganizationAssignDTO) =>
+  request.put<ResultModel<boolean>>({ url: `${ROLE_API}/${id}/organizations`, data })
+

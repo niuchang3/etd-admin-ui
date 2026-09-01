@@ -25,11 +25,11 @@
           <EllipsisText v-else-if="column.key === 'roleDesc'" :text="record.roleDesc" max-width="260px" />
           <a-switch
             v-else-if="column.key === 'dataStatus'"
-            :checked="record.dataStatus === 1"
+            :checked="record.dataStatus === COMMON_STATUS.ENABLED"
             :loading="statusChangingId === record.id"
             :disabled="!canWrite || record.builtIn"
-            :checked-children="getLabel(SYSTEM_DICT_TYPE.commonStatus, '1')"
-            :un-checked-children="getLabel(SYSTEM_DICT_TYPE.commonStatus, '0')"
+            :checked-children="getLabel(SYSTEM_DICT_TYPE.commonStatus, String(COMMON_STATUS.ENABLED))"
+            :un-checked-children="getLabel(SYSTEM_DICT_TYPE.commonStatus, String(COMMON_STATUS.DISABLED))"
             @change="changeStatus(record, Boolean($event))"
           />
           <div v-else-if="column.key === 'actions'" class="row-actions">
@@ -62,7 +62,26 @@
             <a-input v-model:value="formState.roleCode" :disabled="formState.builtIn" :maxlength="50" show-count placeholder="请输入角色编码" />
           </a-form-item>
           <a-form-item label="数据权限" name="permissionType" class="full-row">
-            <a-select v-model:value="formState.permissionType" :options="permissionTypeOptions" />
+            <a-select v-model:value="formState.permissionType" :options="permissionTypeOptions" @change="onPermissionTypeChange" />
+          </a-form-item>
+          <a-form-item
+            v-if="formState.permissionType === ROLE_PERMISSION_TYPE.CUSTOM_ORG"
+            label="授权组织"
+            name="organizationIds"
+            class="full-row"
+          >
+            <a-tree-select
+              v-model:value="formState.organizationIds"
+              :tree-data="orgTreeData"
+              tree-checkable
+              tree-default-expand-all
+              :show-checked-strategy="TreeSelect.SHOW_ALL"
+              tree-node-filter-prop="title"
+              :loading="orgTreeLoading"
+              allow-clear
+              :max-tag-count="6"
+              placeholder="请选择授权组织机构"
+            />
           </a-form-item>
           <a-form-item label="角色描述" name="roleDesc" class="full-row">
             <a-textarea v-model:value="formState.roleDesc" :rows="4" placeholder="请输入角色描述" />
@@ -127,7 +146,7 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue'
 import { useRoute } from 'vue-router'
-import { message, type FormInstance, type FormProps, type TableColumnsType } from 'ant-design-vue'
+import { message, TreeSelect, type FormInstance, type FormProps, type TableColumnsType } from 'ant-design-vue'
 import { DeleteOutlined, EditOutlined, PlusOutlined, ReloadOutlined, SafetyCertificateOutlined, SearchOutlined } from '@ant-design/icons-vue'
 import { selectUserMenus } from '@/apis/upms/login'
 import {
@@ -137,12 +156,16 @@ import {
   deleteSystemRole,
   getSystemRole,
   getSystemRoleMenus,
+  getSystemRoleOrganizations,
   getSystemRolePage,
   updateSystemRole,
 } from '@/apis/upms/role'
 import type { MenuAccessLevel, RolePermissionType, SystemRole, SystemRoleQuery, SystemRoleSaveDTO } from '@/apis/upms/role/type'
+import { getOrganizationTree } from '@/apis/upms/organization'
+import type { Organization } from '@/apis/upms/organization/type'
 import { menusStore, normalizeMenuTree } from '@/stores/modules/user'
 import { SYSTEM_DICT_TYPE } from '@/utils/SystemDict'
+import { COMMON_STATUS, MENU_ACCESS_LEVEL, ROLE_PERMISSION_TYPE } from '@/constant'
 import { useTablePagination } from '@/composables/useTablePagination'
 import { useSystemDict } from '@/composables/useSystemDict'
 import { codeRules, requiredRule } from '@/utils/rules'
@@ -150,6 +173,7 @@ import EllipsisText from '@/components/EllipsisText.vue'
 
 interface RoleFormState extends SystemRoleSaveDTO { id?: string, builtIn: boolean }
 interface MenuTreeNode { key: string, title: string, children?: MenuTreeNode[] }
+interface OrgTreeNode { key: string, value: string, title: string, children?: OrgTreeNode[] }
 
 // 当前菜单只有读写级别为 2 时才显示角色管理写操作。
 const route = useRoute()
@@ -158,6 +182,32 @@ const saving = ref(false)
 const editorOpen = ref(false)
 const statusChangingId = ref('')
 const formRef = ref<FormInstance>()
+
+// 组织架构树数据与加载状态
+const rawOrgTree = ref<Organization[]>([])
+const orgTreeLoading = ref(false)
+
+const mapOrgToTree = (items: Organization[]): OrgTreeNode[] => {
+  return items.map((org) => ({
+    key: String(org.id),
+    value: String(org.id),
+    title: org.orgName,
+    children: org.children?.length ? mapOrgToTree(org.children) : undefined,
+  }))
+}
+
+const orgTreeData = computed(() => mapOrgToTree(rawOrgTree.value))
+
+const loadOrgTree = async () => {
+  if (rawOrgTree.value.length > 0) return
+  orgTreeLoading.value = true
+  try {
+    const res = await getOrganizationTree({ enabled: true })
+    rawOrgTree.value = res.data || []
+  } finally {
+    orgTreeLoading.value = false
+  }
+}
 
 // 通用系统字典 Hook
 const { getOptions, getLabel } = useSystemDict([
@@ -200,7 +250,14 @@ const checkedMenuIds = ref<string[]>([])
 const expandedMenuIds = ref<string[]>([])
 const menuAccessLevels = reactive<Record<string, MenuAccessLevel>>({})
 
-const emptyForm = (): RoleFormState => ({ roleName: '', roleCode: '', roleDesc: null, permissionType: '1', builtIn: false })
+const emptyForm = (): RoleFormState => ({
+  roleName: '',
+  roleCode: '',
+  roleDesc: null,
+  permissionType: ROLE_PERMISSION_TYPE.NO_LIMIT,
+  organizationIds: [],
+  builtIn: false,
+})
 const formState = reactive<RoleFormState>(emptyForm())
 
 const columns: TableColumnsType<SystemRole> = [
@@ -217,25 +274,77 @@ const rules: FormProps['rules'] = {
   roleName: [{ required: true, whitespace: true, message: '请输入角色名称', trigger: 'blur' }, { max: 20, message: '角色名称不能超过 20 个字符', trigger: 'blur' }],
   roleCode: codeRules('角色编码', 50),
   permissionType: [requiredRule('请选择数据权限', 'change')],
+  organizationIds: [
+    {
+      validator: async (_rule, value: string[]) => {
+        if (formState.permissionType === ROLE_PERMISSION_TYPE.CUSTOM_ORG && (!value || value.length === 0)) {
+          throw new Error('自定义跨组织数据权限至少需要选择一个组织')
+        }
+      },
+      trigger: ['change', 'blur'],
+    },
+  ],
+}
+
+/** 切换数据权限类型时联动处理组织选择与数据加载。 */
+const onPermissionTypeChange = (val: unknown) => {
+  if (val === ROLE_PERMISSION_TYPE.CUSTOM_ORG) {
+    void loadOrgTree()
+  } else {
+    formState.organizationIds = []
+    formRef.value?.clearValidate('organizationIds')
+  }
 }
 
 /** 打开角色新增表单。 */
-const openCreate = () => { Object.assign(formState, emptyForm()); editorOpen.value = true }
-/** 编辑前重新读取角色详情，确保 builtIn 和完整字段均为最新值。 */
+const openCreate = () => {
+  Object.assign(formState, emptyForm())
+  editorOpen.value = true
+}
+
+/** 编辑前重新读取角色详情及关联组织，确保 builtIn 和完整字段均为最新值。 */
 const openEdit = async (record: SystemRole) => {
   // 内置角色由系统初始化维护，事件层再次拦截所有修改入口。
   if (record.builtIn) return
   const response = await getSystemRole(record.id)
   if (!response.data) return void message.warning('该角色已不存在，请刷新列表')
-  Object.assign(formState, { id: response.data.id, roleName: response.data.roleName, roleCode: response.data.roleCode, roleDesc: response.data.roleDesc, permissionType: response.data.permissionType, builtIn: response.data.builtIn })
+
+  let orgIds: string[] = []
+  if (response.data.permissionType === ROLE_PERMISSION_TYPE.CUSTOM_ORG) {
+    void loadOrgTree()
+    const orgResponse = await getSystemRoleOrganizations(record.id)
+    orgIds = (orgResponse.data || []).map(String)
+  }
+
+  Object.assign(formState, {
+    id: response.data.id,
+    roleName: response.data.roleName,
+    roleCode: response.data.roleCode,
+    roleDesc: response.data.roleDesc,
+    permissionType: response.data.permissionType,
+    organizationIds: orgIds,
+    builtIn: response.data.builtIn,
+  })
   editorOpen.value = true
 }
+
 /** 校验后新增或全量修改角色。 */
 const saveRole = async () => {
   await formRef.value?.validate()
+  if (formState.permissionType === ROLE_PERMISSION_TYPE.CUSTOM_ORG && (!formState.organizationIds || formState.organizationIds.length === 0)) {
+    message.warning('自定义跨组织数据权限至少需要选择一个组织')
+    return
+  }
   saving.value = true
   try {
-    const payload: SystemRoleSaveDTO = { roleName: formState.roleName.trim(), roleCode: formState.roleCode.trim(), roleDesc: formState.roleDesc?.trim() || null, permissionType: formState.permissionType }
+    const orgIds = formState.permissionType === ROLE_PERMISSION_TYPE.CUSTOM_ORG ? (formState.organizationIds || []) : []
+    const payload: SystemRoleSaveDTO = {
+      roleName: formState.roleName.trim(),
+      roleCode: formState.roleCode.trim(),
+      roleDesc: formState.roleDesc?.trim() || null,
+      permissionType: formState.permissionType,
+      organizationIds: orgIds,
+    }
     const response = formState.id ? await updateSystemRole(formState.id, payload) : await createSystemRole(payload)
     if (formState.id && !response.data) return void message.warning('角色修改未生效，请刷新后重试')
     message.success(formState.id ? '角色修改成功' : '角色新增成功')
@@ -248,7 +357,7 @@ const changeStatus = async (record: SystemRole, enabled: boolean) => {
   if (record.builtIn) return
   statusChangingId.value = record.id
   try {
-    const response = await changeSystemRoleStatus(record.id, enabled ? 1 : 0)
+    const response = await changeSystemRoleStatus(record.id, enabled ? COMMON_STATUS.ENABLED : COMMON_STATUS.DISABLED)
     if (!response.data) return void message.warning('状态修改未生效，请刷新后重试')
     message.success(enabled ? '角色已启用' : '角色已禁用')
     await loadRoles()
@@ -287,7 +396,9 @@ const openAuthorization = async (role: SystemRole) => {
     // 使用 Map 按 menuId 去重，保证后续全量提交同一个菜单最多出现一次。
     const uniqueAssigned = new Map((assignedResponse.data || []).map((item) => [item.menuId, item.accessLevel]))
     checkedMenuIds.value = Array.from(uniqueAssigned.keys())
-    uniqueAssigned.forEach((level, menuId) => { menuAccessLevels[menuId] = level === 'READ_ONLY' ? 'READ_ONLY' : 'READ_WRITE' })
+    uniqueAssigned.forEach((level, menuId) => {
+      menuAccessLevels[menuId] = level === MENU_ACCESS_LEVEL.READ_ONLY ? MENU_ACCESS_LEVEL.READ_ONLY : MENU_ACCESS_LEVEL.READ_WRITE
+    })
   } finally { authorizationLoading.value = false }
 }
 
@@ -300,7 +411,7 @@ const handleMenuCheck = (keys: unknown) => {
       : []
   const uniqueKeys = Array.from(new Set(rawKeys.map(String)))
   checkedMenuIds.value = uniqueKeys
-  uniqueKeys.forEach((menuId) => { if (!menuAccessLevels[menuId]) menuAccessLevels[menuId] = 'READ_WRITE' })
+  uniqueKeys.forEach((menuId) => { if (!menuAccessLevels[menuId]) menuAccessLevels[menuId] = MENU_ACCESS_LEVEL.READ_WRITE })
 }
 const findNodeInTree = (nodes: MenuTreeNode[], key: string): MenuTreeNode | null => {
   for (const node of nodes) {
@@ -321,7 +432,7 @@ const syncSubtreeAccessLevel = (node: MenuTreeNode, level: MenuAccessLevel) => {
   }
 }
 const setMenuAccessLevel = (menuId: string, level: unknown) => {
-  const targetLevel = (level === 'READ_ONLY' ? 'READ_ONLY' : 'READ_WRITE') as MenuAccessLevel
+  const targetLevel = (level === MENU_ACCESS_LEVEL.READ_ONLY ? MENU_ACCESS_LEVEL.READ_ONLY : MENU_ACCESS_LEVEL.READ_WRITE) as MenuAccessLevel
   menuAccessLevels[menuId] = targetLevel
   const node = findNodeInTree(menuTree.value, menuId)
   if (node && node.children?.length) {
@@ -339,7 +450,7 @@ const saveAuthorization = async () => {
   try {
     const uniqueMenuIds = Array.from(new Set(checkedMenuIds.value))
     const response = await assignSystemRoleMenus(authorizationRole.value.id, {
-      menus: uniqueMenuIds.map((menuId) => ({ menuId, accessLevel: menuAccessLevels[menuId] || 'READ_WRITE' })),
+      menus: uniqueMenuIds.map((menuId) => ({ menuId, accessLevel: menuAccessLevels[menuId] || MENU_ACCESS_LEVEL.READ_WRITE })),
     })
     if (!response.data) return void message.warning('菜单授权未生效，请刷新后重试')
     message.success('菜单授权保存成功')

@@ -152,6 +152,7 @@ import { menuIconOptions, resolveMenuIcon } from '@/config/menuIcons'
 import { menusStore } from '@/stores/modules/user'
 import { useSystemConfigStore } from '@/stores/modules/config'
 import { SYSTEM_DICT_TYPE } from '@/utils/SystemDict'
+import { DEFAULT_MENU_ICON, MENU_TYPE } from '@/constant'
 import { useSystemDict } from '@/composables/useSystemDict'
 import { requiredRule } from '@/utils/rules'
 
@@ -199,8 +200,8 @@ const createEmptyForm = (): MenuFormState => ({
   menuName: '',
   menuPath: '',
   menuRouter: '',
-  menuIcon: 'menuoutlined',
-  menuType: 'MENU',
+  menuIcon: DEFAULT_MENU_ICON,
+  menuType: MENU_TYPE.MENU,
   sort: 0,
 })
 
@@ -232,7 +233,7 @@ const rules: FormProps['rules'] = {
     trigger: ['blur', 'change'],
   }, {
     validator: async () => {
-      if (formState.menuType === 'MENU' && !formState.menuPath.trim()) {
+      if (formState.menuType === MENU_TYPE.MENU && !formState.menuPath.trim()) {
         throw new Error('页面菜单必须填写访问路径')
       }
     },
