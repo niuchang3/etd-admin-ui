@@ -34,8 +34,8 @@ const instance: AxiosInstance = axios.create({
  */
 instance.interceptors.request.use((config: InternalAxiosRequestConfig) => {
     // 注入应用名称与版本标识
-    config.headers['x-application-header'] = APP_NAME;
-    config.headers['x-application-version-header'] = APP_VERSION;
+    config.headers['x-application'] = APP_NAME;
+    config.headers['x-version'] = APP_VERSION;
 
     // 注入客户端设备唯一标识 ID 与指纹
     config.headers['x-device-id'] = getDeviceId();
