@@ -307,7 +307,34 @@ const handleMenuCheck = (keys: unknown) => {
   checkedMenuIds.value = uniqueKeys
   uniqueKeys.forEach((menuId) => { if (!menuAccessLevels[menuId]) menuAccessLevels[menuId] = 2 })
 }
-const setMenuAccessLevel = (menuId: string, level: unknown) => { menuAccessLevels[menuId] = level === 1 ? 1 : 2 }
+const findNodeInTree = (nodes: MenuTreeNode[], key: string): MenuTreeNode | null => {
+  for (const node of nodes) {
+    if (node.key === key) return node
+    if (node.children?.length) {
+      const found = findNodeInTree(node.children, key)
+      if (found) return found
+    }
+  }
+  return null
+}
+const syncSubtreeAccessLevel = (node: MenuTreeNode, level: MenuAccessLevel) => {
+  menuAccessLevels[node.key] = level
+  if (node.children?.length) {
+    node.children.forEach((child) => {
+      syncSubtreeAccessLevel(child, level)
+    })
+  }
+}
+const setMenuAccessLevel = (menuId: string, level: unknown) => {
+  const targetLevel = (level === 1 ? 1 : 2) as MenuAccessLevel
+  menuAccessLevels[menuId] = targetLevel
+  const node = findNodeInTree(menuTree.value, menuId)
+  if (node && node.children?.length) {
+    node.children.forEach((child) => {
+      syncSubtreeAccessLevel(child, targetLevel)
+    })
+  }
+}
 const expandAll = () => { expandedMenuIds.value = flattenTreeKeys(menuTree.value) }
 const clearCheckedMenus = () => { checkedMenuIds.value = [] }
 /** 全量保存授权；未勾选任何菜单时明确提交 { menus: [] } 清空权限。 */

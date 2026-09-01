@@ -35,7 +35,8 @@ export interface UserInfo {
     birthday:Date | null,
     gender:number | null,
     avatar:string | null,
-    nickName:string | null
+    nickName:string | null,
+    platformAdmin?: boolean
 }
 
 

@@ -6,7 +6,7 @@ import { defineStore } from 'pinia'
 import { ref } from 'vue'
 
 export const userStore = defineStore('user', () => {
-  const userInfo = ref<UserInfo>({ id: null, userName: null, birthday: null, gender: null, avatar: null, nickName: null })
+  const userInfo = ref<UserInfo>({ id: null, userName: null, birthday: null, gender: null, avatar: null, nickName: null, platformAdmin: false })
   const roles = ref<UserRole[]>([])
 
   const getUserInfo = async () => {
@@ -20,7 +20,7 @@ export const userStore = defineStore('user', () => {
     return roles.value
   }
   const $reset = () => {
-    userInfo.value = { id: null, userName: null, birthday: null, gender: null, avatar: null, nickName: null }
+    userInfo.value = { id: null, userName: null, birthday: null, gender: null, avatar: null, nickName: null, platformAdmin: false }
     roles.value = []
   }
   return { userInfo, roles, getUserInfo, getUserRoles, $reset }

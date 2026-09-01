@@ -2,9 +2,10 @@
   <!-- 应用侧栏从当前租户的菜单接口读取树形导航。 -->
   <aside class="sidebar" :class="{ 'is-collapsed': collapsed }">
     <div class="brand">
-      <div class="brand-mark">E</div>
+      <img v-if="configStore.branding.logo" :src="configStore.branding.logo" alt="Logo" class="brand-logo-img" />
+      <div v-else class="brand-mark">E</div>
       <div v-if="!collapsed" class="brand-copy">
-        <strong>ETD Console</strong>
+        <strong>{{ configStore.branding.name || 'ETD Console' }}</strong>
         <span>Operations Suite</span>
       </div>
     </div>
@@ -54,6 +55,7 @@ import { ExclamationCircleOutlined, MenuFoldOutlined, MenuUnfoldOutlined } from 
 import { useRoute, useRouter } from 'vue-router'
 import { resolveMenuIcon } from '@/config/menuIcons'
 import { menusStore, type UserMenuNode } from '@/stores/modules/user'
+import { useSystemConfigStore } from '@/stores/modules/config'
 
 defineProps<{
   collapsed: boolean
@@ -66,6 +68,7 @@ defineEmits<{
 const route = useRoute()
 const router = useRouter()
 const currentMenus = menusStore()
+const configStore = useSystemConfigStore()
 const loading = ref(false)
 const loadFailed = ref(false)
 const simpleImage = Empty.PRESENTED_IMAGE_SIMPLE
@@ -156,6 +159,18 @@ onMounted(() => {
   gap: var(--du-space-2);
   padding: 0 var(--du-space-3);
   border-bottom: 1px solid var(--du-sidebar-border);
+}
+
+.brand-logo-img {
+  display: block;
+  max-width: 120px;
+  max-height: 28px;
+  object-fit: contain;
+  transition: max-width 160ms ease;
+}
+
+.is-collapsed .brand-logo-img {
+  max-width: 28px;
 }
 
 .brand-mark {

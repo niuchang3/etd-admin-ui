@@ -59,11 +59,14 @@
             <a-button type="link" size="small" @click="openCreate(record.id)"><BranchesOutlined />添加下级</a-button>
             <a-button type="link" size="small" @click="openEdit(record)"><EditOutlined />编辑</a-button>
             <a-popconfirm
-              title="确定要删除此组织及其全部下级组织吗？该操作不可逆。"
               ok-text="删除"
               cancel-text="取消"
               @confirm="removeOrg(record)"
             >
+              <template #title>
+                <div>确定要删除此组织及其全部下级组织吗？</div>
+                <div style="color: var(--du-negative); margin-top: 4px;">该操作不可逆，且将同时清除关联的角色和组织关系。</div>
+              </template>
               <a-button type="link" size="small" danger><DeleteOutlined />删除</a-button>
             </a-popconfirm>
           </div>

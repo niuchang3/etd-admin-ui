@@ -5,9 +5,10 @@
       <!-- 左侧只展示平台品牌、运行环境和安全信息。 -->
       <aside class="system-panel">
         <div class="brand">
-          <span class="brand-mark">E</span>
+          <img v-if="configStore.branding.logo" :src="configStore.branding.logo" alt="Logo" class="brand-logo-img" />
+          <span v-else class="brand-mark">E</span>
           <div>
-            <strong>ETD Console</strong>
+            <strong>{{ configStore.branding.name || 'ETD Console' }}</strong>
             <small>Operations Suite</small>
           </div>
         </div>
@@ -77,8 +78,9 @@
             </a-input-password>
           </a-form-item>
 
+          <!-- 验证码暂未对接后端，目前临时屏蔽 -->
           <a-form-item
-            v-if="loginFailCount >= configStore.security.captcha.triggerOnFailCount"
+            v-if="false && loginFailCount >= configStore.security.captcha.triggerOnFailCount"
             label="验证码"
             name="captcha"
           >
@@ -105,7 +107,7 @@
 
     <!-- 页面底部展示版权与服务状态。 -->
     <footer class="page-footer">
-      <span>© 2026 ETD Platform</span>
+      <span>{{ configStore.branding.copyright || '© 2026 ETD Platform' }}</span>
       <span class="separator" />
       <span>Service status: <b>Operational</b></span>
     </footer>
@@ -158,15 +160,9 @@ const rules: FormProps['rules'] = {
     { min: 6, max: 128, message: '密码长度应为 6–128 个字符', trigger: 'blur' },
   ],
   captcha: [{
-    validator: async (_rule, value: string | null) => {
-      if (loginFailCount.value >= configStore.security.captcha.triggerOnFailCount) {
-        if (!value || !value.trim()) {
-          throw new Error('请输入验证码')
-        }
-        if (value.toLowerCase() !== generatedCaptcha.value.toLowerCase()) {
-          throw new Error('验证码输入不正确')
-        }
-      }
+    validator: async () => {
+      // 临时屏蔽验证码校验，等服务端实现后再行恢复
+      return
     },
     trigger: 'blur',
   }],
@@ -267,6 +263,13 @@ const submit = async () => {
   display: flex;
   align-items: center;
   gap: var(--du-space-2);
+}
+
+.brand-logo-img {
+  display: block;
+  max-width: 120px;
+  max-height: 28px;
+  object-fit: contain;
 }
 
 .brand-mark {

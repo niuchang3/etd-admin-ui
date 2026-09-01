@@ -6,8 +6,64 @@
 </template>
 
 <script setup lang="ts">
+import { onMounted, watch } from 'vue'
+import { useRoute } from 'vue-router'
 import { theme } from 'ant-design-vue'
 import zhCN from 'ant-design-vue/es/locale/zh_CN'
+import { useSystemConfigStore } from '@/stores/modules/config'
+
+const configStore = useSystemConfigStore()
+const route = useRoute()
+
+// 更新网页 Favicon
+const updateFavicon = (url: string) => {
+  if (!url) return
+  let link = document.querySelector("link[rel*='icon']") as HTMLLinkElement
+  if (!link) {
+    link = document.createElement('link')
+    link.rel = 'icon'
+    document.head.appendChild(link)
+  }
+  link.href = url
+}
+
+// 动态合成网页标题
+const updateDocumentTitle = () => {
+  const siteName = configStore.branding?.name || 'ETD 后台管理系统'
+  const pageTitle = route.meta?.title ? `${route.meta.title} - ${siteName}` : siteName
+  document.title = pageTitle
+}
+
+// 监听 branding 数据变化，实时更新 Title 和 Favicon
+watch(
+  () => configStore.branding,
+  (branding) => {
+    if (!branding) return
+    if (branding.favicon) {
+      updateFavicon(branding.favicon)
+    }
+    updateDocumentTitle()
+  },
+  { deep: true, immediate: true }
+)
+
+// 监听路由变化，更新网页 Title
+watch(
+  () => route.path,
+  () => {
+    updateDocumentTitle()
+  }
+)
+
+onMounted(async () => {
+  if (!configStore.isLoaded) {
+    try {
+      await configStore.fetchConfigs()
+    } catch (e) {
+      console.warn('App.vue failed to initialize system config:', e)
+    }
+  }
+})
 
 // Ant Design Vue 全局主题：使用紧凑算法并对齐项目设计变量。
 const themeConfig = {
