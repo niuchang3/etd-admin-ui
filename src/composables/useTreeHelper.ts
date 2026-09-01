@@ -197,3 +197,54 @@ export function useTreeSelection() {
     getSelectedAndHalfKeys,
   }
 }
+
+/**
+ * 递归排除当前节点及其全部子孙节点，构造适用于 Parent 选择的安全树结构（防止自环与循环嵌套）
+ */
+export function getValidParentTree<T extends { key?: string; value?: string; id?: string | number; children?: T[] }>(
+  nodes: T[],
+  currentId?: string | number | null,
+  keyField: 'key' | 'value' | 'id' = 'value'
+): T[] {
+  if (!currentId) return nodes
+  const targetIdStr = String(currentId)
+
+  const walk = (items: T[]): T[] => {
+    const result: T[] = []
+    for (const item of items) {
+      const itemKey = String(item[keyField] ?? item.key ?? item.value ?? item.id ?? '')
+      // 命中自身，则自身及整棵子树均被过滤抛弃
+      if (itemKey === targetIdStr) {
+        continue
+      }
+      const newItem = { ...item }
+      if (newItem.children && newItem.children.length > 0) {
+        newItem.children = walk(newItem.children)
+      }
+      result.push(newItem)
+    }
+    return result
+  }
+
+  return walk(nodes)
+}
+
+/**
+ * 递归收集树中全部节点的 Key 列表
+ */
+export function collectTreeKeys<T extends { key?: string; value?: string; id?: string | number; children?: T[] }>(
+  nodes: T[],
+  keyField: 'key' | 'value' | 'id' = 'key'
+): string[] {
+  const keys: string[] = []
+  const walk = (items: T[]) => {
+    for (const item of items) {
+      const keyVal = String(item[keyField] ?? item.key ?? item.value ?? item.id ?? '')
+      if (keyVal) keys.push(keyVal)
+      if (item.children?.length) walk(item.children)
+    }
+  }
+  walk(nodes)
+  return keys
+}
+

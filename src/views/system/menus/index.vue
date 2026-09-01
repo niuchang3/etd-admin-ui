@@ -48,8 +48,8 @@
             :checked="record.dataStatus === 1"
             :loading="statusChangingId === record.id"
             :disabled="!canWrite"
-            :checked-children="getSystemDictLabel(statusDict, '1')"
-            :un-checked-children="getSystemDictLabel(statusDict, '0')"
+            :checked-children="getLabel(SYSTEM_DICT_TYPE.commonStatus, '1')"
+            :un-checked-children="getLabel(SYSTEM_DICT_TYPE.commonStatus, '0')"
             @change="changeStatus(record, Boolean($event))"
           />
 
@@ -147,13 +147,13 @@ import {
   selectSystemMenu,
   updateSystemMenu,
 } from '@/apis/upms/menu'
-import { getEnabledDictData } from '@/apis/upms/dict'
 import type { MenuType, SaveSystemMenu, SystemMenu } from '@/apis/upms/menu/type'
-import type { SystemDictData } from '@/apis/upms/dict/type'
 import { menuIconOptions, resolveMenuIcon } from '@/config/menuIcons'
 import { menusStore } from '@/stores/modules/user'
 import { useSystemConfigStore } from '@/stores/modules/config'
-import { getSystemDictLabel, SYSTEM_DICT_TYPE, toSystemDictOptions } from '@/utils/SystemDict'
+import { SYSTEM_DICT_TYPE } from '@/utils/SystemDict'
+import { useSystemDict } from '@/composables/useSystemDict'
+import { requiredRule } from '@/utils/rules'
 
 interface TreeSelectOption {
   value: string
@@ -183,10 +183,16 @@ const statusChangingId = ref('')
 const editorOpen = ref(false)
 const keyword = ref('')
 const menuTree = ref<SystemMenu[]>([])
-const statusDict = ref<SystemDictData[]>([])
-const menuTypeDict = ref<SystemDictData[]>([])
 const expandedRowKeys = ref<string[]>([])
 const formRef = ref<FormInstance>()
+
+// 通用系统字典 Hook
+const { getOptions, getLabel } = useSystemDict([
+  SYSTEM_DICT_TYPE.commonStatus,
+  SYSTEM_DICT_TYPE.menuType,
+])
+
+const menuTypeOptions = computed(() => getOptions(SYSTEM_DICT_TYPE.menuType, (value) => value as MenuType))
 
 const createEmptyForm = (): MenuFormState => ({
   parentId: null,
@@ -199,16 +205,6 @@ const createEmptyForm = (): MenuFormState => ({
 })
 
 const formState = reactive<MenuFormState>(createEmptyForm())
-const menuTypeOptions = computed(() => toSystemDictOptions(menuTypeDict.value, (value) => value as MenuType))
-
-const loadDictionaries = async () => {
-  const [statusResponse, menuTypeResponse] = await Promise.all([
-    getEnabledDictData(SYSTEM_DICT_TYPE.commonStatus),
-    getEnabledDictData(SYSTEM_DICT_TYPE.menuType),
-  ])
-  statusDict.value = statusResponse.data || []
-  menuTypeDict.value = menuTypeResponse.data || []
-}
 
 const columns: TableColumnsType<SystemMenu> = [
   { title: '菜单名称', dataIndex: 'menuName', key: 'menuName', width: 230 },
@@ -223,17 +219,17 @@ const columns: TableColumnsType<SystemMenu> = [
 // 菜单名称最多 10 个字符，与数据库字段长度保持一致。
 const rules: FormProps['rules'] = {
   menuName: [
-    { required: true, message: '请输入菜单名称', trigger: 'blur' },
-    { max: 10, message: '菜单名称不能超过 10 个字符', trigger: 'blur' },
+    requiredRule('请输入菜单名称'),
+    { max: 10, message: '菜单名称不能超过 10 个字符', trigger: ['blur', 'change'] },
   ],
   menuType: [
-    { required: true, message: '请选择菜单类型', trigger: 'change' },
-    { max: 20, message: '菜单类型不能超过 20 个字符', trigger: 'change' },
+    requiredRule('请选择菜单类型', 'change'),
+    { max: 20, message: '菜单类型不能超过 20 个字符', trigger: ['blur', 'change'] },
   ],
   menuPath: [{
     max: 100,
     message: '访问路径不能超过 100 个字符',
-    trigger: 'blur',
+    trigger: ['blur', 'change'],
   }, {
     validator: async () => {
       if (formState.menuType === 'MENU' && !formState.menuPath.trim()) {
@@ -242,10 +238,10 @@ const rules: FormProps['rules'] = {
     },
     trigger: 'blur',
   }],
-  menuRouter: [{ max: 100, message: '组件地址不能超过 100 个字符', trigger: 'blur' }],
+  menuRouter: [{ max: 100, message: '组件地址不能超过 100 个字符', trigger: ['blur', 'change'] }],
   menuIcon: [
-    { required: true, message: '请选择菜单图标', trigger: 'change' },
-    { max: 200, message: '菜单图标不能超过 200 个字符', trigger: 'change' },
+    requiredRule('请选择菜单图标', 'change'),
+    { max: 200, message: '菜单图标不能超过 200 个字符', trigger: ['blur', 'change'] },
   ],
 }
 
@@ -346,7 +342,7 @@ const loadMenus = async () => {
 // 用户菜单接口未返回 menuType 时，有下级的节点按目录展示，其余按菜单展示。
 const getMenuTypeLabel = (menu: SystemMenu) => {
   const menuType = menu.menuType || (menu.children?.length ? 'DIRECTORY' : 'MENU')
-  return getSystemDictLabel(menuTypeDict.value, menuType)
+  return getLabel(SYSTEM_DICT_TYPE.menuType, menuType)
 }
 
 const resetForm = () => Object.assign(formState, createEmptyForm())
@@ -467,7 +463,6 @@ const removeMenu = async (menu: SystemMenu) => {
 
 onMounted(() => {
   void loadMenus()
-  void loadDictionaries()
 })
 </script>
 

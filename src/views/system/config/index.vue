@@ -33,18 +33,21 @@
       >
         <template #bodyCell="{ column, record }">
           <code v-if="column.key === 'parameterKey'" class="code-value">{{ record.parameterKey }}</code>
-          <a-tag v-else-if="column.key === 'valueType'" color="blue">{{ getSystemDictLabel(valueTypeDict, record.valueType) }}</a-tag>
+          <DictTag v-else-if="column.key === 'valueType'" :type-code="SYSTEM_DICT_TYPE.configValueType" :value="record.valueType" color="blue" />
           <EllipsisText v-else-if="column.key === 'parameterValue'" :text="record.parameterValue" max-width="260px" />
-          <a-tag v-else-if="column.key === 'builtIn'" :color="record.builtIn ? 'gold' : 'default'">
-            {{ getSystemDictLabel(builtInDict, record.builtIn) }}
-          </a-tag>
+          <DictTag
+            v-else-if="column.key === 'builtIn'"
+            :type-code="SYSTEM_DICT_TYPE.commonBuiltIn"
+            :value="record.builtIn"
+            :color-map="{ 'true': 'gold', 'false': 'default' }"
+          />
           <a-switch
             v-else-if="column.key === 'enabled'"
             :checked="record.enabled"
             :loading="statusChangingId === record.id"
             :disabled="!canWrite || record.builtIn"
-            :checked-children="getSystemDictLabel(statusDict, '1')"
-            :un-checked-children="getSystemDictLabel(statusDict, '0')"
+            :checked-children="getLabel(SYSTEM_DICT_TYPE.commonStatus, '1')"
+            :un-checked-children="getLabel(SYSTEM_DICT_TYPE.commonStatus, '0')"
             @change="changeEnabled(record, Boolean($event))"
           />
           <span v-else-if="column.key === 'updateTime'" class="code-value du-mono">{{ formatDateTime(record.updateTime) }}</span>
@@ -127,15 +130,16 @@ import {
   getSystemConfigPage,
   updateSystemConfig,
 } from '@/apis/upms/config'
-import { getEnabledDictData } from '@/apis/upms/dict'
 import type { SystemConfig, SystemConfigQuery, SystemConfigSaveDTO, SystemConfigValueType } from '@/apis/upms/config/type'
-import type { SystemDictData } from '@/apis/upms/dict/type'
 import { menusStore } from '@/stores/modules/user'
 import { useSystemConfigStore } from '@/stores/modules/config'
-import { getSystemDictLabel, SYSTEM_DICT_TYPE, toSystemDictOptions } from '@/utils/SystemDict'
+import { SYSTEM_DICT_TYPE } from '@/utils/SystemDict'
 import { formatDateTime } from '@/utils/format'
 import { useTablePagination } from '@/composables/useTablePagination'
+import { useSystemDict } from '@/composables/useSystemDict'
+import { codeRules, requiredRule } from '@/utils/rules'
 import EllipsisText from '@/components/EllipsisText.vue'
+import DictTag from '@/components/DictTag.vue'
 
 interface ConfigFormState extends SystemConfigSaveDTO {
   id?: string
@@ -149,10 +153,17 @@ const canWrite = computed(() => menusStore().canWritePath(route.path))
 const saving = ref(false)
 const editorOpen = ref(false)
 const statusChangingId = ref('')
-const statusDict = ref<SystemDictData[]>([])
-const builtInDict = ref<SystemDictData[]>([])
-const valueTypeDict = ref<SystemDictData[]>([])
 const formRef = ref<FormInstance>()
+
+// 通用系统字典 Hook
+const { getOptions, getLabel } = useSystemDict([
+  SYSTEM_DICT_TYPE.commonStatus,
+  SYSTEM_DICT_TYPE.commonBuiltIn,
+  SYSTEM_DICT_TYPE.configValueType,
+])
+
+const statusOptions = computed(() => getOptions(SYSTEM_DICT_TYPE.commonStatus, (value) => value === '1'))
+const valueTypeOptions = computed(() => getOptions(SYSTEM_DICT_TYPE.configValueType, (value) => value as SystemConfigValueType))
 
 // 使用通用表格分页 Hook
 const {
@@ -191,20 +202,6 @@ const createEmptyForm = (): ConfigFormState => ({
 })
 const formState = reactive<ConfigFormState>(createEmptyForm())
 
-const statusOptions = computed(() => toSystemDictOptions(statusDict.value, (value) => value === '1'))
-const valueTypeOptions = computed(() => toSystemDictOptions(valueTypeDict.value, (value) => value as SystemConfigValueType))
-
-const loadDictionaries = async () => {
-  const [statusResponse, builtInResponse, valueTypeResponse] = await Promise.all([
-    getEnabledDictData(SYSTEM_DICT_TYPE.commonStatus),
-    getEnabledDictData(SYSTEM_DICT_TYPE.commonBuiltIn),
-    getEnabledDictData(SYSTEM_DICT_TYPE.configValueType),
-  ])
-  statusDict.value = statusResponse.data || []
-  builtInDict.value = builtInResponse.data || []
-  valueTypeDict.value = valueTypeResponse.data || []
-}
-
 const columns: TableColumnsType<SystemConfig> = [
   { title: '参数键', dataIndex: 'parameterKey', key: 'parameterKey', width: 210 },
   { title: '参数名称', dataIndex: 'parameterName', key: 'parameterName', width: 160 },
@@ -218,18 +215,9 @@ const columns: TableColumnsType<SystemConfig> = [
 
 // JSON 和数字在提交前先做格式校验，字段长度与后端 DTO 约束保持一致。
 const rules: FormProps['rules'] = {
-  parameterKey: [
-    { required: true, whitespace: true, message: '请输入参数键', trigger: 'blur' },
-    { max: 100, message: '参数键不能超过 100 个字符', trigger: 'blur' },
-  ],
-  parameterName: [
-    { required: true, whitespace: true, message: '请输入参数名称', trigger: 'blur' },
-    { max: 100, message: '参数名称不能超过 100 个字符', trigger: 'blur' },
-  ],
-  valueType: [
-    { required: true, message: '请选择值类型', trigger: 'change' },
-    { max: 50, message: '值类型不能超过 50 个字符', trigger: 'change' },
-  ],
+  parameterKey: codeRules('参数键', 100),
+  parameterName: codeRules('参数名称', 100),
+  valueType: [requiredRule('请选择值类型', 'change')],
   parameterValue: [{
     validator: async (_rule, value: string | null) => {
       if (value == null || value === '') return
@@ -333,7 +321,6 @@ const removeConfig = async (record: SystemConfig) => {
 
 onMounted(() => {
   void loadConfigs()
-  void loadDictionaries()
 })
 </script>
 

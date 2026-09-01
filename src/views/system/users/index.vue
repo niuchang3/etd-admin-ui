@@ -499,7 +499,6 @@
 import { computed, onMounted, reactive, ref } from 'vue'
 import { useRoute } from 'vue-router'
 import { message, type FormInstance, type TableColumnsType } from 'ant-design-vue'
-import type { Rule } from 'ant-design-vue/es/form'
 import {
   ApartmentOutlined,
   ClusterOutlined,
@@ -535,10 +534,13 @@ import { getOrganizationTree } from '@/apis/upms/organization'
 import type { Organization } from '@/apis/upms/organization/type'
 import { getSystemRolePage } from '@/apis/upms/role'
 import type { SystemRole } from '@/apis/upms/role/type'
-import { menusStore, tenantsStore, userStore } from '@/stores/modules/user'
+import { menusStore, userStore } from '@/stores/modules/user'
 import { useTablePagination } from '@/composables/useTablePagination'
 import { usePasswordPolicy } from '@/composables/usePasswordPolicy'
 import { filterTreeNodes } from '@/composables/useTreeHelper'
+import { useAdminAuth } from '@/composables/useAdminAuth'
+import { isRestrictedAssignRole } from '@/utils/role'
+import { accountRules as getAccountRules, userNameRules as getUserNameRules, mobileRules as getMobileRules } from '@/utils/rules'
 import { formatDateTime } from '@/utils/format'
 import { confirmAction } from '@/utils/confirm'
 import EllipsisText from '@/components/EllipsisText.vue'
@@ -547,56 +549,11 @@ import StatusTag from '@/components/StatusTag.vue'
 const route = useRoute()
 const currentMenus = menusStore()
 const currentUser = userStore()
+const { getUserProtection } = useAdminAuth()
 
 // 权限控制
 const canWrite = computed(() => currentMenus.canWritePath(route.path))
-
-interface AdminStatusInfo {
-  isPlatformAdmin: boolean
-  isTenantAdmin: boolean
-  isProtected: boolean
-  label: string
-}
-
-/**
- * 判断用户是否为平台管理员或租户管理员
- * 严格依据系统内置角色 code（platformAdmin / tenantAdmin）与后端字段判断，绝不依赖中文名称
- */
-const getAdminStatus = (record: UserRecord): AdminStatusInfo => {
-  const currentTenant = tenantsStore().userTenant.currentTenant
-  const currentTenantAdminId = currentTenant?.tenantAdminUser ? String(currentTenant.tenantAdminUser) : ''
-  const userId = String(record.id || '')
-
-  const rawRecord = record as unknown as Record<string, unknown>
-
-  // 1. 判断平台管理员：依据 platformAdmin 字段或系统内置角色 code 'platformAdmin'
-  const isPlatformByProp = rawRecord.platformAdmin === true || rawRecord.platformAdmin === 1
-  const isPlatformByRole = (record.roles || []).some((r) => {
-    const code = String(r.roleCode || '').trim().toLowerCase().replace(/[-_]/g, '')
-    return code === 'platformadmin'
-  })
-  const isPlatformAdmin = isPlatformByProp || isPlatformByRole
-
-  // 2. 判断租户管理员：依据 tenantAdmin 字段、租户绑定的 tenantAdminUser ID、或系统内置角色 code 'tenantAdmin'
-  const isTenantByProp = rawRecord.tenantAdmin === true || rawRecord.tenantAdmin === 1
-  const isTenantById = Boolean(currentTenantAdminId && userId && currentTenantAdminId === userId)
-  const isTenantByRole = (record.roles || []).some((r) => {
-    const code = String(r.roleCode || '').trim().toLowerCase().replace(/[-_]/g, '')
-    return code === 'tenantadmin'
-  })
-  const isTenantAdmin = isTenantByProp || isTenantById || isTenantByRole
-
-  const isBuiltIn = Boolean(rawRecord.builtIn)
-  const isProtected = isPlatformAdmin || isTenantAdmin || isBuiltIn
-  const label = isPlatformAdmin ? '平台管理员' : isTenantAdmin ? '租户管理员' : isBuiltIn ? '系统内置' : ''
-
-  return {
-    isPlatformAdmin,
-    isTenantAdmin,
-    isProtected,
-    label,
-  }
-}
+const getAdminStatus = getUserProtection
 
 // 表格列定义
 const columns = computed<TableColumnsType<UserRecord>>(() => [
@@ -715,18 +672,9 @@ const onOrgSelect = (selectedKeys: unknown[]) => {
 const rawRoles = ref<SystemRole[]>([])
 const roleListLoading = ref(false)
 
-/**
- * 判断是否为禁止在页面端分配给用户的受限管理员角色（平台管理员、租户管理员）
- * 严格依据系统内置角色 roleCode 判断，绝不依赖中文名称
- */
-const isRestrictedRole = (role: { roleCode?: string | null }): boolean => {
-  const code = String(role.roleCode || '').trim().toLowerCase().replace(/[-_]/g, '')
-  return code === 'platformadmin' || code === 'tenantadmin'
-}
-
 const roleOptions = computed(() =>
   rawRoles.value
-    .filter((r) => !isRestrictedRole(r))
+    .filter((r) => !isRestrictedAssignRole(r))
     .map((r) => ({
       label: r.roleName,
       value: String(r.id),
@@ -746,19 +694,9 @@ const loadRoles = async () => {
 }
 
 // ==================== 表单约束规则 ====================
-const accountRules: Rule[] = [
-  { required: true, whitespace: true, message: '请输入登录账号', trigger: ['blur', 'change'] },
-  { max: 32, message: '账号最多 32 个字符', trigger: ['blur', 'change'] },
-]
-
-const userNameRules: Rule[] = [
-  { required: true, whitespace: true, message: '请输入真实姓名', trigger: ['blur', 'change'] },
-  { max: 20, message: '真实姓名最多 20 个字符', trigger: ['blur', 'change'] },
-]
-
-const mobileRules: Rule[] = [
-  { max: 20, message: '手机号码最多 20 个字符', trigger: ['blur', 'change'] },
-]
+const accountRules = getAccountRules({ maxLength: 32, requiredMessage: '请输入登录账号' })
+const userNameRules = getUserNameRules({ maxLength: 20, requiredMessage: '请输入真实姓名' })
+const mobileRules = getMobileRules({ maxLength: 20 })
 
 // ==================== 新增用户 ====================
 const createModalOpen = ref(false)
@@ -934,7 +872,7 @@ const openRoleAssign = async (record: UserRecord) => {
     const res = await getUserRoles(record.id)
     const allowedRoleIdSet = new Set(roleOptions.value.map((r) => String(r.value)))
     targetRoleIds.value = (res.data || [])
-      .filter((r) => !isRestrictedRole(r))
+      .filter((r) => !isRestrictedAssignRole(r))
       .map((r) => String(r.roleId))
       .filter((id) => allowedRoleIdSet.has(id))
   } finally {

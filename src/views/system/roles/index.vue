@@ -18,7 +18,7 @@
         <template #bodyCell="{ column, record }">
           <div v-if="column.key === 'roleName'" class="role-name">
             <strong>{{ record.roleName }}</strong>
-            <a-tag v-if="record.builtIn" color="gold">{{ getSystemDictLabel(builtInDict, record.builtIn) }}</a-tag>
+            <a-tag v-if="record.builtIn" color="gold">{{ getLabel(SYSTEM_DICT_TYPE.commonBuiltIn, record.builtIn) }}</a-tag>
           </div>
           <code v-else-if="column.key === 'roleCode'" class="code-value">{{ record.roleCode }}</code>
           <span v-else-if="column.key === 'permissionType'">{{ getPermissionTypeLabel(record.permissionType) }}</span>
@@ -28,8 +28,8 @@
             :checked="record.dataStatus === 1"
             :loading="statusChangingId === record.id"
             :disabled="!canWrite || record.builtIn"
-            :checked-children="getSystemDictLabel(statusDict, '1')"
-            :un-checked-children="getSystemDictLabel(statusDict, '0')"
+            :checked-children="getLabel(SYSTEM_DICT_TYPE.commonStatus, '1')"
+            :un-checked-children="getLabel(SYSTEM_DICT_TYPE.commonStatus, '0')"
             @change="changeStatus(record, Boolean($event))"
           />
           <div v-else-if="column.key === 'actions'" class="row-actions">
@@ -83,7 +83,7 @@
             <strong>{{ authorizationRole?.roleName }}</strong>
             <code>{{ authorizationRole?.roleCode }}</code>
           </div>
-          <span>已选择 {{ checkedMenuIds.length }} 个菜单；新选择菜单默认{{ getSystemDictLabel(accessLevelDict, 'READ_WRITE') }}</span>
+          <span>已选择 {{ checkedMenuIds.length }} 个菜单；新选择菜单默认{{ getLabel(SYSTEM_DICT_TYPE.menuAccessLevel, 'READ_WRITE') }}</span>
         </div>
         <a-alert message="取消全部勾选并保存，将清空该角色的菜单权限。" type="info" show-icon />
         <div class="tree-toolbar">
@@ -130,7 +130,6 @@ import { useRoute } from 'vue-router'
 import { message, type FormInstance, type FormProps, type TableColumnsType } from 'ant-design-vue'
 import { DeleteOutlined, EditOutlined, PlusOutlined, ReloadOutlined, SafetyCertificateOutlined, SearchOutlined } from '@ant-design/icons-vue'
 import { selectUserMenus } from '@/apis/upms/login'
-import { getEnabledDictData } from '@/apis/upms/dict'
 import {
   assignSystemRoleMenus,
   changeSystemRoleStatus,
@@ -142,10 +141,11 @@ import {
   updateSystemRole,
 } from '@/apis/upms/role'
 import type { MenuAccessLevel, RolePermissionType, SystemRole, SystemRoleQuery, SystemRoleSaveDTO } from '@/apis/upms/role/type'
-import type { SystemDictData } from '@/apis/upms/dict/type'
 import { menusStore, normalizeMenuTree } from '@/stores/modules/user'
-import { getSystemDictLabel, SYSTEM_DICT_TYPE, toSystemDictOptions } from '@/utils/SystemDict'
+import { SYSTEM_DICT_TYPE } from '@/utils/SystemDict'
 import { useTablePagination } from '@/composables/useTablePagination'
+import { useSystemDict } from '@/composables/useSystemDict'
+import { codeRules, requiredRule } from '@/utils/rules'
 import EllipsisText from '@/components/EllipsisText.vue'
 
 interface RoleFormState extends SystemRoleSaveDTO { id?: string, builtIn: boolean }
@@ -157,11 +157,21 @@ const canWrite = computed(() => menusStore().canWritePath(route.path))
 const saving = ref(false)
 const editorOpen = ref(false)
 const statusChangingId = ref('')
-const statusDict = ref<SystemDictData[]>([])
-const builtInDict = ref<SystemDictData[]>([])
-const permissionTypeDict = ref<SystemDictData[]>([])
-const accessLevelDict = ref<SystemDictData[]>([])
 const formRef = ref<FormInstance>()
+
+// 通用系统字典 Hook
+const { getOptions, getLabel } = useSystemDict([
+  SYSTEM_DICT_TYPE.commonStatus,
+  SYSTEM_DICT_TYPE.commonBuiltIn,
+  SYSTEM_DICT_TYPE.rolePermissionType,
+  SYSTEM_DICT_TYPE.menuAccessLevel,
+])
+
+// 字典选项与标签辅助计算
+const statusOptions = computed(() => getOptions(SYSTEM_DICT_TYPE.commonStatus, (value) => Number(value) as 0 | 1))
+const permissionTypeOptions = computed(() => getOptions(SYSTEM_DICT_TYPE.rolePermissionType, (value) => value as RolePermissionType))
+const accessLevelOptions = computed(() => getOptions(SYSTEM_DICT_TYPE.menuAccessLevel, (value) => value as MenuAccessLevel))
+const getPermissionTypeLabel = (value: unknown) => getLabel(SYSTEM_DICT_TYPE.rolePermissionType, value)
 
 // 使用通用表格分页 Hook
 const {
@@ -190,23 +200,6 @@ const checkedMenuIds = ref<string[]>([])
 const expandedMenuIds = ref<string[]>([])
 const menuAccessLevels = reactive<Record<string, MenuAccessLevel>>({})
 
-const statusOptions = computed(() => toSystemDictOptions(statusDict.value, (value) => Number(value) as 0 | 1))
-const permissionTypeOptions = computed(() => toSystemDictOptions(permissionTypeDict.value, (value) => value as RolePermissionType))
-const accessLevelOptions = computed(() => toSystemDictOptions(accessLevelDict.value, (value) => value as MenuAccessLevel))
-const getPermissionTypeLabel = (value: unknown) => getSystemDictLabel(permissionTypeDict.value, value)
-
-const loadDictionaries = async () => {
-  const [statusResponse, builtInResponse, permissionTypeResponse, accessLevelResponse] = await Promise.all([
-    getEnabledDictData(SYSTEM_DICT_TYPE.commonStatus),
-    getEnabledDictData(SYSTEM_DICT_TYPE.commonBuiltIn),
-    getEnabledDictData(SYSTEM_DICT_TYPE.rolePermissionType),
-    getEnabledDictData(SYSTEM_DICT_TYPE.menuAccessLevel),
-  ])
-  statusDict.value = statusResponse.data || []
-  builtInDict.value = builtInResponse.data || []
-  permissionTypeDict.value = permissionTypeResponse.data || []
-  accessLevelDict.value = accessLevelResponse.data || []
-}
 const emptyForm = (): RoleFormState => ({ roleName: '', roleCode: '', roleDesc: null, permissionType: '1', builtIn: false })
 const formState = reactive<RoleFormState>(emptyForm())
 
@@ -222,8 +215,8 @@ const columns: TableColumnsType<SystemRole> = [
 // 角色名称和编码长度与后端 DTO 校验规则保持一致。
 const rules: FormProps['rules'] = {
   roleName: [{ required: true, whitespace: true, message: '请输入角色名称', trigger: 'blur' }, { max: 20, message: '角色名称不能超过 20 个字符', trigger: 'blur' }],
-  roleCode: [{ required: true, whitespace: true, message: '请输入角色编码', trigger: 'blur' }, { max: 50, message: '角色编码不能超过 50 个字符', trigger: 'blur' }],
-  permissionType: [{ required: true, message: '请选择数据权限', trigger: 'change' }],
+  roleCode: codeRules('角色编码', 50),
+  permissionType: [requiredRule('请选择数据权限', 'change')],
 }
 
 /** 打开角色新增表单。 */
@@ -356,7 +349,6 @@ const saveAuthorization = async () => {
 
 onMounted(() => {
   void loadRoles()
-  void loadDictionaries()
 })
 </script>
 

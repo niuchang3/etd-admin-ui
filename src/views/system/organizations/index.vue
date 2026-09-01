@@ -37,9 +37,12 @@
 
           <code v-else-if="column.key === 'orgCode'" class="code-value">{{ record.orgCode }}</code>
 
-          <a-tag v-else-if="column.key === 'orgType'" color="blue">
-            {{ getOrgTypeLabel(record.orgType) }}
-          </a-tag>
+          <DictTag
+            v-else-if="column.key === 'orgType'"
+            :type-code="SYSTEM_DICT_TYPE.orgType"
+            :value="record.orgType"
+            color="blue"
+          />
 
           <span v-else-if="column.key === 'sort'" class="sort-value">
             {{ record.sort ?? '—' }}
@@ -146,11 +149,12 @@ import {
   updateOrganization,
 } from '@/apis/upms/organization'
 import type { Organization, OrganizationSaveRequest } from '@/apis/upms/organization/type'
-import { getEnabledDictData } from '@/apis/upms/dict'
-import type { SystemDictData } from '@/apis/upms/dict/type'
 import { menusStore } from '@/stores/modules/user'
 import { useSystemConfigStore } from '@/stores/modules/config'
-import { getSystemDictLabel, SYSTEM_DICT_TYPE, toSystemDictOptions } from '@/utils/SystemDict'
+import { SYSTEM_DICT_TYPE } from '@/utils/SystemDict'
+import { useSystemDict } from '@/composables/useSystemDict'
+import { codeRules } from '@/utils/rules'
+import DictTag from '@/components/DictTag.vue'
 
 interface TreeSelectOption {
   value: string
@@ -174,9 +178,12 @@ const statusChangingId = ref('')
 const editorOpen = ref(false)
 
 const orgTree = ref<Organization[]>([])
-const orgTypeDict = ref<SystemDictData[]>([])
 const expandedRowKeys = ref<string[]>([])
 const formRef = ref<FormInstance>()
+
+// 通用系统字典 Hook
+const { getOptions } = useSystemDict([SYSTEM_DICT_TYPE.orgType])
+const orgTypeOptions = computed(() => getOptions(SYSTEM_DICT_TYPE.orgType))
 
 const query = reactive({
   keyword: '',
@@ -193,18 +200,6 @@ const createEmptyForm = (): OrgFormState => ({
 })
 
 const formState = reactive<OrgFormState>(createEmptyForm())
-const orgTypeOptions = computed(() => toSystemDictOptions(orgTypeDict.value, (value) => value))
-
-const loadDictionaries = async () => {
-  try {
-    const response = await getEnabledDictData(SYSTEM_DICT_TYPE.orgType)
-    orgTypeDict.value = response.data || []
-  } catch (err) {
-    console.error('加载组织类型字典失败', err)
-  }
-}
-
-const getOrgTypeLabel = (value: unknown) => getSystemDictLabel(orgTypeDict.value, value)
 
 const columns: TableColumnsType<Organization> = [
   { title: '组织名称', dataIndex: 'orgName', key: 'orgName', width: 250 },
@@ -216,14 +211,8 @@ const columns: TableColumnsType<Organization> = [
 ]
 
 const rules: FormProps['rules'] = {
-  orgCode: [
-    { required: true, whitespace: true, message: '请输入组织编码', trigger: 'blur' },
-    { max: 50, message: '组织编码不能超过 50 个字符', trigger: 'blur' },
-  ],
-  orgName: [
-    { required: true, whitespace: true, message: '请输入组织名称', trigger: 'blur' },
-    { max: 50, message: '组织名称不能超过 50 个字符', trigger: 'blur' },
-  ],
+  orgCode: codeRules('组织编码', 50),
+  orgName: codeRules('组织名称', 50),
 }
 
 // 递归展开所有含有子级的节点
@@ -415,7 +404,6 @@ const removeOrg = async (record: Organization) => {
 
 onMounted(() => {
   void loadOrgTree()
-  void loadDictionaries()
 })
 </script>
 

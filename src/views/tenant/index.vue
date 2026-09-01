@@ -74,10 +74,13 @@
             {{ record.creditCode || '—' }}
           </code>
 
-          <!-- 租户类型 -->
-          <a-tag v-else-if="column.key === 'tenantType'" :color="record.tenantType === 'system' ? 'purple' : 'blue'">
-            {{ getTenantTypeLabel(record.tenantType) }}
-          </a-tag>
+          <!-- 租户类型（通用 DictTag 组件） -->
+          <DictTag
+            v-else-if="column.key === 'tenantType'"
+            :type-code="SYSTEM_DICT_TYPE.tenantType"
+            :value="record.tenantType"
+            :color-map="{ system: 'purple', ordinary: 'blue' }"
+          />
 
           <!-- 租户启停状态 dataStatus -->
           <div v-else-if="column.key === 'dataStatus'" class="status-cell">
@@ -322,15 +325,15 @@ import type {
   TenantRecord,
   TenantUpdateForm,
 } from '@/apis/upms/tenant/type'
-import { getEnabledDictData } from '@/apis/upms/dict'
-import type { SystemDictData } from '@/apis/upms/dict/type'
 import { resolveMenuIcon } from '@/config/menuIcons'
-import { tenantsStore, userStore } from '@/stores/modules/user'
-import { getSystemDictLabel, SYSTEM_DICT_TYPE, toSystemDictOptions } from '@/utils/SystemDict'
+import { SYSTEM_DICT_TYPE } from '@/utils/SystemDict'
+import { userStore } from '@/stores/modules/user'
 import { formatDateTime } from '@/utils/format'
 import { confirmAction } from '@/utils/confirm'
 import { useTablePagination } from '@/composables/useTablePagination'
 import { usePasswordPolicy } from '@/composables/usePasswordPolicy'
+import { useAdminAuth } from '@/composables/useAdminAuth'
+import { useSystemDict } from '@/composables/useSystemDict'
 import {
   buildTreeStructure,
   collectAncestorKeys,
@@ -339,6 +342,7 @@ import {
 } from '@/composables/useTreeHelper'
 import EllipsisText from '@/components/EllipsisText.vue'
 import StatusTag from '@/components/StatusTag.vue'
+import DictTag from '@/components/DictTag.vue'
 
 interface TenantFormState {
   id?: string
@@ -356,33 +360,7 @@ interface TenantFormState {
 }
 
 const currentUser = userStore()
-const currentTenant = tenantsStore()
-
-/**
- * 平台管理员严格判定：
- * 仅允许平台管理员（userInfo.platformAdmin 为 true 或拥有 platformAdmin / PLATFORM_ADMIN 角色）。
- * 绝不使用通用菜单写权限进行兜底，确保非平台管理员一律被判定为 false 并隐藏“设置菜单”。
- */
-const isPlatformAdmin = computed(() => {
-  const pAdmin: unknown = currentUser.userInfo?.platformAdmin
-  if (pAdmin === true || pAdmin === 1 || String(pAdmin) === 'true') return true
-  if (
-    currentUser.roles?.some((r) => {
-      const code = String(r.roleCode || '').trim().toLowerCase()
-      return code === 'platformadmin' || code === 'platform_admin'
-    })
-  ) {
-    return true
-  }
-  return false
-})
-
-// 当前操作人所属租户 ID
-const currentLoginTenantId = computed(() => currentTenant.userTenant.currentTenant?.id)
-const isCurrentLoginTenant = (id?: string | number) => {
-  if (!id || !currentLoginTenantId.value) return false
-  return String(id) === String(currentLoginTenantId.value)
-}
+const { isPlatformAdmin, isCurrentLoginTenant } = useAdminAuth()
 
 // 按钮独立 Loading 状态
 const saving = ref(false)
@@ -422,28 +400,18 @@ const { passwordRules, passwordPlaceholder } = usePasswordPolicy({
   fieldLabel: '管理员密码',
 })
 
-// 租户类型字典加载
-const tenantTypeDict = ref<SystemDictData[]>([])
-const tenantTypeOptions = computed(() => toSystemDictOptions(tenantTypeDict.value, (value) => value))
-const getTenantTypeLabel = (value: unknown) => getSystemDictLabel(tenantTypeDict.value, value)
+// 租户类型字典加载（接入通用 useSystemDict Hook）
+const { getDict, getOptions, getLabel } = useSystemDict([SYSTEM_DICT_TYPE.tenantType])
 
 const tenantTypeFormOptions = computed(() => {
   if (!formState.id) {
-    const ordinaryItem = tenantTypeDict.value.find((item) => item.dictValue === 'ordinary')
+    const ordinaryItem = getDict(SYSTEM_DICT_TYPE.tenantType).find((item) => item.dictValue === 'ordinary')
     return [{ label: ordinaryItem ? ordinaryItem.dictLabel : '普通租户', value: 'ordinary' }]
   }
-  if (tenantTypeOptions.value.length) return tenantTypeOptions.value
-  return [{ label: getTenantTypeLabel(formState.tenantType), value: formState.tenantType || 'ordinary' }]
+  const opts = getOptions(SYSTEM_DICT_TYPE.tenantType)
+  if (opts.length) return opts
+  return [{ label: getLabel(SYSTEM_DICT_TYPE.tenantType, formState.tenantType), value: formState.tenantType || 'ordinary' }]
 })
-
-const loadDictionaries = async () => {
-  try {
-    const response = await getEnabledDictData(SYSTEM_DICT_TYPE.tenantType)
-    tenantTypeDict.value = response.data || []
-  } catch (err) {
-    console.warn('加载租户类型字典失败:', err)
-  }
-}
 
 const emptyForm = (): TenantFormState => ({
   id: undefined,
@@ -506,34 +474,26 @@ const handleLogoError = (e: Event) => {
   }
 }
 
+import {
+  accountRules as getAccountRules,
+  userNameRules as getUserNameRules,
+  mobileRules as getMobileRules,
+  creditCodeRules as getCreditCodeRules,
+  requiredRule,
+} from '@/utils/rules'
+
 // ==================== 表单校验规则 ====================
 const formRules: Record<string, Rule[]> = {
   tenantName: [
-    { required: true, whitespace: true, message: '请输入租户名称', trigger: 'blur' },
-    { max: 64, message: '租户名称最多 64 个字符', trigger: 'blur' },
+    requiredRule('请输入租户名称'),
+    { max: 64, message: '租户名称最多 64 个字符', trigger: ['blur', 'change'] },
   ],
-  creditCode: [
-    {
-      pattern: /^[0-9A-HJ-NPQRTUWXY]{18}$/,
-      message: '统一社会信用代码必须由 18 位大写字母或数字组成',
-      trigger: 'blur',
-    },
-  ],
+  creditCode: getCreditCodeRules(),
 }
 
-const administratorAccountRules: Rule[] = [
-  { required: true, whitespace: true, message: '请输入管理员账号', trigger: 'blur' },
-  { max: 32, message: '账号最多 32 个字符', trigger: 'blur' },
-]
-
-const administratorUserNameRules: Rule[] = [
-  { required: true, whitespace: true, message: '请输入管理员真实姓名', trigger: 'blur' },
-  { max: 20, message: '姓名最多 20 个字符', trigger: 'blur' },
-]
-
-const administratorMobileRules: Rule[] = [
-  { pattern: /^1[3-9]\d{9}$/, message: '请输入正确的11位手机号码', trigger: 'blur' },
-]
+const administratorAccountRules = getAccountRules({ maxLength: 32, requiredMessage: '请输入管理员账号' })
+const administratorUserNameRules = getUserNameRules({ maxLength: 20, requiredMessage: '请输入管理员真实姓名' })
+const administratorMobileRules = getMobileRules({ maxLength: 20 })
 
 // ==================== 新增与编辑租户 ====================
 const openCreate = () => {
@@ -765,7 +725,6 @@ const handleSaveMenuSettings = async () => {
 
 onMounted(async () => {
   void loadTenants()
-  void loadDictionaries()
   try {
     await Promise.all([currentUser.getUserInfo(), currentUser.getUserRoles()])
   } catch {

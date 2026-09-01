@@ -27,7 +27,7 @@
         >
           <template #bodyCell="{ column, record }">
             <div v-if="column.key === 'type'" class="type-main">
-              <div><strong>{{ record.typeName }}</strong><a-tag v-if="record.builtIn" color="gold">{{ getSystemDictLabel(builtInDict, record.builtIn) }}</a-tag></div>
+              <div><strong>{{ record.typeName }}</strong><a-tag v-if="record.builtIn" color="gold">{{ getLabel(SYSTEM_DICT_TYPE.commonBuiltIn, record.builtIn) }}</a-tag></div>
               <code>{{ record.typeCode }}</code>
             </div>
             <a-switch
@@ -85,8 +85,8 @@
               :checked="record.enabled"
               :loading="dataStatusChangingId === record.id"
               :disabled="!canWrite || record.builtIn"
-              :checked-children="getSystemDictLabel(statusDict, '1')"
-              :un-checked-children="getSystemDictLabel(statusDict, '0')"
+              :checked-children="getLabel(SYSTEM_DICT_TYPE.commonStatus, '1')"
+              :un-checked-children="getLabel(SYSTEM_DICT_TYPE.commonStatus, '0')"
               @change="changeDataEnabled(record, Boolean($event))"
             />
             <div v-else-if="column.key === 'actions'" class="row-actions">
@@ -103,7 +103,7 @@
               </template>
             </div>
           </template>
-          <template #emptyText><a-empty :description="selectedType ? '暂无字典项' : '请先选择字典类型'" /></template>
+          <template #emptyText><a-empty :description="selectedType ? '暂无字典项' : '请先选择左侧字典类型'" /></template>
         </a-table>
       </div>
     </div>
@@ -165,7 +165,6 @@ import {
   getSystemDictDataPage,
   getSystemDictType,
   getSystemDictTypePage,
-  getEnabledDictData,
   updateSystemDictData,
   updateSystemDictType,
 } from '@/apis/upms/dict'
@@ -176,7 +175,9 @@ import type {
   SystemDictTypeSaveDTO,
 } from '@/apis/upms/dict/type'
 import { menusStore } from '@/stores/modules/user'
-import { getSystemDictLabel, SYSTEM_DICT_TYPE, toSystemDictOptions } from '@/utils/SystemDict'
+import { SYSTEM_DICT_TYPE } from '@/utils/SystemDict'
+import { useSystemDict } from '@/composables/useSystemDict'
+import { codeRules, remarkRules } from '@/utils/rules'
 
 interface DictTypeFormState extends SystemDictTypeSaveDTO { id?: string, builtIn: boolean }
 interface DictDataFormState extends SystemDictDataSaveDTO { id?: string }
@@ -194,13 +195,19 @@ const typeStatusChangingId = ref('')
 const dataStatusChangingId = ref('')
 const dictTypes = ref<SystemDictType[]>([])
 const dictData = ref<SystemDictData[]>([])
-const statusDict = ref<SystemDictData[]>([])
-const builtInDict = ref<SystemDictData[]>([])
 const selectedTypeId = ref('')
 const typeTotal = ref(0)
 const dataTotal = ref(0)
 const typeFormRef = ref<FormInstance>()
 const dataFormRef = ref<FormInstance>()
+
+// 通用系统字典 Hook
+const { getOptions, getLabel } = useSystemDict([
+  SYSTEM_DICT_TYPE.commonStatus,
+  SYSTEM_DICT_TYPE.commonBuiltIn,
+])
+
+const statusOptions = computed(() => getOptions(SYSTEM_DICT_TYPE.commonStatus, (value) => value === '1'))
 
 // 主表和从表各自维护查询条件及分页，切换主表时只重置从表。
 const typeQuery = reactive<{ current: number, size: number, keyword: string, enabled?: boolean }>({ current: 1, size: 10, keyword: '', enabled: undefined })
@@ -211,16 +218,6 @@ const emptyTypeForm = (): DictTypeFormState => ({ typeCode: '', typeName: '', re
 const emptyDataForm = (): DictDataFormState => ({ dictTypeId: '', dictCode: '', dictLabel: '', dictValue: '', sort: 0, remark: null })
 const typeForm = reactive<DictTypeFormState>(emptyTypeForm())
 const dataForm = reactive<DictDataFormState>(emptyDataForm())
-const statusOptions = computed(() => toSystemDictOptions(statusDict.value, (value) => value === '1'))
-
-const loadDictionaries = async () => {
-  const [statusResponse, builtInResponse] = await Promise.all([
-    getEnabledDictData(SYSTEM_DICT_TYPE.commonStatus),
-    getEnabledDictData(SYSTEM_DICT_TYPE.commonBuiltIn),
-  ])
-  statusDict.value = statusResponse.data || []
-  builtInDict.value = builtInResponse.data || []
-}
 
 const typeColumns: TableColumnsType<SystemDictType> = [
   { title: '类型', key: 'type' },
@@ -241,15 +238,15 @@ const dataPagination = computed(() => ({ current: dataQuery.current, pageSize: d
 
 // 表单规则与后端字段长度限制保持一致，减少无效请求。
 const typeRules: FormProps['rules'] = {
-  typeCode: [{ required: true, whitespace: true, message: '请输入类型编码', trigger: 'blur' }, { max: 100, message: '类型编码不能超过 100 个字符', trigger: 'blur' }],
-  typeName: [{ required: true, whitespace: true, message: '请输入类型名称', trigger: 'blur' }, { max: 100, message: '类型名称不能超过 100 个字符', trigger: 'blur' }],
-  remark: [{ max: 500, message: '备注不能超过 500 个字符', trigger: 'blur' }],
+  typeCode: codeRules('类型编码', 100),
+  typeName: codeRules('类型名称', 100),
+  remark: remarkRules(500),
 }
 const dataRules: FormProps['rules'] = {
-  dictCode: [{ required: true, whitespace: true, message: '请输入字典编码', trigger: 'blur' }, { max: 100, message: '字典编码不能超过 100 个字符', trigger: 'blur' }],
-  dictLabel: [{ required: true, whitespace: true, message: '请输入字典标签', trigger: 'blur' }, { max: 100, message: '字典标签不能超过 100 个字符', trigger: 'blur' }],
-  dictValue: [{ required: true, whitespace: true, message: '请输入字典值', trigger: 'blur' }, { max: 200, message: '字典值不能超过 200 个字符', trigger: 'blur' }],
-  remark: [{ max: 500, message: '备注不能超过 500 个字符', trigger: 'blur' }],
+  dictCode: codeRules('字典编码', 100),
+  dictLabel: codeRules('字典标签', 100),
+  dictValue: codeRules('字典值', 200),
+  remark: remarkRules(500),
 }
 
 // Long ID 不转 number；比较时先看字符串长度，再按字典序得到稳定升序。
@@ -402,7 +399,6 @@ const removeData = async (record: SystemDictData) => {
 
 onMounted(() => {
   void loadTypes()
-  void loadDictionaries()
 })
 </script>
 
