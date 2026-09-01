@@ -714,11 +714,23 @@ const onOrgSelect = (selectedKeys: unknown[]) => {
 // ==================== 角色列表加载 ====================
 const rawRoles = ref<SystemRole[]>([])
 const roleListLoading = ref(false)
+
+/**
+ * 判断是否为禁止在页面端分配给用户的受限管理员角色（平台管理员、租户管理员）
+ * 严格依据系统内置角色 roleCode 判断，绝不依赖中文名称
+ */
+const isRestrictedRole = (role: { roleCode?: string | null }): boolean => {
+  const code = String(role.roleCode || '').trim().toLowerCase().replace(/[-_]/g, '')
+  return code === 'platformadmin' || code === 'tenantadmin'
+}
+
 const roleOptions = computed(() =>
-  rawRoles.value.map((r) => ({
-    label: r.roleName,
-    value: String(r.id),
-  }))
+  rawRoles.value
+    .filter((r) => !isRestrictedRole(r))
+    .map((r) => ({
+      label: r.roleName,
+      value: String(r.id),
+    }))
 )
 
 const loadRoles = async () => {
@@ -816,6 +828,8 @@ const handleCreateUser = async () => {
   await createFormRef.value?.validate()
   savingUser.value = true
   try {
+    const allowedRoleIdSet = new Set(roleOptions.value.map((r) => String(r.value)))
+    const safeRoleIds = (createForm.roleIds || []).filter((id) => allowedRoleIdSet.has(String(id)))
     const payload: UserCreatePayload = {
       account: createForm.account.trim(),
       password: createForm.password,
@@ -825,7 +839,7 @@ const handleCreateUser = async () => {
       birthday: createForm.birthday || undefined,
       gender: createForm.gender,
       avatar: createForm.avatar?.trim() || undefined,
-      roleIds: createForm.roleIds || [],
+      roleIds: safeRoleIds,
       organizationIds: createForm.organizationIds || [],
       primaryOrganizationId: createForm.primaryOrganizationId || undefined,
     }
@@ -918,7 +932,11 @@ const openRoleAssign = async (record: UserRecord) => {
   try {
     await loadRoles()
     const res = await getUserRoles(record.id)
-    targetRoleIds.value = (res.data || []).map((r) => String(r.roleId))
+    const allowedRoleIdSet = new Set(roleOptions.value.map((r) => String(r.value)))
+    targetRoleIds.value = (res.data || [])
+      .filter((r) => !isRestrictedRole(r))
+      .map((r) => String(r.roleId))
+      .filter((id) => allowedRoleIdSet.has(id))
   } finally {
     roleAssignLoading.value = false
   }
@@ -926,7 +944,8 @@ const openRoleAssign = async (record: UserRecord) => {
 
 const handleSaveRoles = async () => {
   if (!currentRecord.value) return
-  const roleIds = targetRoleIds.value
+  const allowedRoleIdSet = new Set(roleOptions.value.map((r) => String(r.value)))
+  const roleIds = targetRoleIds.value.filter((id) => allowedRoleIdSet.has(String(id)))
   const executeSave = async () => {
     savingRoles.value = true
     try {
