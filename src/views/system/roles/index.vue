@@ -83,7 +83,7 @@
             <strong>{{ authorizationRole?.roleName }}</strong>
             <code>{{ authorizationRole?.roleCode }}</code>
           </div>
-          <span>已选择 {{ checkedMenuIds.length }} 个菜单；新选择菜单默认{{ getSystemDictLabel(accessLevelDict, 2) }}</span>
+          <span>已选择 {{ checkedMenuIds.length }} 个菜单；新选择菜单默认{{ getSystemDictLabel(accessLevelDict, 'READ_WRITE') }}</span>
         </div>
         <a-alert message="取消全部勾选并保存，将清空该角色的菜单权限。" type="info" show-icon />
         <div class="tree-toolbar">
@@ -105,7 +105,7 @@
               <span>{{ node.title }}</span>
               <a-select
                 v-if="checkedMenuIds.includes(String(node.key))"
-                :value="menuAccessLevels[String(node.key)] || 2"
+                :value="menuAccessLevels[String(node.key)] || 'READ_WRITE'"
                 size="small"
                 class="access-select"
                 @click.stop
@@ -192,7 +192,7 @@ const menuAccessLevels = reactive<Record<string, MenuAccessLevel>>({})
 
 const statusOptions = computed(() => toSystemDictOptions(statusDict.value, (value) => Number(value) as 0 | 1))
 const permissionTypeOptions = computed(() => toSystemDictOptions(permissionTypeDict.value, (value) => value as RolePermissionType))
-const accessLevelOptions = computed(() => toSystemDictOptions(accessLevelDict.value, (value) => Number(value) as MenuAccessLevel))
+const accessLevelOptions = computed(() => toSystemDictOptions(accessLevelDict.value, (value) => value as MenuAccessLevel))
 const getPermissionTypeLabel = (value: unknown) => getSystemDictLabel(permissionTypeDict.value, value)
 
 const loadDictionaries = async () => {
@@ -294,7 +294,7 @@ const openAuthorization = async (role: SystemRole) => {
     // 使用 Map 按 menuId 去重，保证后续全量提交同一个菜单最多出现一次。
     const uniqueAssigned = new Map((assignedResponse.data || []).map((item) => [item.menuId, item.accessLevel]))
     checkedMenuIds.value = Array.from(uniqueAssigned.keys())
-    uniqueAssigned.forEach((level, menuId) => { menuAccessLevels[menuId] = level === 1 ? 1 : 2 })
+    uniqueAssigned.forEach((level, menuId) => { menuAccessLevels[menuId] = level === 'READ_ONLY' ? 'READ_ONLY' : 'READ_WRITE' })
   } finally { authorizationLoading.value = false }
 }
 
@@ -307,7 +307,7 @@ const handleMenuCheck = (keys: unknown) => {
       : []
   const uniqueKeys = Array.from(new Set(rawKeys.map(String)))
   checkedMenuIds.value = uniqueKeys
-  uniqueKeys.forEach((menuId) => { if (!menuAccessLevels[menuId]) menuAccessLevels[menuId] = 2 })
+  uniqueKeys.forEach((menuId) => { if (!menuAccessLevels[menuId]) menuAccessLevels[menuId] = 'READ_WRITE' })
 }
 const findNodeInTree = (nodes: MenuTreeNode[], key: string): MenuTreeNode | null => {
   for (const node of nodes) {
@@ -328,7 +328,7 @@ const syncSubtreeAccessLevel = (node: MenuTreeNode, level: MenuAccessLevel) => {
   }
 }
 const setMenuAccessLevel = (menuId: string, level: unknown) => {
-  const targetLevel = (level === 1 ? 1 : 2) as MenuAccessLevel
+  const targetLevel = (level === 'READ_ONLY' ? 'READ_ONLY' : 'READ_WRITE') as MenuAccessLevel
   menuAccessLevels[menuId] = targetLevel
   const node = findNodeInTree(menuTree.value, menuId)
   if (node && node.children?.length) {
@@ -346,7 +346,7 @@ const saveAuthorization = async () => {
   try {
     const uniqueMenuIds = Array.from(new Set(checkedMenuIds.value))
     const response = await assignSystemRoleMenus(authorizationRole.value.id, {
-      menus: uniqueMenuIds.map((menuId) => ({ menuId, accessLevel: menuAccessLevels[menuId] || 2 })),
+      menus: uniqueMenuIds.map((menuId) => ({ menuId, accessLevel: menuAccessLevels[menuId] || 'READ_WRITE' })),
     })
     if (!response.data) return void message.warning('菜单授权未生效，请刷新后重试')
     message.success('菜单授权保存成功')

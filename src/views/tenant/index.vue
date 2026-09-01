@@ -326,7 +326,6 @@ import { getEnabledDictData } from '@/apis/upms/dict'
 import type { SystemDictData } from '@/apis/upms/dict/type'
 import { resolveMenuIcon } from '@/config/menuIcons'
 import { tenantsStore, userStore } from '@/stores/modules/user'
-import { useSystemConfigStore } from '@/stores/modules/config'
 import { getSystemDictLabel, SYSTEM_DICT_TYPE, toSystemDictOptions } from '@/utils/SystemDict'
 import { formatDateTime } from '@/utils/format'
 import { confirmAction } from '@/utils/confirm'
@@ -358,7 +357,6 @@ interface TenantFormState {
 
 const currentUser = userStore()
 const currentTenant = tenantsStore()
-const configStore = useSystemConfigStore()
 
 /**
  * 平台管理员严格判定：
@@ -541,7 +539,6 @@ const administratorMobileRules: Rule[] = [
 const openCreate = () => {
   if (!isPlatformAdmin.value) return
   Object.assign(formState, emptyForm())
-  void configStore.fetchConfigs()
   editorOpen.value = true
 }
 
@@ -769,7 +766,6 @@ const handleSaveMenuSettings = async () => {
 onMounted(async () => {
   void loadTenants()
   void loadDictionaries()
-  void configStore.fetchConfigs()
   try {
     await Promise.all([currentUser.getUserInfo(), currentUser.getUserRoles()])
   } catch {

@@ -156,6 +156,7 @@ import { DeleteOutlined, EditOutlined, PlusOutlined, ReloadOutlined, SearchOutli
 import {
   changeSystemDictDataEnabled,
   changeSystemDictTypeEnabled,
+  clearDictCache,
   createSystemDictData,
   createSystemDictType,
   deleteSystemDictData,
@@ -319,6 +320,7 @@ const saveType = async () => {
     const payload: SystemDictTypeSaveDTO = { typeCode: typeForm.typeCode.trim(), typeName: typeForm.typeName.trim(), remark: typeForm.remark?.trim() || null }
     const response = typeForm.id ? await updateSystemDictType(typeForm.id, payload) : await createSystemDictType(payload)
     if (typeForm.id && !response.data) return void message.warning('字典类型修改未生效，请刷新后重试')
+    clearDictCache(typeForm.typeCode)
     message.success(typeForm.id ? '字典类型修改成功' : '字典类型新增成功')
     typeEditorOpen.value = false
     await loadTypes()
@@ -331,6 +333,7 @@ const changeTypeEnabled = async (record: SystemDictType, enabled: boolean) => {
   try {
     const response = await changeSystemDictTypeEnabled(record.id, enabled)
     if (!response.data) return void message.warning('状态修改未生效，请刷新后重试')
+    clearDictCache(record.typeCode)
     message.success(enabled ? '字典类型已启用' : '字典类型已禁用')
     await loadTypes()
   } finally { typeStatusChangingId.value = '' }
@@ -340,6 +343,7 @@ const removeType = async (record: SystemDictType) => {
   if (record.builtIn) return
   const response = await deleteSystemDictType(record.id)
   if (!response.data) return void message.warning('字典类型删除未生效，请刷新后重试')
+  clearDictCache(record.typeCode)
   message.success('字典类型删除成功')
   if (dictTypes.value.length === 1 && typeQuery.current > 1) typeQuery.current -= 1
   await loadTypes()
@@ -367,6 +371,7 @@ const saveData = async () => {
     const payload: SystemDictDataSaveDTO = { dictTypeId: dataForm.dictTypeId, dictCode: dataForm.dictCode.trim(), dictLabel: dataForm.dictLabel.trim(), dictValue: dataForm.dictValue.trim(), sort: dataForm.sort, remark: dataForm.remark?.trim() || null }
     const response = dataForm.id ? await updateSystemDictData(dataForm.id, payload) : await createSystemDictData(payload)
     if (dataForm.id && !response.data) return void message.warning('字典项修改未生效，请刷新后重试')
+    clearDictCache(selectedType.value?.typeCode)
     message.success(dataForm.id ? '字典项修改成功' : '字典项新增成功')
     dataEditorOpen.value = false
     await loadData()
@@ -379,6 +384,7 @@ const changeDataEnabled = async (record: SystemDictData, enabled: boolean) => {
   try {
     const response = await changeSystemDictDataEnabled(record.id, enabled)
     if (!response.data) return void message.warning('状态修改未生效，请刷新后重试')
+    clearDictCache(selectedType.value?.typeCode)
     message.success(enabled ? '字典项已启用' : '字典项已禁用')
     await loadData()
   } finally { dataStatusChangingId.value = '' }
@@ -388,6 +394,7 @@ const removeData = async (record: SystemDictData) => {
   if (record.builtIn) return
   const response = await deleteSystemDictData(record.id)
   if (!response.data) return void message.warning('字典项删除未生效，请刷新后重试')
+  clearDictCache(selectedType.value?.typeCode)
   message.success('字典项删除成功')
   if (dictData.value.length === 1 && dataQuery.current > 1) dataQuery.current -= 1
   await loadData()

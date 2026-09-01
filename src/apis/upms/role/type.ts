@@ -2,8 +2,15 @@ import type { Id } from '@/apis/types'
 
 /** 角色数据权限：不限制、本人、当前组织、当前及下级组织、自定义跨组织。 */
 export type RolePermissionType = '1' | '2' | '3' | '4' | '5'
-/** 菜单访问级别：1 只读，2 读写。 */
-export type MenuAccessLevel = 1 | 2
+
+/** 菜单访问级别枚举：READ_ONLY 只读，READ_WRITE 读写。 */
+export enum AccessLevelEnum {
+  READ_ONLY = 'READ_ONLY',
+  READ_WRITE = 'READ_WRITE',
+}
+
+/** 菜单访问级别：READ_ONLY 只读，READ_WRITE 读写。 */
+export type MenuAccessLevel = 'READ_ONLY' | 'READ_WRITE'
 
 /** 角色列表及详情接口返回的数据。 */
 export interface SystemRole {

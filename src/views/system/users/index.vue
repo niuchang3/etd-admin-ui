@@ -536,7 +536,6 @@ import type { Organization } from '@/apis/upms/organization/type'
 import { getSystemRolePage } from '@/apis/upms/role'
 import type { SystemRole } from '@/apis/upms/role/type'
 import { menusStore, tenantsStore, userStore } from '@/stores/modules/user'
-import { useSystemConfigStore } from '@/stores/modules/config'
 import { useTablePagination } from '@/composables/useTablePagination'
 import { usePasswordPolicy } from '@/composables/usePasswordPolicy'
 import { filterTreeNodes } from '@/composables/useTreeHelper'
@@ -548,7 +547,6 @@ import StatusTag from '@/components/StatusTag.vue'
 const route = useRoute()
 const currentMenus = menusStore()
 const currentUser = userStore()
-const configStore = useSystemConfigStore()
 
 // 权限控制
 const canWrite = computed(() => currentMenus.canWritePath(route.path))
@@ -810,7 +808,6 @@ const openCreate = () => {
     organizationIds: selectedOrgId.value ? [selectedOrgId.value] : [],
     primaryOrganizationId: selectedOrgId.value ? selectedOrgId.value : undefined,
   })
-  void configStore.fetchConfigs()
   void loadRoles()
   createModalOpen.value = true
 }
@@ -1120,7 +1117,6 @@ const confirmDeleteUser = (record: UserRecord) => {
 onMounted(() => {
   void loadOrgTree()
   void loadUsers()
-  void configStore.fetchConfigs()
 })
 </script>
 

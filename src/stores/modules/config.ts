@@ -123,90 +123,121 @@ export const useSystemConfigStore = defineStore('system-config', () => {
   const loading = ref(false)
   const isLoaded = ref(false)
 
-  const fetchConfigs = async () => {
-    loading.value = true
-    try {
-      const keys = [
-        SYSTEM_CONFIG_KEY.branding,
-        SYSTEM_CONFIG_KEY.securityPolicy,
-        SYSTEM_CONFIG_KEY.resourceLimit,
-        SYSTEM_CONFIG_KEY.networkPolicy,
-      ]
-      const response = await getSystemConfigValues(keys)
-      const data = response.data || {}
+  let fetchPromise: Promise<void> | null = null
 
-      const safeParse = (val: unknown) => {
-        if (!val) return null
-        if (typeof val === 'object') return val
-        if (typeof val === 'string') {
-          try {
-            return JSON.parse(val)
-          } catch {
-            return null
+  /**
+   * 拉取系统核心内置参数（自带已加载缓存拦截与并发合并）
+   * @param force 是否强制跳过缓存重新请求后端（默认 false）
+   */
+  const fetchConfigs = async (force = false) => {
+    // 1. 已加载且非强制刷新，直接命中缓存
+    if (isLoaded.value && !force) {
+      return
+    }
+
+    // 2. 防并发去重：若当前正在拉取中，复用该 Promise
+    if (fetchPromise) {
+      return fetchPromise
+    }
+
+    fetchPromise = (async () => {
+      loading.value = true
+      try {
+        const keys = [
+          SYSTEM_CONFIG_KEY.branding,
+          SYSTEM_CONFIG_KEY.securityPolicy,
+          SYSTEM_CONFIG_KEY.resourceLimit,
+          SYSTEM_CONFIG_KEY.networkPolicy,
+        ]
+        const response = await getSystemConfigValues(keys)
+        const data = response.data || {}
+
+        const safeParse = (val: unknown) => {
+          if (!val) return null
+          if (typeof val === 'object') return val
+          if (typeof val === 'string') {
+            try {
+              return JSON.parse(val)
+            } catch {
+              return null
+            }
+          }
+          return null
+        }
+
+        // 如果获取成功，解析 JSON。如果解析失败或值不存在，执行回滚兜底。
+        const rawBranding = safeParse(data[SYSTEM_CONFIG_KEY.branding])
+        if (rawBranding) {
+          branding.value = {
+            ...DEFAULT_BRANDING,
+            ...rawBranding,
+            watermark: {
+              ...DEFAULT_BRANDING.watermark,
+              ...(rawBranding.watermark || {}),
+            },
           }
         }
-        return null
-      }
 
-      // 如果获取成功，解析 JSON。如果解析失败或值不存在，执行回滚兜底。
-      const rawBranding = safeParse(data[SYSTEM_CONFIG_KEY.branding])
-      if (rawBranding) {
-        branding.value = {
-          ...DEFAULT_BRANDING,
-          ...rawBranding,
-          watermark: {
-            ...DEFAULT_BRANDING.watermark,
-            ...(rawBranding.watermark || {}),
-          },
+        const rawSecurity = safeParse(data[SYSTEM_CONFIG_KEY.securityPolicy])
+        if (rawSecurity) {
+          security.value = {
+            captcha: {
+              ...DEFAULT_SECURITY_POLICY.captcha,
+              ...(rawSecurity.captcha || {}),
+            },
+            password: {
+              ...DEFAULT_SECURITY_POLICY.password,
+              ...(rawSecurity.password || {}),
+            },
+          }
         }
-      }
 
-      const rawSecurity = safeParse(data[SYSTEM_CONFIG_KEY.securityPolicy])
-      if (rawSecurity) {
-        security.value = {
-          captcha: {
-            ...DEFAULT_SECURITY_POLICY.captcha,
-            ...(rawSecurity.captcha || {}),
-          },
-          password: {
-            ...DEFAULT_SECURITY_POLICY.password,
-            ...(rawSecurity.password || {}),
-          },
+        const rawResource = safeParse(data[SYSTEM_CONFIG_KEY.resourceLimit])
+        if (rawResource) {
+          resource.value = {
+            ...DEFAULT_RESOURCE_LIMIT,
+            ...rawResource,
+            upload: { ...DEFAULT_RESOURCE_LIMIT.upload, ...(rawResource.upload || {}) },
+            organization: { ...DEFAULT_RESOURCE_LIMIT.organization, ...(rawResource.organization || {}) },
+            menu: { ...DEFAULT_RESOURCE_LIMIT.menu, ...(rawResource.menu || {}) },
+            pagination: { ...DEFAULT_RESOURCE_LIMIT.pagination, ...(rawResource.pagination || {}) },
+          }
         }
-      }
 
-      const rawResource = safeParse(data[SYSTEM_CONFIG_KEY.resourceLimit])
-      if (rawResource) {
-        resource.value = {
-          ...DEFAULT_RESOURCE_LIMIT,
-          ...rawResource,
-          upload: { ...DEFAULT_RESOURCE_LIMIT.upload, ...(rawResource.upload || {}) },
-          organization: { ...DEFAULT_RESOURCE_LIMIT.organization, ...(rawResource.organization || {}) },
-          menu: { ...DEFAULT_RESOURCE_LIMIT.menu, ...(rawResource.menu || {}) },
-          pagination: { ...DEFAULT_RESOURCE_LIMIT.pagination, ...(rawResource.pagination || {}) },
+        const rawNetwork = safeParse(data[SYSTEM_CONFIG_KEY.networkPolicy])
+        if (rawNetwork) {
+          network.value = {
+            ...DEFAULT_NETWORK_POLICY,
+            ...rawNetwork,
+            request: { ...DEFAULT_NETWORK_POLICY.request, ...(rawNetwork.request || {}) },
+            cache: { ...DEFAULT_NETWORK_POLICY.cache, ...(rawNetwork.cache || {}) },
+          }
         }
+        isLoaded.value = true
+      } catch (e) {
+        // 网络请求失败、接口报错时，全面降级使用前端硬编码默认值
+        console.warn('Failed to load system config, falling back to defaults:', e)
+        branding.value = { ...DEFAULT_BRANDING }
+        security.value = { ...DEFAULT_SECURITY_POLICY }
+        resource.value = { ...DEFAULT_RESOURCE_LIMIT }
+        network.value = { ...DEFAULT_NETWORK_POLICY }
+      } finally {
+        loading.value = false
+        fetchPromise = null
       }
+    })()
 
-      const rawNetwork = safeParse(data[SYSTEM_CONFIG_KEY.networkPolicy])
-      if (rawNetwork) {
-        network.value = {
-          ...DEFAULT_NETWORK_POLICY,
-          ...rawNetwork,
-          request: { ...DEFAULT_NETWORK_POLICY.request, ...(rawNetwork.request || {}) },
-          cache: { ...DEFAULT_NETWORK_POLICY.cache, ...(rawNetwork.cache || {}) },
-        }
-      }
-      isLoaded.value = true
-    } catch (e) {
-      // 网络请求失败、接口报错时，全面降级使用前端硬编码默认值
-      console.warn('Failed to load system config, falling back to defaults:', e)
-      branding.value = { ...DEFAULT_BRANDING }
-      security.value = { ...DEFAULT_SECURITY_POLICY }
-      resource.value = { ...DEFAULT_RESOURCE_LIMIT }
-      network.value = { ...DEFAULT_NETWORK_POLICY }
-    } finally {
-      loading.value = false
-    }
+    return fetchPromise
+  }
+
+  const $reset = () => {
+    branding.value = { ...DEFAULT_BRANDING }
+    security.value = { ...DEFAULT_SECURITY_POLICY }
+    resource.value = { ...DEFAULT_RESOURCE_LIMIT }
+    network.value = { ...DEFAULT_NETWORK_POLICY }
+    loading.value = false
+    isLoaded.value = false
+    fetchPromise = null
   }
 
   return {
@@ -217,5 +248,6 @@ export const useSystemConfigStore = defineStore('system-config', () => {
     loading,
     isLoaded,
     fetchConfigs,
+    $reset,
   }
-})
+}, { persist: { storage: localStorage } })

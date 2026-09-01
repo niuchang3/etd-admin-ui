@@ -131,6 +131,7 @@ import { getEnabledDictData } from '@/apis/upms/dict'
 import type { SystemConfig, SystemConfigQuery, SystemConfigSaveDTO, SystemConfigValueType } from '@/apis/upms/config/type'
 import type { SystemDictData } from '@/apis/upms/dict/type'
 import { menusStore } from '@/stores/modules/user'
+import { useSystemConfigStore } from '@/stores/modules/config'
 import { getSystemDictLabel, SYSTEM_DICT_TYPE, toSystemDictOptions } from '@/utils/SystemDict'
 import { formatDateTime } from '@/utils/format'
 import { useTablePagination } from '@/composables/useTablePagination'
@@ -143,6 +144,7 @@ interface ConfigFormState extends SystemConfigSaveDTO {
 
 // 页面写权限完全取自当前路由对应菜单的 accessLevel，避免只在导航层控制权限。
 const route = useRoute()
+const configStore = useSystemConfigStore()
 const canWrite = computed(() => menusStore().canWritePath(route.path))
 const saving = ref(false)
 const editorOpen = ref(false)
@@ -291,6 +293,7 @@ const saveConfig = async () => {
     }
     message.success(formState.id ? '系统参数修改成功' : '系统参数新增成功')
     editorOpen.value = false
+    void configStore.fetchConfigs(true)
     await loadConfigs()
   } finally {
     saving.value = false
@@ -308,6 +311,7 @@ const changeEnabled = async (record: SystemConfig, enabled: boolean) => {
       return
     }
     message.success(enabled ? '系统参数已启用' : '系统参数已禁用')
+    void configStore.fetchConfigs(true)
     await loadConfigs()
   } finally {
     statusChangingId.value = ''
@@ -323,6 +327,7 @@ const removeConfig = async (record: SystemConfig) => {
     return
   }
   message.success('系统参数删除成功')
+  void configStore.fetchConfigs(true)
   await refreshAfterDelete()
 }
 

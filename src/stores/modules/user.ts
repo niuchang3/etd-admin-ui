@@ -2,6 +2,8 @@ import { selectUserInfo, selectUserMenus, selectUserRole, selectUserTenant } fro
 import type { Tenant, UserInfo, UserMenu, UserRole } from '@/apis/upms/login/type'
 import { clearDynamicRoutes, syncDynamicRoutes } from '@/router'
 import { canReadMenu, canWriteMenu } from '@/utils/menuPermission'
+import { clearDictCache } from '@/apis/upms/dict'
+import { useSystemConfigStore } from './config'
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
 
@@ -52,6 +54,7 @@ export const tenantsStore = defineStore('tenantsInfo', () => {
 
     menusStore().$reset()
     userStore().$reset()
+    clearDictCache()
     userTenant.value.currentTenant = tenant
     await Promise.all([menusStore().getUserMenus(), userStore().getUserInfo(), userStore().getUserRoles()])
     if (isReload) location.reload()
@@ -79,9 +82,9 @@ export const normalizeMenuTree = (sourceMenus: UserMenu[]): { raw: UserMenu[], t
       if (import.meta.env.DEV) console.warn(`[menus] 忽略重复菜单 ID: ${id}`)
       return
     }
-    const accessLevel = source.accessLevel === null || source.accessLevel === 1 || source.accessLevel === 2
+    const accessLevel = source.accessLevel === null || source.accessLevel === 'READ_ONLY' || source.accessLevel === 'READ_WRITE'
       ? source.accessLevel
-      : 1
+      : 'READ_ONLY'
     if (accessLevel !== source.accessLevel && import.meta.env.DEV) {
       console.warn(`[menus] 菜单 ${id} 的 accessLevel 无效，已按只读处理`)
     }
@@ -174,5 +177,7 @@ export const clearStore = () => {
   tenantsStore().$reset()
   menusStore().$reset()
   currentMenu().$reset()
+  useSystemConfigStore().$reset()
+  clearDictCache()
   return Promise.resolve(true)
 }
