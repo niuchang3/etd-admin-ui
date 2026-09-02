@@ -34,6 +34,39 @@
 7. 编辑前需要完整或最新数据时，重新请求详情，不默认相信列表行包含全部字段。
 8. 保存、删除、启停成功后刷新受影响的数据；请求中的按钮或控件必须有独立 loading 状态，并在 `finally` 中复位。
 
+### 函数、组件与变量命名规范（契合国内 B 端工程习惯）
+
+- **杜绝外来翻译腔与随意发挥**：严禁把西方开源社区或函数式流行习惯（如 `retrieveRecords`、`fetchData`、`mutate`、`onDismiss`、`isDialogOpen`、`filterParams`、`*Sheet.vue`）带入项目。所有命名必须严格遵循国内成熟 B 端后台管理系统（Spring Boot + Vue 3 / Ant Design Vue）高度统一的工程直觉与思维模型。
+- **就地取材（Context-First）**：新增任何代码前，必须先看同业务域或系统管理（如 `src/views/system/users`、`src/views/tenant`）中最接近的既有页面与组件，**函数动词、变量名、组件命名模式必须 100% 沿用既有代码模式**。
+- **组件与文件命名规范（严格公式：`{实体}{动作/语义}{容器类型}.vue`）**：
+  - 弹窗统一用 `*Modal.vue`（例如 `UserCreateModal.vue`、`TenantFormModal.vue`、`UserRoleModal.vue`；严禁使用 `*Dialog.vue`、`*Sheet.vue`、`*Window.vue`）。
+  - 抽屉统一用 `*Drawer.vue`（例如 `TenantMenuDrawer.vue`、`UserDetailDrawer.vue`）。
+  - 侧边栏统一用 `*Sidebar.vue`（例如 `UserOrgSidebar.vue`）。
+  - 页面主入口统一用 `index.vue`。
+  - 严禁生造抽象或模糊后缀（例如严禁使用 `*Editor.vue`（除非纯富文本编辑器）、`*Viewer.vue`、`*Wrapper.vue`、`*Box.vue`）。
+- **函数与事件命名规范（标准动作动词）**：
+  - 分页与数据查询：统一使用 `getList()`、`getPage()` 或复用 Hook 的 `loadData`（接口函数命名如 `getUserPage`、`getTenantList`；严禁使用 `retrieveData`、`fetchData`、`query`、`mutate`）。
+  - 搜索与重置事件：统一使用 `handleSearch()`、`handleReset()`（或 `resetSearch`）。
+  - 弹窗打开方法：统一使用 `handleAdd()`、`handleEdit(record)`、`handleView(record)`（或语义明确的 `openCreate`、`openEdit`）。
+  - 弹窗确认与关闭：提交确认统一用 `handleOk()` 或 `handleSubmit()`；取消关闭统一用 `handleCancel()` 或 `handleClose()`（严禁使用 `onDismiss`、`onConfirm`、`toggleOpen`）。
+  - 表格操作与状态流转：单项删除统一用 `handleDelete(id)`，批量删除用 `handleBatchDelete()`，状态启停用 `handleStatusChange(record)` 或 `handleToggleStatus(record)`，导出/导入用 `handleExport()` / `handleImport()`。
+- **响应式变量与状态命名规范**：
+  - 表格数据集合：优先复用 Hook 的 `records`，或命名为 `tableData` / `dataList`（严禁使用 `entities`、`items`、`recordsList`）。
+  - 分页总数：统一命名为 `total`。
+  - 查询参数：统一命名为 `query` 或 `queryParams` / `searchForm`（严禁使用 `filterParams`、`queryFilter`）。
+  - 表单数据：弹窗内部统一命名为 `formData` 或 `formState`，表单实例引用统一命名为 `formRef`。
+  - 弹窗显隐与编辑态：显隐使用 `open`（配合 Antd v-model:open）或 `visible`，编辑态标记使用 `isEdit`（严禁使用 `isDialogOpen`、`sheetVisible`）。
+  - 表格勾选行集合：统一命名为 `selectedRowKeys`。
+  - 加载态：通用列表使用 `loading`，保存提交使用 `submitLoading` 或 `confirmLoading`，行级别操作使用 `{action}LoadingId`（如 `deletingId`、`statusChangingId`；严禁使用 `isSubmitting`、`isFetching`、`inProgress`）。
+- **业务领域词汇缩写规范（严格对齐 Java/Spring 后端及国内习惯）**：
+  - 部门/组织机构：`dept` 或 `org`（`organization`）（严禁使用 `group`、`team`、`division`）。
+  - 租户：`tenant`（严禁使用 `workspace`、`org` 当租户）。
+  - 字典/字典项：`dict`、`dictType`、`dictData` / `dictItem`（严禁使用 `lookup`、`enumeration`、`codebook`）。
+  - 角色/岗位：`role`、`post`。
+  - 启停状态：`status` 或 `enabled`（严禁使用 `isActive`、`isArchived`）。
+  - 安全锁定：`locked`。
+  - 系统内置/保留：`builtIn`（严禁使用 `immutable`、`systemProtected`）。
+
 ### 接口调用
 
 - 所有业务请求经 `src/utils/Request.ts` 发出，不在页面新建 Axios 实例，不重复实现 Token、租户头、刷新令牌和通用错误提示。
