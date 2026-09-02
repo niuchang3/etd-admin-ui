@@ -26,7 +26,6 @@
       >
         <TeamOutlined />
         <span>全部用户</span>
-        <a-badge v-if="totalCount !== undefined" :count="selectedOrgId === '' ? totalCount : undefined" class="all-count-badge" />
       </div>
 
       <a-spin :spinning="loading">
@@ -69,7 +68,6 @@ interface OrgTreeNode {
 
 const props = defineProps<{
   selectedOrgId?: string
-  totalCount?: number
 }>()
 
 const emit = defineEmits<{
@@ -200,10 +198,6 @@ defineExpose({
   background: var(--du-primary-subtle, #e8f3ff);
   color: var(--du-primary);
   font-weight: 600;
-}
-
-.all-count-badge {
-  margin-left: auto;
 }
 
 .org-node-title {

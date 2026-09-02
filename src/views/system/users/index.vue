@@ -4,7 +4,6 @@
     <!-- 左侧组织架构树私有子组件 -->
     <UserOrgSidebar
       v-model:selected-org-id="selectedOrgId"
-      :total-count="total"
       @select="handleOrgSelect"
       @loaded="onOrgTreeLoaded"
     />
@@ -331,7 +330,6 @@ const currentRecord = ref<UserRecord | null>(null)
 const {
   loading,
   records,
-  total,
   query,
   pagination,
   loadData: loadUsers,
