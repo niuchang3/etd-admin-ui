@@ -60,9 +60,9 @@ export type RolePermissionTypeValue = typeof ROLE_PERMISSION_TYPE[keyof typeof R
  */
 export const SYSTEM_ROLE_CODE = {
   /** 平台管理员角色编码 */
-  PLATFORM_ADMIN: 'platformadmin',
+  PLATFORM_ADMIN: 'platformAdmin',
   /** 租户管理员角色编码 */
-  TENANT_ADMIN: 'tenantadmin',
+  TENANT_ADMIN: 'tenantAdmin',
 } as const
 
 /**

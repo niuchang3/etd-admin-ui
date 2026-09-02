@@ -24,10 +24,15 @@
 1. 先阅读同类页面，优先复用已经验证的查询、分页、表单、状态切换和反馈模式。
 2. 优先检查并复用 `src/components` 下的已有公共组件（如 `EllipsisText`、`StatusTag`、`DictTag`、`DictSelect` 等）以及 `src/composables` 通用 Hook。没有可直接复用的已有组件时，优先使用 Ant Design Vue 原生标准组件；确认存在跨页面通用价值时才考虑新建公共组件。
 3. 在 `src/apis/<domain>/<module>/type.ts` 定义响应对象、查询参数和保存 DTO，在同目录 `index.ts` 封装接口。
-4. 页面放在 `src/views/<domain>/<module>/index.vue`。只有真正跨页面复用的内容才提取到 `src/components`、`src/utils` 或 Store。
-5. 页面通常由查询区、紧凑表格、分页、新增/编辑弹窗及必要的确认交互组成；应同时覆盖 loading、空数据、成功反馈和异常恢复。
-6. 编辑前需要完整或最新数据时，重新请求详情，不默认相信列表行包含全部字段。
-7. 保存、删除、启停成功后刷新受影响的数据；请求中的按钮或控件必须有独立 loading 状态，并在 `finally` 中复位。
+4. 页面放在 `src/views/<domain>/<module>/index.vue`。只有真正跨页面通用的展示与工具组件才提取到 `src/components`、`src/utils` 或 Store。
+5. **模块私有子组件规范**：当单页面复杂度较高、包含多个独立弹窗/抽屉/复杂侧栏（单文件预估超过 500 行）时，允许且推荐在同级目录建立 `src/views/<domain>/<module>/components/` 存放**模块专属私有子组件**（如 `UserCreateModal.vue`、`UserRoleModal.vue`、`TenantMenuDrawer.vue` 等）：
+   - 私有子组件必须严格归属本业务模块，禁止被其他跨业务模块 `import`；
+   - 严禁将特定业务模块专属的弹窗或表单提升到全局 `src/components/`；
+   - 保持标准的单向数据流（使用 `Props` 入参和 `Emit` 事件回调，如 `v-model:open` 和 `@success`），内部表单状态与校验规则就地闭包，主页面仅负责状态编排与数据刷新；
+   - 简单页面（常规单一弹窗、体量适中）保持在 `index.vue` 内联维护，避免过度碎片化。
+6. 页面通常由查询区、紧凑表格、分页、新增/编辑弹窗及必要的确认交互组成；应同时覆盖 loading、空数据、成功反馈和异常恢复。
+7. 编辑前需要完整或最新数据时，重新请求详情，不默认相信列表行包含全部字段。
+8. 保存、删除、启停成功后刷新受影响的数据；请求中的按钮或控件必须有独立 loading 状态，并在 `finally` 中复位。
 
 ### 接口调用
 

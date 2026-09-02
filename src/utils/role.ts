@@ -4,29 +4,28 @@ import type { UserRecord, UserRoleItem } from '@/apis/upms/user/type'
 import { SYSTEM_ROLE_CODE } from '@/constant'
 
 /**
- * 角色编码规范化：去除空格、下划线、短横线并统一转为小写。
- * 例如：'platform_admin' -> 'platformadmin', 'PLATFORM-ADMIN' -> 'platformadmin'
+ * 角色编码规范化：去除首尾空格并统一转为小写（忽略大小写比对）。
  */
 export const normalizeRoleCode = (roleCode?: string | null): string => {
-  return String(roleCode || '').trim().toLowerCase().replace(/[-_]/g, '')
+  return String(roleCode || '').trim().toLowerCase()
 }
 
 /**
  * 判断角色是否为平台管理员
- * 严格依据系统内置角色 roleCode 判断，绝不依赖中文名称
+ * 严格依据系统内置角色 roleCode 忽略大小写判断，绝不依赖中文名称
  */
 export const isPlatformAdminRole = (role?: { roleCode?: string | null } | null): boolean => {
   if (!role) return false
-  return normalizeRoleCode(role.roleCode) === SYSTEM_ROLE_CODE.PLATFORM_ADMIN
+  return normalizeRoleCode(role.roleCode) === SYSTEM_ROLE_CODE.PLATFORM_ADMIN.toLowerCase()
 }
 
 /**
  * 判断角色是否为租户管理员
- * 严格依据系统内置角色 roleCode 判断，绝不依赖中文名称
+ * 严格依据系统内置角色 roleCode 忽略大小写判断，绝不依赖中文名称
  */
 export const isTenantAdminRole = (role?: { roleCode?: string | null } | null): boolean => {
   if (!role) return false
-  return normalizeRoleCode(role.roleCode) === SYSTEM_ROLE_CODE.TENANT_ADMIN
+  return normalizeRoleCode(role.roleCode) === SYSTEM_ROLE_CODE.TENANT_ADMIN.toLowerCase()
 }
 
 /**
@@ -39,7 +38,7 @@ export const isRestrictedAssignRole = (role?: { roleCode?: string | null } | nul
 
 /**
  * 判断用户对象或当前登录用户是否为平台管理员
- * 依据 userInfo.platformAdmin 字段或绑定的 platformadmin 角色
+ * 依据 userInfo.platformAdmin 字段或绑定的 platformAdmin 角色
  */
 export const isPlatformAdminUser = (
   userInfo?: (Partial<UserInfo> & Record<string, unknown>) | null,
@@ -47,8 +46,7 @@ export const isPlatformAdminUser = (
 ): boolean => {
   if (!userInfo && !roles?.length) return false
 
-  const pAdmin = (userInfo as Record<string, unknown> | undefined)?.platformAdmin
-  if (pAdmin === true || (pAdmin as unknown) === 1 || String(pAdmin) === 'true') {
+  if (Boolean((userInfo as Record<string, unknown> | undefined)?.platformAdmin)) {
     return true
   }
 
@@ -57,29 +55,23 @@ export const isPlatformAdminUser = (
 
 /**
  * 判断用户对象是否为租户管理员
- * 依据 tenantAdmin 字段、租户绑定的 tenantAdminUser ID、或绑定的 tenantadmin 角色
+ * 依据租户绑定的 tenantAdminUser ID、或绑定的 tenantAdmin 角色
  */
 export const isTenantAdminUser = (
-  userRecord?: { id?: Id | string | null; tenantAdmin?: boolean | number | string | null; [key: string]: unknown } | null,
+  userRecord?: { id?: Id | string | null; [key: string]: unknown } | null,
   roles?: (UserRole | UserRoleItem | { roleCode?: string | null })[] | null,
   currentTenant?: (Partial<Tenant> & { tenantAdminUser?: Id | null }) | null
 ): boolean => {
   if (!userRecord && !roles?.length) return false
 
-  // 1. 字段标识判断
-  const tAdmin = (userRecord as Record<string, unknown> | undefined)?.tenantAdmin
-  if (tAdmin === true || (tAdmin as unknown) === 1 || String(tAdmin) === 'true') {
-    return true
-  }
-
-  // 2. 租户绑定管理员 ID 判断
+  // 1. 租户绑定管理员 ID 判断
   const currentTenantAdminId = currentTenant?.tenantAdminUser ? String(currentTenant.tenantAdminUser) : ''
   const userId = userRecord?.id ? String(userRecord.id) : ''
   if (currentTenantAdminId && userId && currentTenantAdminId === userId) {
     return true
   }
 
-  // 3. 角色编码判断
+  // 2. 角色编码判断
   return (roles || []).some((r) => isTenantAdminRole(r))
 }
 

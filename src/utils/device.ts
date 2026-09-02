@@ -1,25 +1,23 @@
-/**
- * 设备标识与客户端指纹工具
- */
+import FingerprintJS from '@fingerprintjs/fingerprintjs'
 
-export const APP_NAME = import.meta.env.VITE_APP_NAME || 'etd-admin-ui';
-export const APP_VERSION = import.meta.env.VITE_APP_VERSION || '1.0.0';
+export const APP_NAME = import.meta.env.VITE_APP_NAME || 'etd-admin-ui'
+export const APP_VERSION = import.meta.env.VITE_APP_VERSION || '1.0.0'
 
-const DEVICE_ID_KEY = 'etd_device_id';
-const DEVICE_FINGERPRINT_KEY = 'etd_device_fingerprint';
+const DEVICE_ID_KEY = 'etd_device_id'
+const DEVICE_FINGERPRINT_KEY = 'etd_device_fingerprint'
 
 /**
  * 生成 32 位 UUID（去除连字符）
  */
 function generateUUID(): string {
   if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
-    return crypto.randomUUID().replace(/-/g, '');
+    return crypto.randomUUID().replace(/-/g, '')
   }
   return 'xxxxxxxxxxxx4xxxyxxxxxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
-    const r = (Math.random() * 16) | 0;
-    const v = c === 'x' ? r : (r & 0x3) | 0x8;
-    return v.toString(16);
-  });
+    const r = (Math.random() * 16) | 0
+    const v = c === 'x' ? r : (r & 0x3) | 0x8
+    return v.toString(16)
+  })
 }
 
 /**
@@ -28,118 +26,80 @@ function generateUUID(): string {
  */
 export function getDeviceId(): string {
   try {
-    let deviceId = localStorage.getItem(DEVICE_ID_KEY);
+    let deviceId = localStorage.getItem(DEVICE_ID_KEY)
     if (!deviceId) {
-      deviceId = generateUUID();
-      localStorage.setItem(DEVICE_ID_KEY, deviceId);
+      deviceId = generateUUID()
+      localStorage.setItem(DEVICE_ID_KEY, deviceId)
     }
-    return deviceId;
+    return deviceId
   } catch {
-    // localStorage 被禁用或受限时的降级策略
-    return generateUUID();
+    return generateUUID()
   }
 }
 
+let inMemoryFingerprint: string | null = null
+let fpPromise: Promise<string> | null = null
+
 /**
- * 绘制离屏 Canvas 获取渲染特征字符串
+ * 使用开源官方库 @fingerprintjs/fingerprintjs 异步计算并缓存设备指纹
  */
-function getCanvasFingerprint(): string {
-  try {
-    const canvas = document.createElement('canvas');
-    canvas.width = 240;
-    canvas.height = 60;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return '';
-
-    ctx.textBaseline = 'top';
-    ctx.font = "14px 'Arial', 'PingFang SC', sans-serif";
-    ctx.fillStyle = '#f60';
-    ctx.fillRect(125, 1, 62, 20);
-
-    ctx.fillStyle = '#069';
-    ctx.fillText('ETD-Admin,Device-FP-2026', 2, 15);
-
-    ctx.fillStyle = 'rgba(102, 204, 0, 0.7)';
-    ctx.fillText('ETD-Admin,Device-FP-2026', 4, 17);
-
-    return canvas.toDataURL();
-  } catch {
-    return '';
+export async function initDeviceFingerprint(): Promise<string> {
+  if (inMemoryFingerprint) {
+    return inMemoryFingerprint
   }
+
+  if (fpPromise) {
+    return fpPromise
+  }
+
+  fpPromise = (async () => {
+    try {
+      const fp = await FingerprintJS.load()
+      const result = await fp.get()
+      const visitorId = result.visitorId
+      inMemoryFingerprint = visitorId
+      try {
+        localStorage.setItem(DEVICE_FINGERPRINT_KEY, visitorId)
+      } catch {
+        // 忽略持久化异常
+      }
+      return visitorId
+    } catch (e) {
+      console.warn('[FingerprintJS] 指纹初始化失败，降级使用设备 ID:', e)
+      const fallback = getDeviceId()
+      inMemoryFingerprint = fallback
+      return fallback
+    }
+  })()
+
+  return fpPromise
+}
+
+// 模块加载时立即发起预热加载
+if (typeof window !== 'undefined') {
+  void initDeviceFingerprint()
 }
 
 /**
- * 高性能 32 位十六进制散列函数
- */
-function hashString(str: string): string {
-  let h1 = 0xdeadbeef;
-  let h2 = 0x41c64e6d;
-  let h3 = 0x9e3779b9;
-  let h4 = 0x85ebca6b;
-
-  for (let i = 0; i < str.length; i++) {
-    const ch = str.charCodeAt(i);
-    h1 = Math.imul(h1 ^ ch, 2654435761);
-    h2 = Math.imul(h2 ^ ch, 1597334677);
-    h3 = Math.imul(h3 ^ ch, 2246822507);
-    h4 = Math.imul(h4 ^ ch, 3266489909);
-  }
-
-  const toHex = (n: number) => (n >>> 0).toString(16).padStart(8, '0');
-  return toHex(h1) + toHex(h2) + toHex(h3) + toHex(h4);
-}
-
-let inMemoryFingerprint: string | null = null;
-
-/**
- * 获取客户端设备指纹（x-device-fingerprint）- 方案 B
- * 采集 Canvas 渲染特征 + 屏幕参数 + 时区 + 语言等硬件与系统特征并散列。
- * 具备双重缓存（内存与 localStorage），避免每次请求重复计算。
+ * 同步获取客户端设备指纹（x-device-fingerprint）供 Axios 请求拦截器注入。
+ * 优先读取内存与 localStorage 缓存；未完成时以设备 ID 兜底。
  */
 export function getDeviceFingerprint(): string {
   if (inMemoryFingerprint) {
-    return inMemoryFingerprint;
+    return inMemoryFingerprint
   }
 
   try {
-    const cached = localStorage.getItem(DEVICE_FINGERPRINT_KEY);
+    const cached = localStorage.getItem(DEVICE_FINGERPRINT_KEY)
     if (cached) {
-      inMemoryFingerprint = cached;
-      return cached;
+      inMemoryFingerprint = cached
+      return cached
     }
   } catch {
-    // localStorage 读取异常继续往下计算
+    // 忽略异常
   }
 
-  try {
-    const features: string[] = [
-      navigator.userAgent || '',
-      navigator.language || '',
-      (navigator.languages || []).join(','),
-      String(screen.width || 0),
-      String(screen.height || 0),
-      String(screen.colorDepth || 0),
-      String(window.devicePixelRatio || 1),
-      String(navigator.hardwareConcurrency || 1),
-      Intl.DateTimeFormat().resolvedOptions().timeZone || '',
-      String(new Date().getTimezoneOffset()),
-      getCanvasFingerprint(),
-    ];
-
-    const fingerprint = hashString(features.join('|||'));
-    inMemoryFingerprint = fingerprint;
-
-    try {
-      localStorage.setItem(DEVICE_FINGERPRINT_KEY, fingerprint);
-    } catch {
-      // 忽略存储失败
-    }
-
-    return fingerprint;
-  } catch {
-    // 兜底退化为随机生成并缓存
-    const fallback = generateUUID();
-    inMemoryFingerprint = fallback;
-    return fallback;
-  }
+  // 若尚未就绪，先以稳定设备 ID 兜底，并异步触发预热
+  void initDeviceFingerprint()
+  return getDeviceId()
 }

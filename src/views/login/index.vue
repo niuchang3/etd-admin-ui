@@ -86,20 +86,6 @@
             </a-input-password>
           </a-form-item>
 
-          <!-- 验证码暂未对接后端，目前临时屏蔽 -->
-          <a-form-item
-            v-if="false && loginFailCount >= configStore.security.captcha.triggerOnFailCount"
-            label="验证码"
-            name="captcha"
-          >
-            <div class="captcha-wrapper">
-              <a-input v-model:value="formState.captcha" placeholder="请输入验证码" class="captcha-input" />
-              <div class="captcha-box" @click="generateCaptchaText" title="点击刷新验证码">
-                {{ generatedCaptcha }}
-              </div>
-            </div>
-          </a-form-item>
-
           <a-button class="submit-button" type="primary" html-type="submit" :loading="submitting" block>
             登录
             <ArrowRightOutlined v-if="!submitting" />
@@ -155,11 +141,10 @@ watch(() => configStore.branding.logo, () => {
   logoError.value = false
 })
 
-// 页面只维护账号、密码及图形验证码。
-const formState = reactive<LoginCredentials & { captcha?: string }>({
+// 页面维护账号与密码。
+const formState = reactive<LoginCredentials>({
   username: '',
   password: '',
-  captcha: '',
 })
 
 // 登录字段的必填和长度校验规则。
@@ -172,25 +157,6 @@ const rules: FormProps['rules'] = {
     { required: true, message: '请输入密码', trigger: 'blur' },
     { min: 6, max: 128, message: '密码长度应为 6–128 个字符', trigger: 'blur' },
   ],
-  captcha: [{
-    validator: async () => {
-      // 临时屏蔽验证码校验，等服务端实现后再行恢复
-      return
-    },
-    trigger: 'blur',
-  }],
-}
-
-const loginFailCount = ref(0)
-const generatedCaptcha = ref('')
-
-const generateCaptchaText = () => {
-  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789'
-  let text = ''
-  for (let i = 0; i < 4; i++) {
-    text += chars.charAt(Math.floor(Math.random() * chars.length))
-  }
-  generatedCaptcha.value = text
 }
 
 onMounted(() => {
@@ -216,17 +182,12 @@ const submit = async () => {
     const redirect = typeof route.query.redirect === 'string' ? route.query.redirect : '/'
     await router.replace(redirect)
   } catch (error) {
-    loginFailCount.value++
-    if (loginFailCount.value >= configStore.security.captcha.triggerOnFailCount) {
-      generateCaptchaText()
-    }
     // 任一初始化阶段失败都回滚整个登录会话。
     clearSession()
     await clearStore()
     if (error instanceof Error && error.message) {
       message.error(error.message)
     }
-    // Request interceptor presents the server-provided login error.
   } finally {
     submitting.value = false
   }
@@ -485,34 +446,5 @@ const submit = async () => {
 .page-footer b {
   color: var(--du-positive);
   font-weight: 600;
-}
-
-.captcha-wrapper {
-  display: flex;
-  gap: var(--du-space-2);
-  align-items: center;
-}
-.captcha-input {
-  flex: 1;
-}
-.captcha-box {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  width: 90px;
-  height: 36px;
-  color: #2d5ec4;
-  border: 1px solid #bec6d2;
-  border-radius: var(--du-radius-sm);
-  background: #edf2fc;
-  font-family: var(--du-font-mono);
-  font-size: 14px;
-  font-weight: 700;
-  letter-spacing: 2px;
-  cursor: pointer;
-  user-select: none;
-}
-.captcha-box:hover {
-  background: #e1ecf7;
 }
 </style>

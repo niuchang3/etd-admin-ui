@@ -28,6 +28,3 @@ export interface MenuSaveRequest {
   menuType: string | null
   sort: number | null
 }
-
-export type SystemMenu = MenuDetail
-export type SaveSystemMenu = MenuSaveRequest

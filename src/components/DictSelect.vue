@@ -24,7 +24,7 @@ interface Props {
   /** 字典类型编码 */
   typeCode: string
   /** 绑定值 */
-  value?: unknown
+  value?: any
   /** 选项值转换函数，例如 (val: string) => Number(val) */
   convert?: (val: string) => unknown
   /** 禁用状态 */

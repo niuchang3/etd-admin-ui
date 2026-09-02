@@ -1,59 +1,13 @@
 <template>
   <!-- 用户管理页面：左侧组织树筛选，右侧紧凑表格与系统操作 -->
   <section class="user-page">
-    <!-- 左侧组织树面板 -->
-    <aside class="org-sidebar du-panel">
-      <div class="sidebar-header">
-        <span class="sidebar-title">
-          <ClusterOutlined />组织架构
-        </span>
-        <a-tooltip title="刷新组织树">
-          <a-button type="text" size="small" :loading="orgTreeLoading" @click="loadOrgTree">
-            <ReloadOutlined />
-          </a-button>
-        </a-tooltip>
-      </div>
-
-      <div class="tree-search">
-        <a-input v-model:value="orgSearchKeyword" allow-clear placeholder="过滤组织..." size="small">
-          <template #prefix><SearchOutlined /></template>
-        </a-input>
-      </div>
-
-      <div class="tree-container">
-        <!-- 顶部全部用户固定节点 -->
-        <div
-          class="all-users-node"
-          :class="{ 'is-selected': selectedOrgId === '' }"
-          @click="selectOrg('')"
-        >
-          <TeamOutlined />
-          <span>全部用户</span>
-          <a-badge v-if="total !== undefined" :count="selectedOrgId === '' ? total : undefined" class="all-count-badge" />
-        </div>
-
-        <a-spin :spinning="orgTreeLoading">
-          <a-tree
-            v-if="filteredOrgTree.length"
-            v-model:selectedKeys="selectedOrgKeys"
-            :tree-data="filteredOrgTree"
-            :expanded-keys="orgExpandedKeys"
-            :auto-expand-parent="true"
-            block-node
-            @select="onOrgSelect"
-            @expand="onOrgExpand"
-          >
-            <template #title="node">
-              <span class="org-node-title" :title="node.title">
-                <ApartmentOutlined class="org-icon" />
-                <span class="org-text">{{ node.title }}</span>
-              </span>
-            </template>
-          </a-tree>
-          <a-empty v-else-if="!orgTreeLoading" description="暂无组织" class="empty-tree" />
-        </a-spin>
-      </div>
-    </aside>
+    <!-- 左侧组织架构树私有子组件 -->
+    <UserOrgSidebar
+      v-model:selected-org-id="selectedOrgId"
+      :total-count="total"
+      @select="handleOrgSelect"
+      @loaded="onOrgTreeLoaded"
+    />
 
     <!-- 右侧用户管理主区域 -->
     <main class="user-content du-panel">
@@ -100,7 +54,7 @@
         </div>
 
         <div class="toolbar-actions">
-          <a-button v-if="canWrite" type="primary" @click="openCreate">
+          <a-button v-if="canWrite" type="primary" @click="createModalOpen = true">
             <PlusOutlined />新增用户
           </a-button>
         </div>
@@ -168,7 +122,7 @@
           <!-- 操作列 -->
           <div v-else-if="column.key === 'actions'" class="row-actions">
             <template v-if="canWrite">
-              <!-- 编辑基础信息（始终允许） -->
+              <!-- 编辑基础信息 -->
               <a-button type="link" size="small" @click="openEdit(record)">
                 <EditOutlined />编辑
               </a-button>
@@ -268,283 +222,73 @@
       </a-table>
     </main>
 
-    <!-- 弹窗 1：新增用户弹窗 -->
-    <a-modal
+    <!-- 模块专属私有子组件弹窗 -->
+    <UserCreateModal
       v-model:open="createModalOpen"
-      title="新增用户"
-      width="680px"
-      :confirm-loading="savingUser"
-      ok-text="保存"
-      cancel-text="取消"
-      @ok="handleCreateUser"
-    >
-      <a-form ref="createFormRef" :model="createForm" layout="vertical" class="user-modal-form">
-        <div class="form-section-title">基础账号信息</div>
-        <div class="form-grid">
-          <a-form-item label="登录账号" name="account" :rules="accountRules">
-            <a-input v-model:value="createForm.account" :maxlength="32" show-count placeholder="请输入账号（字母或数字）" autocomplete="off" />
-          </a-form-item>
+      :default-org-id="selectedOrgId"
+      :org-tree="rawOrgTree"
+      @success="handleSearch"
+    />
 
-          <a-form-item label="登录密码" name="password" :rules="passwordRules">
-            <a-input-password
-              v-model:value="createForm.password"
-              :maxlength="72"
-              :placeholder="passwordPlaceholder"
-              autocomplete="new-password"
-            />
-          </a-form-item>
-
-          <a-form-item label="真实姓名" name="userName" :rules="userNameRules">
-            <a-input v-model:value="createForm.userName" :maxlength="20" show-count placeholder="请输入真实姓名" />
-          </a-form-item>
-
-          <a-form-item label="用户昵称" name="nickName">
-            <a-input v-model:value="createForm.nickName" :maxlength="32" show-count placeholder="请输入昵称" />
-          </a-form-item>
-
-          <a-form-item label="手机号码" name="mobile" :rules="mobileRules">
-            <a-input v-model:value="createForm.mobile" :maxlength="20" show-count placeholder="请输入手机号码" />
-          </a-form-item>
-
-          <a-form-item label="出生日期" name="birthday">
-            <a-date-picker
-              v-model:value="createForm.birthday"
-              value-format="YYYY-MM-DD"
-              class="w-full"
-              placeholder="请选择出生日期"
-            />
-          </a-form-item>
-
-          <a-form-item label="性别" name="gender">
-            <a-radio-group v-model:value="createForm.gender">
-              <a-radio :value="1">男</a-radio>
-              <a-radio :value="2">女</a-radio>
-              <a-radio :value="0">未知</a-radio>
-            </a-radio-group>
-          </a-form-item>
-
-          <a-form-item label="头像地址" name="avatar">
-            <a-input v-model:value="createForm.avatar" :maxlength="255" placeholder="请输入头像 URL 地址" />
-          </a-form-item>
-        </div>
-
-        <div class="form-section-title">权限与组织归属</div>
-        <div class="form-grid">
-          <a-form-item label="分配角色" name="roleIds" class="full-row">
-            <a-select
-              v-model:value="createForm.roleIds"
-              mode="multiple"
-              allow-clear
-              :options="roleOptions"
-              :loading="roleListLoading"
-              placeholder="请选择分配给该用户的角色"
-            />
-          </a-form-item>
-
-          <a-form-item label="分配组织" name="organizationIds" class="full-row">
-            <a-tree-select
-              v-model:value="createForm.organizationIds"
-              :tree-data="orgSelectTreeData"
-              tree-checkable
-              tree-default-expand-all
-              allow-clear
-              placeholder="请勾选所属组织机构"
-              @change="onCreateOrgChange"
-            />
-          </a-form-item>
-
-          <a-form-item label="主组织" name="primaryOrganizationId" class="full-row">
-            <a-select
-              v-model:value="createForm.primaryOrganizationId"
-              allow-clear
-              :disabled="!createForm.organizationIds?.length"
-              :options="createPrimaryOrgOptions"
-              placeholder="请从已勾选的组织中选定主组织"
-            />
-          </a-form-item>
-        </div>
-      </a-form>
-    </a-modal>
-
-    <!-- 弹窗 2：编辑用户基础信息弹窗 -->
-    <a-modal
+    <UserEditModal
       v-model:open="editModalOpen"
-      title="编辑用户资料"
-      width="580px"
-      :confirm-loading="savingUser"
-      ok-text="保存"
-      cancel-text="取消"
-      @ok="handleUpdateUser"
-    >
-      <a-spin :spinning="detailLoading">
-        <a-form ref="editFormRef" :model="editForm" layout="vertical" class="user-modal-form">
-          <div class="form-grid">
-            <a-form-item label="登录账号" name="account" :rules="accountRules">
-              <a-input v-model:value="editForm.account" :maxlength="32" show-count placeholder="请输入登录账号" />
-            </a-form-item>
+      :user="currentRecord"
+      @success="loadUsers"
+    />
 
-            <a-form-item label="真实姓名" name="userName" :rules="userNameRules">
-              <a-input v-model:value="editForm.userName" :maxlength="20" show-count placeholder="请输入真实姓名" />
-            </a-form-item>
-
-            <a-form-item label="用户昵称" name="nickName">
-              <a-input v-model:value="editForm.nickName" :maxlength="32" show-count placeholder="请输入用户昵称" />
-            </a-form-item>
-
-            <a-form-item label="手机号码" name="mobile" :rules="mobileRules">
-              <a-input v-model:value="editForm.mobile" :maxlength="20" show-count placeholder="请输入手机号码" />
-            </a-form-item>
-
-            <a-form-item label="出生日期" name="birthday">
-              <a-date-picker
-                v-model:value="editForm.birthday"
-                value-format="YYYY-MM-DD"
-                class="w-full"
-                placeholder="请选择出生日期"
-              />
-            </a-form-item>
-
-            <a-form-item label="性别" name="gender">
-              <a-radio-group v-model:value="editForm.gender">
-                <a-radio :value="1">男</a-radio>
-                <a-radio :value="2">女</a-radio>
-                <a-radio :value="0">未知</a-radio>
-              </a-radio-group>
-            </a-form-item>
-
-            <a-form-item label="头像地址" name="avatar" class="full-row">
-              <a-input v-model:value="editForm.avatar" :maxlength="255" placeholder="请输入头像 URL 地址" />
-            </a-form-item>
-          </div>
-        </a-form>
-      </a-spin>
-    </a-modal>
-
-    <!-- 弹窗 3：设置角色弹窗 -->
-    <a-modal
+    <UserRoleModal
       v-model:open="roleModalOpen"
-      :title="`设置角色 - ${currentRecord?.userName || currentRecord?.account || ''}`"
-      width="520px"
-      :confirm-loading="savingRoles"
-      ok-text="保存角色"
-      cancel-text="取消"
-      @ok="handleSaveRoles"
-    >
-      <a-spin :spinning="roleAssignLoading">
-        <div class="assign-summary">
-          <span>登录账号：<code class="du-mono font-bold">{{ currentRecord?.account }}</code></span>
-          <span>已选 <b>{{ targetRoleIds.length }}</b> 个角色</span>
-        </div>
-        <a-alert message="设置将全量替换该用户的角色分配。若清空全部角色，该用户将失去角色对应菜单及功能权限。" type="info" show-icon class="mb-3" />
-        <div class="tree-toolbar mb-2">
-          <a-button size="small" @click="targetRoleIds = roleOptions.map(r => String(r.value))">全选</a-button>
-          <a-button size="small" @click="targetRoleIds = []">清空</a-button>
-        </div>
-        <div class="role-select-box">
-          <a-checkbox-group v-model:value="targetRoleIds" class="role-checkbox-group">
-            <a-checkbox v-for="item in roleOptions" :key="item.value" :value="String(item.value)">
-              {{ item.label }}
-            </a-checkbox>
-          </a-checkbox-group>
-          <a-empty v-if="!roleOptions.length" description="暂无可分配角色" />
-        </div>
-      </a-spin>
-    </a-modal>
+      :user="currentRecord"
+      @success="loadUsers"
+    />
 
-    <!-- 弹窗 4：设置组织弹窗 -->
-    <a-modal
+    <UserOrgModal
       v-model:open="orgModalOpen"
-      :title="`设置组织 - ${currentRecord?.userName || currentRecord?.account || ''}`"
-      width="560px"
-      :confirm-loading="savingOrgs"
-      ok-text="保存组织"
-      cancel-text="取消"
-      @ok="handleSaveOrgs"
-    >
-      <a-spin :spinning="orgAssignLoading">
-        <div class="assign-summary">
-          <span>登录账号：<code class="du-mono font-bold">{{ currentRecord?.account }}</code></span>
-          <span>已归属 <b>{{ targetOrgIds.length }}</b> 个组织</span>
-        </div>
-        <a-alert message="全量替换用户所属组织机构。如需设置主组织，请先勾选对应组织后在下方下拉框中指定。" type="info" show-icon class="mb-3" />
-        <a-form layout="vertical">
-          <a-form-item label="所属组织">
-            <a-tree-select
-              v-model:value="targetOrgIds"
-              :tree-data="orgSelectTreeData"
-              tree-checkable
-              tree-default-expand-all
-              allow-clear
-              placeholder="请勾选用户所属的组织架构"
-              @change="onAssignOrgChange"
-            />
-          </a-form-item>
-
-          <a-form-item label="主组织">
-            <a-select
-              v-model:value="targetPrimaryOrgId"
-              allow-clear
-              :disabled="!targetOrgIds.length"
-              :options="assignPrimaryOrgOptions"
-              placeholder="请从已选组织中选择主组织"
-            />
-          </a-form-item>
-        </a-form>
-      </a-spin>
-    </a-modal>
+      :user="currentRecord"
+      :org-tree="rawOrgTree"
+      @success="loadUsers"
+    />
   </section>
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, reactive, ref } from 'vue'
+import { computed, ref } from 'vue'
 import { useRoute } from 'vue-router'
-import { message, type FormInstance, type TableColumnsType } from 'ant-design-vue'
+import { message, type TableColumnsType } from 'ant-design-vue'
 import {
   ApartmentOutlined,
-  ClusterOutlined,
   DeleteOutlined,
   EditOutlined,
   PlusOutlined,
   ReloadOutlined,
   SafetyCertificateOutlined,
   SearchOutlined,
-  TeamOutlined,
 } from '@ant-design/icons-vue'
-import type { Id } from '@/apis/types'
 import {
   changeUserEnabled,
   changeUserLocked,
-  createUser,
   deleteUser,
-  getUserDetail,
-  getUserOrganizations,
   getUserPage,
-  getUserRoles,
-  replaceUserOrganizations,
-  replaceUserRoles,
-  updateUser,
 } from '@/apis/upms/user'
 import type {
-  UserCreatePayload,
   UserQueryParams,
   UserRecord,
-  UserUpdatePayload,
 } from '@/apis/upms/user/type'
-import { getOrganizationTree } from '@/apis/upms/organization'
 import type { Organization } from '@/apis/upms/organization/type'
-import { getSystemRolePage } from '@/apis/upms/role'
-import type { SystemRole } from '@/apis/upms/role/type'
 import { menusStore, userStore } from '@/stores/modules/user'
 import { useTablePagination } from '@/composables/useTablePagination'
-import { usePasswordPolicy } from '@/composables/usePasswordPolicy'
-import { filterTreeNodes } from '@/composables/useTreeHelper'
 import { useAdminAuth } from '@/composables/useAdminAuth'
-import { isRestrictedAssignRole } from '@/utils/role'
-import { accountRules as getAccountRules, userNameRules as getUserNameRules, mobileRules as getMobileRules } from '@/utils/rules'
 import { formatDateTime } from '@/utils/format'
 import { confirmAction } from '@/utils/confirm'
 import EllipsisText from '@/components/EllipsisText.vue'
 import StatusTag from '@/components/StatusTag.vue'
+
+// 引入模块专属私有子组件
+import UserOrgSidebar from './components/UserOrgSidebar.vue'
+import UserCreateModal from './components/UserCreateModal.vue'
+import UserEditModal from './components/UserEditModal.vue'
+import UserRoleModal from './components/UserRoleModal.vue'
+import UserOrgModal from './components/UserOrgModal.vue'
 
 const route = useRoute()
 const currentMenus = menusStore()
@@ -571,15 +315,17 @@ const columns = computed<TableColumnsType<UserRecord>>(() => [
 
 // 状态定义
 const selectedOrgId = ref<string>('')
-const selectedOrgKeys = ref<string[]>([])
-const orgExpandedKeys = ref<string[]>([])
-const orgSearchKeyword = ref('')
 const rawOrgTree = ref<Organization[]>([])
-const orgTreeLoading = ref(false)
-
 const statusChangingId = ref<string>('')
 const lockChangingId = ref<string>('')
 const deletingId = ref<string>('')
+
+// 弹窗开关控制与选中行状态
+const createModalOpen = ref(false)
+const editModalOpen = ref(false)
+const roleModalOpen = ref(false)
+const orgModalOpen = ref(false)
+const currentRecord = ref<UserRecord | null>(null)
 
 // 使用通用的 useTablePagination 逻辑 Hook
 const {
@@ -603,260 +349,25 @@ const {
     enabled: undefined,
     locked: undefined,
   },
-  { defaultSize: 10 }
+  { defaultSize: 10, immediate: true }
 )
 
-// 使用通用的 usePasswordPolicy 密码策略 Hook
-const { passwordRules, passwordPlaceholder } = usePasswordPolicy({
-  required: true,
-  requiredMessage: '请输入登录密码',
-  fieldLabel: '登录密码',
-})
-
-// ==================== 组织树转换与筛选 ====================
-interface OrgTreeNode {
-  key: string
-  value: string
-  title: string
-  children?: OrgTreeNode[]
-}
-
-const mapOrgToTree = (items: Organization[]): OrgTreeNode[] => {
-  return items.map((org) => ({
-    key: String(org.id),
-    value: String(org.id),
-    title: org.orgName,
-    children: org.children?.length ? mapOrgToTree(org.children) : undefined,
-  }))
-}
-
-const orgSelectTreeData = computed(() => mapOrgToTree(rawOrgTree.value))
-
-const filteredOrgTree = computed(() => {
-  const tree = mapOrgToTree(rawOrgTree.value)
-  return filterTreeNodes(tree, orgSearchKeyword.value)
-})
-
-const loadOrgTree = async () => {
-  orgTreeLoading.value = true
-  try {
-    const response = await getOrganizationTree({ enabled: true })
-    rawOrgTree.value = response.data || []
-    if (orgExpandedKeys.value.length === 0) {
-      orgExpandedKeys.value = rawOrgTree.value.map((o) => String(o.id))
-    }
-  } catch (err) {
-    console.warn('加载组织树失败:', err)
-  } finally {
-    orgTreeLoading.value = false
-  }
-}
-
-const onOrgExpand = (keys: unknown) => {
-  orgExpandedKeys.value = (keys as string[]) || []
-}
-
-const selectOrg = (orgId: string) => {
-  selectedOrgId.value = orgId
-  selectedOrgKeys.value = orgId ? [orgId] : []
+const handleOrgSelect = (orgId: string) => {
   query.organizationId = orgId || undefined
   handleSearch()
 }
 
-const onOrgSelect = (selectedKeys: unknown[]) => {
-  const firstKey = selectedKeys[0] ? String(selectedKeys[0]) : ''
-  selectOrg(firstKey)
+const onOrgTreeLoaded = (tree: Organization[]) => {
+  rawOrgTree.value = tree
 }
 
-// ==================== 角色列表加载 ====================
-const rawRoles = ref<SystemRole[]>([])
-const roleListLoading = ref(false)
-
-const roleOptions = computed(() =>
-  rawRoles.value
-    .filter((r) => !isRestrictedAssignRole(r))
-    .map((r) => ({
-      label: r.roleName,
-      value: String(r.id),
-    }))
-)
-
-const loadRoles = async () => {
-  roleListLoading.value = true
-  try {
-    const res = await getSystemRolePage({ current: 1, size: 200, dataStatus: 1 })
-    rawRoles.value = res.data?.records || []
-  } catch (err) {
-    console.warn('加载角色失败:', err)
-  } finally {
-    roleListLoading.value = false
-  }
-}
-
-// ==================== 表单约束规则 ====================
-const accountRules = getAccountRules({ maxLength: 32, requiredMessage: '请输入登录账号' })
-const userNameRules = getUserNameRules({ maxLength: 20, requiredMessage: '请输入真实姓名' })
-const mobileRules = getMobileRules({ maxLength: 20 })
-
-// ==================== 新增用户 ====================
-const createModalOpen = ref(false)
-const savingUser = ref(false)
-const createFormRef = ref<FormInstance>()
-const createForm = reactive<UserCreatePayload>({
-  account: '',
-  password: '',
-  userName: '',
-  nickName: '',
-  mobile: '',
-  birthday: '',
-  gender: 1,
-  avatar: '',
-  roleIds: [],
-  organizationIds: [],
-  primaryOrganizationId: undefined,
-})
-
-const findOrgNames = (ids: Id[], tree: Organization[]): { label: string; value: string }[] => {
-  const result: { label: string; value: string }[] = []
-  const idSet = new Set(ids.map(String))
-  const walk = (nodes: Organization[]) => {
-    nodes.forEach((n) => {
-      if (idSet.has(String(n.id))) {
-        result.push({ label: n.orgName, value: String(n.id) })
-      }
-      if (n.children?.length) walk(n.children)
-    })
-  }
-  walk(tree)
-  return result
-}
-
-const createPrimaryOrgOptions = computed(() => {
-  if (!createForm.organizationIds?.length) return []
-  return findOrgNames(createForm.organizationIds, rawOrgTree.value)
-})
-
-const onCreateOrgChange = (selected: unknown[]) => {
-  const ids = (selected as string[]) || []
-  if (createForm.primaryOrganizationId && !ids.includes(String(createForm.primaryOrganizationId))) {
-    createForm.primaryOrganizationId = undefined
-  }
-}
-
-const openCreate = () => {
+const openEdit = (record: UserRecord) => {
   if (!canWrite.value) return
-  Object.assign(createForm, {
-    account: '',
-    password: '',
-    userName: '',
-    nickName: '',
-    mobile: '',
-    birthday: '',
-    gender: 1,
-    avatar: '',
-    roleIds: [],
-    organizationIds: selectedOrgId.value ? [selectedOrgId.value] : [],
-    primaryOrganizationId: selectedOrgId.value ? selectedOrgId.value : undefined,
-  })
-  void loadRoles()
-  createModalOpen.value = true
-}
-
-const handleCreateUser = async () => {
-  await createFormRef.value?.validate()
-  savingUser.value = true
-  try {
-    const allowedRoleIdSet = new Set(roleOptions.value.map((r) => String(r.value)))
-    const safeRoleIds = (createForm.roleIds || []).filter((id) => allowedRoleIdSet.has(String(id)))
-    const payload: UserCreatePayload = {
-      account: createForm.account.trim(),
-      password: createForm.password,
-      userName: createForm.userName.trim(),
-      nickName: createForm.nickName?.trim() || undefined,
-      mobile: createForm.mobile?.trim() || undefined,
-      birthday: createForm.birthday || undefined,
-      gender: createForm.gender,
-      avatar: createForm.avatar?.trim() || undefined,
-      roleIds: safeRoleIds,
-      organizationIds: createForm.organizationIds || [],
-      primaryOrganizationId: createForm.primaryOrganizationId || undefined,
-    }
-    await createUser(payload)
-    message.success('用户新增成功')
-    createModalOpen.value = false
-    handleSearch()
-  } finally {
-    savingUser.value = false
-  }
-}
-
-// ==================== 编辑基础资料 ====================
-const editModalOpen = ref(false)
-const detailLoading = ref(false)
-const editFormRef = ref<FormInstance>()
-const editingUserId = ref<string>('')
-const editForm = reactive<UserUpdatePayload>({
-  account: '',
-  userName: '',
-  nickName: '',
-  mobile: '',
-  birthday: '',
-  gender: 1,
-  avatar: '',
-})
-
-const openEdit = async (record: UserRecord) => {
-  if (!canWrite.value) return
-  editingUserId.value = record.id
+  currentRecord.value = record
   editModalOpen.value = true
-  detailLoading.value = true
-  try {
-    const res = await getUserDetail(record.id)
-    const data = res.data || record
-    Object.assign(editForm, {
-      account: data.account || '',
-      userName: data.userName || '',
-      nickName: data.nickName || '',
-      mobile: data.mobile || '',
-      birthday: data.birthday ? data.birthday.slice(0, 10) : '',
-      gender: data.gender ?? 1,
-      avatar: data.avatar || '',
-    })
-  } finally {
-    detailLoading.value = false
-  }
 }
 
-const handleUpdateUser = async () => {
-  await editFormRef.value?.validate()
-  savingUser.value = true
-  try {
-    const payload: UserUpdatePayload = {
-      account: editForm.account.trim(),
-      userName: editForm.userName.trim(),
-      nickName: editForm.nickName?.trim() || undefined,
-      mobile: editForm.mobile?.trim() || undefined,
-      birthday: editForm.birthday || undefined,
-      gender: editForm.gender,
-      avatar: editForm.avatar?.trim() || undefined,
-    }
-    await updateUser(editingUserId.value, payload)
-    message.success('用户资料修改成功')
-    editModalOpen.value = false
-    await loadUsers()
-  } finally {
-    savingUser.value = false
-  }
-}
-
-// ==================== 设置角色 ====================
-const roleModalOpen = ref(false)
-const roleAssignLoading = ref(false)
-const savingRoles = ref(false)
-const targetRoleIds = ref<string[]>([])
-const currentRecord = ref<UserRecord | null>(null)
-
-const openRoleAssign = async (record: UserRecord) => {
+const openRoleAssign = (record: UserRecord) => {
   if (!canWrite.value) return
   const adminStatus = getAdminStatus(record)
   if (adminStatus.isProtected) {
@@ -865,70 +376,9 @@ const openRoleAssign = async (record: UserRecord) => {
   }
   currentRecord.value = record
   roleModalOpen.value = true
-  roleAssignLoading.value = true
-  targetRoleIds.value = []
-  try {
-    await loadRoles()
-    const res = await getUserRoles(record.id)
-    const allowedRoleIdSet = new Set(roleOptions.value.map((r) => String(r.value)))
-    targetRoleIds.value = (res.data || [])
-      .filter((r) => !isRestrictedAssignRole(r))
-      .map((r) => String(r.roleId))
-      .filter((id) => allowedRoleIdSet.has(id))
-  } finally {
-    roleAssignLoading.value = false
-  }
 }
 
-const handleSaveRoles = async () => {
-  if (!currentRecord.value) return
-  const allowedRoleIdSet = new Set(roleOptions.value.map((r) => String(r.value)))
-  const roleIds = targetRoleIds.value.filter((id) => allowedRoleIdSet.has(String(id)))
-  const executeSave = async () => {
-    savingRoles.value = true
-    try {
-      await replaceUserRoles(currentRecord.value!.id, { roleIds })
-      message.success('角色分配成功')
-      roleModalOpen.value = false
-      await loadUsers()
-    } finally {
-      savingRoles.value = false
-    }
-  }
-
-  if (roleIds.length === 0) {
-    confirmAction({
-      title: '确认清空用户角色',
-      content: `确定要清空用户【${currentRecord.value.userName || currentRecord.value.account}】的全部角色吗？该用户将失去所有角色授权。`,
-      okText: '确认清空',
-      okType: 'danger',
-      onOk: executeSave,
-    })
-  } else {
-    await executeSave()
-  }
-}
-
-// ==================== 设置组织 ====================
-const orgModalOpen = ref(false)
-const orgAssignLoading = ref(false)
-const savingOrgs = ref(false)
-const targetOrgIds = ref<string[]>([])
-const targetPrimaryOrgId = ref<string | undefined>(undefined)
-
-const assignPrimaryOrgOptions = computed(() => {
-  if (!targetOrgIds.value.length) return []
-  return findOrgNames(targetOrgIds.value, rawOrgTree.value)
-})
-
-const onAssignOrgChange = (selected: unknown[]) => {
-  const ids = (selected as string[]) || []
-  if (targetPrimaryOrgId.value && !ids.includes(String(targetPrimaryOrgId.value))) {
-    targetPrimaryOrgId.value = undefined
-  }
-}
-
-const openOrgAssign = async (record: UserRecord) => {
+const openOrgAssign = (record: UserRecord) => {
   if (!canWrite.value) return
   const adminStatus = getAdminStatus(record)
   if (adminStatus.isProtected) {
@@ -937,54 +387,9 @@ const openOrgAssign = async (record: UserRecord) => {
   }
   currentRecord.value = record
   orgModalOpen.value = true
-  orgAssignLoading.value = true
-  targetOrgIds.value = []
-  targetPrimaryOrgId.value = undefined
-  try {
-    const res = await getUserOrganizations(record.id)
-    const orgs = res.data || []
-    targetOrgIds.value = orgs.map((o) => String(o.organizationId))
-    const primary = orgs.find((o) => o.primaryOrganization)
-    targetPrimaryOrgId.value = primary ? String(primary.organizationId) : undefined
-  } finally {
-    orgAssignLoading.value = false
-  }
 }
 
-const handleSaveOrgs = async () => {
-  if (!currentRecord.value) return
-  const organizationIds = targetOrgIds.value
-  const primaryOrganizationId = targetPrimaryOrgId.value || null
-
-  const executeSave = async () => {
-    savingOrgs.value = true
-    try {
-      await replaceUserOrganizations(currentRecord.value!.id, {
-        organizationIds,
-        primaryOrganizationId,
-      })
-      message.success('组织分配成功')
-      orgModalOpen.value = false
-      await loadUsers()
-    } finally {
-      savingOrgs.value = false
-    }
-  }
-
-  if (organizationIds.length === 0) {
-    confirmAction({
-      title: '确认清空用户组织',
-      content: `确定要清空用户【${currentRecord.value.userName || currentRecord.value.account}】的组织绑定吗？`,
-      okText: '确认清空',
-      okType: 'danger',
-      onOk: executeSave,
-    })
-  } else {
-    await executeSave()
-  }
-}
-
-// ==================== 状态切换与删除 ====================
+// 状态切换与删除确认
 const confirmToggleEnabled = (record: UserRecord) => {
   if (!canWrite.value) return
   const adminStatus = getAdminStatus(record)
@@ -998,9 +403,11 @@ const confirmToggleEnabled = (record: UserRecord) => {
 
   confirmAction({
     title: `确认${actionText}用户`,
-    content: isSelf
-      ? `您正在操作当前登录账号，${actionText}可能导致无法继续登录。是否确认${actionText}？`
-      : `确定要${actionText}用户【${record.userName || record.account}】吗？${nextEnabled ? '启用后用户可正常登录。' : '停用后用户将无法登录系统。'}`,
+    content: nextEnabled
+      ? `确定要启用用户【${record.userName || record.account}】吗？启用后该账号可正常登录。`
+      : isSelf
+        ? `警告：你正在停用当前登录账号【${record.userName || record.account}】，停用后你将被强制退出系统。确认继续吗？`
+        : `确定要停用用户【${record.userName || record.account}】吗？停用后该用户将无法登录系统。`,
     okText: '确认',
     okType: nextEnabled ? 'primary' : 'danger',
     onOk: async () => {
@@ -1024,13 +431,13 @@ const confirmToggleLocked = (record: UserRecord) => {
     return
   }
   const nextLocked = !record.locked
-  const actionText = nextLocked ? '锁定' : '解锁'
+  const actionText = nextLocked ? '安全锁定' : '解除锁定'
 
   confirmAction({
     title: `确认${actionText}用户`,
     content: nextLocked
-      ? `安全锁定后，用户【${record.userName || record.account}】将不能通过正常身份验证登录。是否继续锁定？`
-      : `确定要解除用户【${record.userName || record.account}】的安全锁定状态吗？`,
+      ? `锁定用户【${record.userName || record.account}】后，该用户登录后将被强制设为只读模式，禁止所有写操作。是否继续？`
+      : `确定要解除用户【${record.userName || record.account}】的安全锁定吗？`,
     okText: '确认',
     okType: nextLocked ? 'danger' : 'primary',
     onOk: async () => {
@@ -1053,9 +460,15 @@ const confirmDeleteUser = (record: UserRecord) => {
     message.warning(`${adminStatus.label}账号受系统安全保护，禁止删除`)
     return
   }
+  const isSelf = String(record.id) === String(currentUser.userInfo?.id)
+  if (isSelf) {
+    message.error('不能删除当前登录账号')
+    return
+  }
+
   confirmAction({
     title: '确认删除用户',
-    content: `确定要删除用户【${record.userName || record.account}】吗？此操作不可逆。`,
+    content: `确定要删除用户【${record.userName || record.account}】吗？删除后该用户数据与权限将被清除，此操作不可逆。`,
     okText: '确认删除',
     okType: 'danger',
     onOk: async () => {
@@ -1070,11 +483,6 @@ const confirmDeleteUser = (record: UserRecord) => {
     },
   })
 }
-
-onMounted(() => {
-  void loadOrgTree()
-  void loadUsers()
-})
 </script>
 
 <style scoped>
@@ -1085,111 +493,19 @@ onMounted(() => {
   min-height: 0;
 }
 
-/* 左侧组织树面板 */
-.org-sidebar {
-  display: flex;
-  flex-direction: column;
-  width: 240px;
-  min-width: 220px;
-  max-width: 280px;
-  overflow: hidden;
-}
-
-.sidebar-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: var(--du-space-2) var(--du-space-3);
-  border-bottom: 1px solid var(--du-border);
-}
-
-.sidebar-title {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  color: var(--du-text);
-  font-size: 12px;
-  font-weight: 700;
-}
-
-.tree-search {
-  padding: var(--du-space-2) var(--du-space-3);
-  border-bottom: 1px solid var(--du-border-subtle, #f0f2f5);
-}
-
-.tree-container {
-  flex: 1;
-  overflow-y: auto;
-  padding: var(--du-space-2);
-}
-
-.all-users-node {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 6px 8px;
-  border-radius: var(--du-radius);
-  color: var(--du-text);
-  font-size: 11px;
-  cursor: pointer;
-  margin-bottom: 4px;
-  transition: background-color 0.15s ease;
-}
-
-.all-users-node:hover {
-  background-color: var(--du-bg-hover, #f5f7fa);
-}
-
-.all-users-node.is-selected {
-  background-color: #e6f4ff;
-  color: #1677ff;
-  font-weight: 600;
-}
-
-.all-count-badge :deep(.ant-badge-count) {
-  height: 16px;
-  line-height: 16px;
-  font-size: 10px;
-  background-color: var(--du-border);
-  color: var(--du-text-secondary);
-}
-
-.org-node-title {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 11px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.org-icon {
-  font-size: 11px;
-  color: var(--du-text-muted);
-}
-
-.org-text {
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.empty-tree {
-  margin-top: 32px;
-}
-
-/* 右侧主面板 */
 .user-content {
+  display: flex;
   flex: 1;
   min-width: 0;
-  display: flex;
   flex-direction: column;
+  border-radius: var(--du-radius-sm);
+  background: var(--du-bg-surface);
   overflow: hidden;
 }
 
 .page-toolbar {
   display: flex;
-  min-height: 52px;
+  min-height: 48px;
   align-items: center;
   justify-content: space-between;
   gap: var(--du-space-3);
@@ -1197,10 +513,9 @@ onMounted(() => {
   border-bottom: 1px solid var(--du-border);
 }
 
-.filters,
-.toolbar-actions,
-.row-actions {
+.filters {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: var(--du-space-2);
 }
@@ -1210,12 +525,19 @@ onMounted(() => {
 }
 
 .status-select {
-  width: 110px;
+  width: 100px;
+}
+
+.toolbar-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--du-space-2);
 }
 
 .code-value {
-  color: var(--du-text);
+  font-family: var(--du-font-mono);
   font-size: 11px;
+  color: var(--du-text);
 }
 
 .font-bold {
@@ -1228,133 +550,31 @@ onMounted(() => {
 
 .text-secondary {
   color: var(--du-text-secondary);
-  font-size: 11px;
 }
 
 .center-cell {
   display: flex;
-  align-items: center;
   justify-content: center;
 }
 
 .create-time-cell {
+  font-size: 11px;
   color: var(--du-text-secondary);
-  font-size: 10px;
-  white-space: nowrap;
-}
-
-.account-cell {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.admin-role-badge {
-  font-size: 10px;
-  line-height: 16px;
-  padding: 0 4px;
-  border-radius: 2px;
-  margin-inline-end: 0;
 }
 
 .row-actions {
-  justify-content: flex-end;
-}
-
-.row-actions :deep(.ant-btn) {
-  padding-inline: 4px;
-  font-size: 10px;
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
 }
 
 .action-btn-disabled {
-  opacity: 0.45;
+  color: var(--du-text-muted) !important;
   cursor: not-allowed;
 }
 
 .readonly-label {
+  font-size: 11px;
   color: var(--du-text-muted);
-  font-size: 10px;
-}
-
-.user-content :deep(.ant-table-cell) {
-  vertical-align: middle !important;
-  padding-top: 8px !important;
-  padding-bottom: 8px !important;
-}
-
-.user-content :deep(.ant-table-tbody > tr > td) {
-  vertical-align: middle !important;
-}
-
-/* 弹窗与表单布局 */
-.user-modal-form {
-  padding-top: var(--du-space-2);
-}
-
-.form-section-title {
-  margin-bottom: var(--du-space-3);
-  padding-bottom: var(--du-space-1);
-  border-bottom: 1px dashed var(--du-border);
-  color: var(--du-text-secondary);
-  font-size: 11px;
-  font-weight: 600;
-}
-
-.form-section-title:not(:first-child) {
-  margin-top: var(--du-space-4);
-}
-
-.form-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 0 var(--du-space-4);
-}
-
-.full-row {
-  grid-column: 1 / -1;
-}
-
-.w-full {
-  width: 100%;
-}
-
-.mb-2 {
-  margin-bottom: var(--du-space-2);
-}
-
-.mb-3 {
-  margin-bottom: var(--du-space-3);
-}
-
-.assign-summary {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: var(--du-space-2) var(--du-space-3);
-  margin-bottom: var(--du-space-3);
-  border: 1px solid var(--du-border);
-  border-radius: var(--du-radius);
-  background-color: var(--du-bg-subtle);
-  font-size: 11px;
-  color: var(--du-text-secondary);
-}
-
-.assign-summary strong,
-.assign-summary b {
-  color: var(--du-accent);
-}
-
-.role-select-box {
-  max-height: 280px;
-  overflow-y: auto;
-  padding: var(--du-space-2);
-  border: 1px solid var(--du-border);
-  border-radius: var(--du-radius);
-}
-
-.role-checkbox-group {
-  display: flex;
-  flex-direction: column;
-  gap: var(--du-space-2);
 }
 </style>

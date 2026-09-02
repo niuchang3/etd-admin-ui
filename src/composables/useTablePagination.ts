@@ -1,11 +1,11 @@
 import { computed, onMounted, reactive, ref, type ComputedRef } from 'vue'
-import type { PageRequest, PageResponse, Response } from '@/apis/types'
+import type { PageRequest, PageResult, ResultModel } from '@/apis/types'
 import type { TablePaginationConfig } from 'ant-design-vue'
 
 export interface UseTablePaginationOptions<T> {
   defaultSize?: number
   immediate?: boolean
-  onLoaded?: (data: PageResponse<T>) => void
+  onLoaded?: (data: PageResult<T>) => void
 }
 
 export interface UseTablePaginationReturn<T, Q extends PageRequest> {
@@ -28,7 +28,7 @@ import type { Ref } from 'vue'
  * 封装数据加载状态、分页联动、重置查询与删除智能回退
  */
 export function useTablePagination<T, Q extends PageRequest>(
-  fetchApi: (params: Q) => Promise<Response<PageResponse<T>>>,
+  fetchApi: (params: Q) => Promise<ResultModel<PageResult<T>>>,
   initialQuery: Q,
   options: UseTablePaginationOptions<T> = {}
 ): UseTablePaginationReturn<T, Q> {

@@ -147,7 +147,7 @@ import {
   selectSystemMenu,
   updateSystemMenu,
 } from '@/apis/upms/menu'
-import type { MenuType, SaveSystemMenu, SystemMenu } from '@/apis/upms/menu/type'
+import type { MenuDetail, MenuSaveRequest, MenuType } from '@/apis/upms/menu/type'
 import { menuIconOptions, resolveMenuIcon } from '@/config/menuIcons'
 import { menusStore } from '@/stores/modules/user'
 import { useSystemConfigStore } from '@/stores/modules/config'
@@ -164,7 +164,7 @@ interface TreeSelectOption {
 }
 
 // 表单额外保存正在编辑的 ID；dataStatus 按接口文档由独立状态接口维护。
-interface MenuFormState extends SaveSystemMenu {
+interface MenuFormState extends MenuSaveRequest {
   id?: string
   menuName: string
   menuPath: string
@@ -183,7 +183,7 @@ const saving = ref(false)
 const statusChangingId = ref('')
 const editorOpen = ref(false)
 const keyword = ref('')
-const menuTree = ref<SystemMenu[]>([])
+const menuTree = ref<MenuDetail[]>([])
 const expandedRowKeys = ref<string[]>([])
 const formRef = ref<FormInstance>()
 
@@ -207,7 +207,7 @@ const createEmptyForm = (): MenuFormState => ({
 
 const formState = reactive<MenuFormState>(createEmptyForm())
 
-const columns: TableColumnsType<SystemMenu> = [
+const columns: TableColumnsType<MenuDetail> = [
   { title: '菜单名称', dataIndex: 'menuName', key: 'menuName', width: 230 },
   { title: '类型', dataIndex: 'menuType', key: 'menuType', width: 80 },
   { title: '访问路径', dataIndex: 'menuPath', key: 'menuPath', width: 180 },
@@ -246,32 +246,28 @@ const rules: FormProps['rules'] = {
   ],
 }
 
-// 同时兼容管理接口返回树形数组或扁平数组。
-const buildMenuTree = (source: SystemMenu[]): SystemMenu[] => {
-  const hasChildren = source.some((item) => item.children?.length)
-  if (hasChildren) {
-    return source.map((item) => ({
-      ...item,
-      children: item.children ? buildMenuTree(item.children) : [],
-    })).sort((left, right) => (left.sort ?? 0) - (right.sort ?? 0))
-  }
-
-  const menuMap = new Map<string, SystemMenu>()
+/** 将扁平菜单数组构造为标准树形结构 */
+const buildMenuTree = (source: MenuDetail[]): MenuDetail[] => {
+  const menuMap = new Map<string, MenuDetail>()
   source.forEach((item) => menuMap.set(String(item.id), { ...item, id: String(item.id), children: [] }))
-  const roots: SystemMenu[] = []
+  const roots: MenuDetail[] = []
   menuMap.forEach((item) => {
     const parent = item.parentId ? menuMap.get(String(item.parentId)) : undefined
-    if (parent) parent.children?.push(item)
-    else roots.push(item)
+    if (parent) {
+      if (!parent.children) parent.children = []
+      parent.children.push(item)
+    } else {
+      roots.push(item)
+    }
   })
 
-  const sortTree = (items: SystemMenu[]): SystemMenu[] => items
+  const sortTree = (items: MenuDetail[]): MenuDetail[] => items
     .sort((left, right) => (left.sort ?? 0) - (right.sort ?? 0))
-    .map((item) => ({ ...item, children: sortTree(item.children || []) }))
+    .map((item) => ({ ...item, children: item.children?.length ? sortTree(item.children) : [] }))
   return sortTree(roots)
 }
 
-const flattenMenus = (menus: SystemMenu[]): SystemMenu[] => menus.flatMap((menu) => [
+const flattenMenus = (menus: MenuDetail[]): MenuDetail[] => menus.flatMap((menu) => [
   menu,
   ...flattenMenus(menu.children || []),
 ])
@@ -281,7 +277,7 @@ const filteredMenus = computed(() => {
   const searchText = keyword.value.trim().toLowerCase()
   if (!searchText) return menuTree.value
 
-  const filterTree = (menus: SystemMenu[]): SystemMenu[] => menus.flatMap((menu) => {
+  const filterTree = (menus: MenuDetail[]): MenuDetail[] => menus.flatMap((menu) => {
     const children = filterTree(menu.children || [])
     const matched = `${menu.menuName || ''}${menu.menuRouter || ''}${menu.menuPath || ''}`.toLowerCase().includes(searchText)
     return matched || children.length ? [{ ...menu, children }] : []
@@ -296,7 +292,7 @@ const disabledParentIds = computed(() => {
 })
 
 const parentTreeOptions = computed<TreeSelectOption[]>(() => {
-  const convert = (menus: SystemMenu[]): TreeSelectOption[] => menus.map((menu) => ({
+  const convert = (menus: MenuDetail[]): TreeSelectOption[] => menus.map((menu) => ({
     value: menu.id,
     title: menu.menuName || '未命名菜单',
     disabled: disabledParentIds.value.has(menu.id),
@@ -313,7 +309,7 @@ const loadMenus = async () => {
     const userMenus = await currentMenus.getUserMenus()
 
     // 用户菜单接口不返回状态和类型；能返回的菜单必然已启用，类型在树组装后推断显示。
-    const convertAuthorizedMenus = (menus: typeof userMenus): SystemMenu[] => menus.map((menu) => ({
+    const convertAuthorizedMenus = (menus: typeof userMenus): MenuDetail[] => menus.map((menu) => ({
       id: menu.id,
       parentId: menu.parentId,
       createTime: menu.createTime,
@@ -341,7 +337,7 @@ const loadMenus = async () => {
 }
 
 // 用户菜单接口未返回 menuType 时，有下级的节点按目录展示，其余按菜单展示。
-const getMenuTypeLabel = (menu: SystemMenu) => {
+const getMenuTypeLabel = (menu: MenuDetail) => {
   const menuType = menu.menuType || (menu.children?.length ? 'DIRECTORY' : 'MENU')
   return getLabel(SYSTEM_DICT_TYPE.menuType, menuType)
 }
@@ -355,7 +351,7 @@ const openCreate = (parentId?: string) => {
   editorOpen.value = true
 }
 
-const openEdit = async (menu: SystemMenu) => {
+const openEdit = async (menu: MenuDetail) => {
   if (!canWrite.value) return
   const response = await selectSystemMenu(menu.id)
   if (!response.data) {
@@ -379,7 +375,7 @@ const openEdit = async (menu: SystemMenu) => {
 const configStore = useSystemConfigStore()
 
 // 递归寻找菜单节点深度（根节点为 1）
-const getDepthById = (nodes: SystemMenu[], id: string, currentDepth = 1): number => {
+const getDepthById = (nodes: MenuDetail[], id: string, currentDepth = 1): number => {
   for (const node of nodes) {
     if (String(node.id) === String(id)) return currentDepth
     if (node.children && node.children.length > 0) {
@@ -391,7 +387,7 @@ const getDepthById = (nodes: SystemMenu[], id: string, currentDepth = 1): number
 }
 
 // 递归计算子树的最大高度（单节点为 1）
-const getSubtreeHeight = (node: SystemMenu): number => {
+const getSubtreeHeight = (node: MenuDetail): number => {
   if (!node.children || node.children.length === 0) return 1
   return 1 + Math.max(...node.children.map(getSubtreeHeight))
 }
@@ -420,7 +416,7 @@ const saveMenu = async () => {
   await formRef.value?.validate()
   saving.value = true
   try {
-    const payload: SaveSystemMenu = {
+    const payload: MenuSaveRequest = {
       parentId: formState.parentId || null,
       menuPath: formState.menuPath.trim() || null,
       menuRouter: formState.menuRouter.trim() || null,
@@ -441,7 +437,7 @@ const saveMenu = async () => {
 }
 
 // 菜单状态不随编辑表单提交，严格调用文档规定的独立 PATCH 接口。
-const changeStatus = async (menu: SystemMenu, enabled: boolean) => {
+const changeStatus = async (menu: MenuDetail, enabled: boolean) => {
   if (!canWrite.value) return
   statusChangingId.value = menu.id
   try {
@@ -455,7 +451,7 @@ const changeStatus = async (menu: SystemMenu, enabled: boolean) => {
   }
 }
 
-const removeMenu = async (menu: SystemMenu) => {
+const removeMenu = async (menu: MenuDetail) => {
   if (!canWrite.value) return
   await deleteSystemMenu(menu.id)
   message.success('菜单删除成功')

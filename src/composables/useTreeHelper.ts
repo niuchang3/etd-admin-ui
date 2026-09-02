@@ -44,7 +44,7 @@ export function buildTreeStructure<T extends Record<string, any>>(
       ? transform(item)
       : {
           key: id,
-          title: String(item[titleKey] || item.menuName || item.orgName || '未命名'),
+          title: String(item[titleKey] ?? '未命名'),
           parentId,
           sort: Number(item[sortKey] ?? 0),
           children: [],
