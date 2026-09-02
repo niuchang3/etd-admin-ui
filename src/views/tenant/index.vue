@@ -92,7 +92,7 @@
               size="small"
               class="tenant-avatar"
             />
-            <span class="tenant-name-text font-bold" :title="record.tenantName">{{ record.tenantName }}</span>
+            <span class="tenant-name-text" :title="record.tenantName">{{ record.tenantName }}</span>
             <a-tag v-if="isCurrentLoginTenant(record.id)" color="blue" class="current-tenant-tag">当前</a-tag>
           </div>
 
@@ -453,6 +453,8 @@ const confirmDelete = (record: TenantRecord) => {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  font-size: var(--du-font-size-sm, 12px);
+  font-weight: var(--du-font-weight-normal, 400);
 }
 
 .font-bold {
@@ -478,12 +480,6 @@ const confirmDelete = (record: TenantRecord) => {
 .create-time-cell {
   font-size: var(--du-font-size-xs, 11px);
   color: var(--du-text-secondary);
-}
-
-.row-actions {
-  display: inline-flex;
-  align-items: center;
-  gap: 2px;
 }
 
 .readonly-label {

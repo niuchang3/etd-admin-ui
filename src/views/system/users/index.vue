@@ -72,10 +72,10 @@
       >
         <template #bodyCell="{ column, record }">
           <!-- 账号 -->
-          <code v-if="column.key === 'account'" class="code-value du-mono font-bold">{{ record.account }}</code>
+          <code v-if="column.key === 'account'" class="account-cell du-mono">{{ record.account }}</code>
 
           <!-- 姓名 -->
-          <span v-else-if="column.key === 'userName'" class="user-name-cell font-semibold">
+          <span v-else-if="column.key === 'userName'" class="user-name-cell">
             {{ record.userName || '—' }}
           </span>
 
@@ -532,6 +532,19 @@ const confirmDeleteUser = (record: UserRecord) => {
   gap: var(--du-space-2);
 }
 
+.account-cell {
+  font-family: var(--du-font-mono);
+  font-size: var(--du-font-size-sm, 12px);
+  font-weight: var(--du-font-weight-normal, 400);
+  color: var(--du-text);
+}
+
+.user-name-cell {
+  font-size: var(--du-font-size-sm, 12px);
+  font-weight: var(--du-font-weight-normal, 400);
+  color: var(--du-text);
+}
+
 .code-value {
   font-family: var(--du-font-mono);
   font-size: var(--du-font-size-xs, 11px);
@@ -558,12 +571,6 @@ const confirmDeleteUser = (record: UserRecord) => {
 .create-time-cell {
   font-size: var(--du-font-size-xs, 11px);
   color: var(--du-text-secondary);
-}
-
-.row-actions {
-  display: inline-flex;
-  align-items: center;
-  gap: 2px;
 }
 
 .action-btn-disabled {

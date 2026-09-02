@@ -17,7 +17,7 @@
       <a-table :columns="columns" :data-source="records" :loading="loading" :pagination="pagination" row-key="id" size="small" @change="handleTableChange">
         <template #bodyCell="{ column, record }">
           <div v-if="column.key === 'roleName'" class="role-name">
-            <strong>{{ record.roleName }}</strong>
+            <span>{{ record.roleName }}</span>
             <a-tag v-if="record.builtIn" color="gold">{{ getLabel(SYSTEM_DICT_TYPE.commonBuiltIn, record.builtIn) }}</a-tag>
           </div>
           <code v-else-if="column.key === 'roleCode'" class="code-value">{{ record.roleCode }}</code>
@@ -469,10 +469,8 @@ onMounted(() => {
 .filters, .row-actions, .role-name { display: flex; align-items: center; gap: var(--du-space-2); }
 .search-input { width: 250px; }
 .status-select { width: 120px; }
-.role-name strong { font-size: var(--du-font-size-base, 13px); }
+.role-name span { font-size: var(--du-font-size-sm, 12px); font-weight: var(--du-font-weight-normal, 400); }
 .code-value, .authorization-summary code { color: var(--du-text-secondary); font-family: var(--du-font-mono); font-size: var(--du-font-size-xs, 11px); }
-.row-actions { justify-content: flex-end; }
-.row-actions :deep(.ant-btn) { padding-inline: 5px; font-size: var(--du-font-size-sm, 12px); }
 .readonly-label { color: var(--du-text-muted); font-size: var(--du-font-size-xs, 11px); }
 .editor-form { padding-top: var(--du-space-3); }
 .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0 var(--du-space-4); }

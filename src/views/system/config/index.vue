@@ -333,8 +333,6 @@ onMounted(() => {
 .value-type-select { width: 120px; }
 .code-value { color: var(--du-text-secondary); font-family: var(--du-font-mono); font-size: var(--du-font-size-xs, 11px); }
 .value-preview { display: block; max-width: 360px; overflow: hidden; color: var(--du-text-secondary); text-overflow: ellipsis; white-space: nowrap; }
-.row-actions { justify-content: flex-end; }
-.row-actions :deep(.ant-btn) { padding-inline: 5px; font-size: var(--du-font-size-sm, 12px); }
 .readonly-label { color: var(--du-text-muted); font-size: var(--du-font-size-xs, 11px); }
 .editor-form { padding-top: var(--du-space-3); }
 .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0 var(--du-space-4); }

@@ -5,7 +5,7 @@
       <div class="du-panel panel type-panel">
         <header class="panel-header">
           <strong>字典类型</strong>
-          <a-button v-if="canWrite" type="primary" size="small" @click="openTypeCreate"><PlusOutlined />新增</a-button>
+          <a-button v-if="canWrite" type="primary" @click="openTypeCreate"><PlusOutlined />新增</a-button>
         </header>
         <div class="panel-filters">
           <a-input v-model:value="typeQuery.keyword" allow-clear placeholder="编码或名称" @press-enter="searchTypes">
@@ -26,10 +26,11 @@
           @change="changeTypePage"
         >
           <template #bodyCell="{ column, record }">
-            <div v-if="column.key === 'type'" class="type-main">
-              <div><strong>{{ record.typeName }}</strong><a-tag v-if="record.builtIn" color="gold">{{ getLabel(SYSTEM_DICT_TYPE.commonBuiltIn, record.builtIn) }}</a-tag></div>
-              <code>{{ record.typeCode }}</code>
+            <div v-if="column.key === 'typeName'" class="type-name-cell">
+              <span>{{ record.typeName }}</span>
+              <a-tag v-if="record.builtIn" color="gold">{{ getLabel(SYSTEM_DICT_TYPE.commonBuiltIn, record.builtIn) }}</a-tag>
             </div>
+            <code v-else-if="column.key === 'typeCode'" class="code-value">{{ record.typeCode }}</code>
             <a-switch
               v-else-if="column.key === 'enabled'"
               :checked="record.enabled"
@@ -57,7 +58,7 @@
             <strong>字典项</strong>
             <span v-if="selectedType">{{ selectedType.typeName }} · {{ selectedType.typeCode }}</span>
           </div>
-          <a-button v-if="canWrite" type="primary" size="small" :disabled="!selectedType" @click="openDataCreate"><PlusOutlined />新增字典项</a-button>
+          <a-button v-if="canWrite" type="primary" :disabled="!selectedType" @click="openDataCreate"><PlusOutlined />新增字典项</a-button>
         </header>
         <div class="panel-filters">
           <a-input v-model:value="dataQuery.keyword" allow-clear class="data-search" placeholder="搜索编码、标签或值" :disabled="!selectedType" @press-enter="searchData">
@@ -220,7 +221,8 @@ const typeForm = reactive<DictTypeFormState>(emptyTypeForm())
 const dataForm = reactive<DictDataFormState>(emptyDataForm())
 
 const typeColumns: TableColumnsType<SystemDictType> = [
-  { title: '类型', key: 'type' },
+  { title: '类型名称', key: 'typeName' },
+  { title: '类型编码', key: 'typeCode', width: 140 },
   { title: '状态', key: 'enabled', width: 56, align: 'center' },
   { title: '', key: 'actions', width: 68, align: 'center' },
 ]
@@ -413,15 +415,13 @@ onMounted(() => {
 .data-search { max-width: 260px; }
 .current-type { display: flex; align-items: baseline; gap: var(--du-space-2); }
 .current-type span { color: var(--du-text-muted); font-size: var(--du-font-size-xs, 11px); }
-.type-main { display: flex; min-width: 0; flex-direction: column; gap: 3px; }
-.type-main > div { display: flex; align-items: center; gap: 5px; }
-.type-main strong { overflow: hidden; font-size: var(--du-font-size-base, 13px); text-overflow: ellipsis; white-space: nowrap; }
-.type-main code, .code-value { color: var(--du-text-secondary); font-family: var(--du-font-mono); font-size: var(--du-font-size-xs, 11px); }
+.type-name-cell { display: flex; align-items: center; gap: 5px; }
+.type-name-cell span { overflow: hidden; font-size: var(--du-font-size-sm, 12px); font-weight: var(--du-font-weight-normal, 400); text-overflow: ellipsis; white-space: nowrap; }
+.code-value { color: var(--du-text-secondary); font-family: var(--du-font-mono); font-size: var(--du-font-size-xs, 11px); }
 .row-actions { display: flex; justify-content: flex-end; align-items: center; }
 .type-actions { display: flex; justify-content: center; align-items: center; }
 .type-actions :deep(.ant-btn) { padding-inline: 4px; }
 .readonly-label { color: var(--du-text-muted); font-size: var(--du-font-size-xs, 11px); }
-.row-actions :deep(.ant-btn) { padding-inline: 5px; font-size: var(--du-font-size-sm, 12px); }
 .type-panel :deep(.ant-table-tbody > tr) { cursor: pointer; }
 .type-panel :deep(.ant-table-tbody > tr.selected-type-row > td) { background: #edf3ff !important; }
 .editor-form { padding-top: var(--du-space-3); }

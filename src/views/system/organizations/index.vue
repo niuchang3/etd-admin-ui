@@ -32,7 +32,7 @@
       >
         <template #bodyCell="{ column, record }">
           <div v-if="column.key === 'orgName'" class="org-name-cell">
-            <strong>{{ record.orgName }}</strong>
+            <span>{{ record.orgName }}</span>
           </div>
 
           <code v-else-if="column.key === 'orgCode'" class="code-value">{{ record.orgCode }}</code>
@@ -438,7 +438,7 @@ onMounted(() => {
   display: flex;
   align-items: center;
 }
-.org-name-cell strong { font-size: var(--du-font-size-base, 13px); font-weight: 600; }
+.org-name-cell span { font-size: var(--du-font-size-sm, 12px); font-weight: var(--du-font-weight-normal, 400); }
 
 .code-value {
   color: var(--du-text-secondary);
@@ -450,12 +450,6 @@ onMounted(() => {
   color: var(--du-text-secondary);
 }
 
-.row-actions {
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-}
-.row-actions :deep(.ant-btn) { padding-inline: 5px; font-size: var(--du-font-size-sm, 12px); }
 .org-panel :deep(.ant-table-row-expand-icon) { transform: scale(.88); }
 
 .org-form { padding-top: var(--du-space-3); }

@@ -13,7 +13,7 @@ body {
   color: var(--du-text);
   background: var(--du-bg-app);
   font-family: var(--du-font-sans);
-  font-size: var(--du-font-size-base, 13px);
+  font-size: var(--du-font-size-base, 12px);
   line-height: 1.45;
   -webkit-font-smoothing: antialiased;
 }
@@ -56,28 +56,26 @@ button {
   background: var(--du-bg-surface);
 }
 
-/* 覆盖 Ant Design Vue 默认阴影，保持扁平密集风格。 */
+/* 覆盖 Ant Design Vue 默认阴影与字号，保持扁平密集风格。 */
 .ant-btn,
 .ant-input,
 .ant-select-selector,
 .ant-picker {
   box-shadow: none !important;
+  font-size: var(--du-font-size-base, 12px) !important;
 }
 
 .ant-btn {
   font-weight: var(--du-font-weight-medium, 500);
 }
 
-/* 表格统一样式：表头与数据行固定 40px 高度，保证高密度界面行高绝对一致。 */
 .ant-table-wrapper .ant-table-thead > tr > th {
   height: var(--du-table-header-height);
   padding: 0 var(--du-space-2);
   border-bottom-color: var(--du-border-strong);
   color: var(--du-text-secondary);
   font-size: var(--du-font-size-xs, 11px);
-  font-weight: var(--du-font-weight-bold, 700);
-  letter-spacing: 0.035em;
-  text-transform: uppercase;
+  font-weight: var(--du-font-weight-medium, 500);
 }
 
 .ant-table-wrapper .ant-table-tbody > tr > td {
@@ -85,6 +83,29 @@ button {
   padding: 0 var(--du-space-2);
   border-bottom-color: #e7eaf0;
   vertical-align: middle;
+  font-size: var(--du-font-size-sm, 12px);
+  font-weight: var(--du-font-weight-normal, 400);
+}
+
+.ant-table-wrapper .ant-table-tbody strong {
+  font-weight: var(--du-font-weight-normal, 400);
+}
+
+/* 表格操作列统一容器与紧凑链接按钮样式。 */
+.row-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--du-space-1);
+}
+
+.row-actions .ant-btn-link,
+.row-actions .ant-btn-text,
+.row-actions .ant-btn {
+  height: 24px;
+  padding-inline: 4px;
+  font-size: var(--du-font-size-sm, 12px);
+  line-height: 24px;
 }
 /* 运行环境语义色供登录页和管理平台顶栏共同使用。 */
 .runtime-environment--development {

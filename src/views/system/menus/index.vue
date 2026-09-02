@@ -30,7 +30,7 @@
         <template #bodyCell="{ column, record }">
           <div v-if="column.key === 'menuName'" class="menu-name-cell">
             <component :is="resolveMenuIcon(record.menuIcon)" />
-            <strong>{{ record.menuName || '未命名菜单' }}</strong>
+            <span>{{ record.menuName || '未命名菜单' }}</span>
           </div>
 
           <span v-else-if="column.key === 'menuType'" class="type-label">
@@ -246,8 +246,22 @@ const rules: FormProps['rules'] = {
   ],
 }
 
-/** 将扁平菜单数组构造为标准树形结构 */
+/** 将菜单列表标准化为树形结构，并确保叶子节点 children 为 undefined（避免 Antd Table 渲染伪折叠箭头） */
 const buildMenuTree = (source: MenuDetail[]): MenuDetail[] => {
+  // 若传入的数据已经是树形结构（存在非空 children），直接递归清洗空 children 为 undefined 并排序
+  const hasTreeStructure = source.some((item) => item.children && item.children.length > 0)
+  if (hasTreeStructure) {
+    const cleanTree = (items: MenuDetail[]): MenuDetail[] => items
+      .slice()
+      .sort((left, right) => (left.sort ?? 0) - (right.sort ?? 0))
+      .map((item) => ({
+        ...item,
+        children: item.children && item.children.length > 0 ? cleanTree(item.children) : undefined,
+      }))
+    return cleanTree(source)
+  }
+
+  // 若传入的是扁平列表，按 parentId 映射组装
   const menuMap = new Map<string, MenuDetail>()
   source.forEach((item) => menuMap.set(String(item.id), { ...item, id: String(item.id), children: [] }))
   const roots: MenuDetail[] = []
@@ -263,7 +277,10 @@ const buildMenuTree = (source: MenuDetail[]): MenuDetail[] => {
 
   const sortTree = (items: MenuDetail[]): MenuDetail[] => items
     .sort((left, right) => (left.sort ?? 0) - (right.sort ?? 0))
-    .map((item) => ({ ...item, children: item.children?.length ? sortTree(item.children) : [] }))
+    .map((item) => ({
+      ...item,
+      children: item.children && item.children.length > 0 ? sortTree(item.children) : undefined,
+    }))
   return sortTree(roots)
 }
 
@@ -280,7 +297,13 @@ const filteredMenus = computed(() => {
   const filterTree = (menus: MenuDetail[]): MenuDetail[] => menus.flatMap((menu) => {
     const children = filterTree(menu.children || [])
     const matched = `${menu.menuName || ''}${menu.menuRouter || ''}${menu.menuPath || ''}`.toLowerCase().includes(searchText)
-    return matched || children.length ? [{ ...menu, children }] : []
+    if (matched || children.length) {
+      return [{
+        ...menu,
+        children: children.length ? children : undefined,
+      }]
+    }
+    return []
   })
   return filterTree(menuTree.value)
 })
@@ -309,23 +332,26 @@ const loadMenus = async () => {
     const userMenus = await currentMenus.getUserMenus()
 
     // 用户菜单接口不返回状态和类型；能返回的菜单必然已启用，类型在树组装后推断显示。
-    const convertAuthorizedMenus = (menus: typeof userMenus): MenuDetail[] => menus.map((menu) => ({
-      id: menu.id,
-      parentId: menu.parentId,
-      createTime: menu.createTime,
-      dataStatus: 1,
-      menuName: menu.menuName,
-      menuPath: menu.menuPath,
-      menuRouter: menu.menuRouter,
-      menuIcon: menu.menuIcon,
-      menuType: null,
-      sort: menu.sort ?? 0,
-      children: convertAuthorizedMenus(menu.children || []),
-    }))
+    const convertAuthorizedMenus = (menus: typeof userMenus): MenuDetail[] => menus.map((menu) => {
+      const hasChildren = Boolean(menu.children && menu.children.length > 0)
+      return {
+        id: String(menu.id),
+        parentId: menu.parentId ? String(menu.parentId) : null,
+        createTime: menu.createTime || null,
+        dataStatus: 1,
+        menuName: menu.menuName,
+        menuPath: menu.menuPath,
+        menuRouter: menu.menuRouter,
+        menuIcon: menu.menuIcon,
+        menuType: null,
+        sort: menu.sort ?? 0,
+        children: hasChildren ? convertAuthorizedMenus(menu.children!) : undefined,
+      }
+    })
     const authorizedMenus = convertAuthorizedMenus(userMenus)
     menuTree.value = buildMenuTree(authorizedMenus)
     expandedRowKeys.value = flattenMenus(menuTree.value)
-      .filter((menu) => menu.children?.length)
+      .filter((menu) => menu.children && menu.children.length > 0)
       .map((menu) => menu.id)
     if (!currentMenus.findByPath(route.path)) {
       const fallback = currentMenus.firstReadablePath()
@@ -492,12 +518,9 @@ onMounted(() => {
 
 .menu-name-cell { gap: var(--du-space-2); }
 .menu-name-cell :deep(.anticon) { color: var(--du-text-muted); font-size: 13px; }
-.menu-name-cell strong { font-size: var(--du-font-size-base, 13px); font-weight: 600; }
+.menu-name-cell span { font-size: var(--du-font-size-sm, 12px); font-weight: var(--du-font-weight-normal, 400); }
 .type-label { color: var(--du-text-secondary); font-size: var(--du-font-size-xs, 11px); }
 .route-value { color: var(--du-text-secondary); font-family: var(--du-font-mono); font-size: var(--du-font-size-xs, 11px); }
-
-.row-actions { justify-content: flex-end; }
-.row-actions :deep(.ant-btn) { padding-inline: 5px; font-size: var(--du-font-size-sm, 12px); }
 
 .menu-panel :deep(.ant-table-row-expand-icon) { transform: scale(.88); }
 
