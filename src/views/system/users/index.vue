@@ -534,7 +534,7 @@ const confirmDeleteUser = (record: UserRecord) => {
 
 .code-value {
   font-family: var(--du-font-mono);
-  font-size: 11px;
+  font-size: var(--du-font-size-xs, 11px);
   color: var(--du-text);
 }
 
@@ -556,7 +556,7 @@ const confirmDeleteUser = (record: UserRecord) => {
 }
 
 .create-time-cell {
-  font-size: 11px;
+  font-size: var(--du-font-size-xs, 11px);
   color: var(--du-text-secondary);
 }
 
@@ -572,7 +572,7 @@ const confirmDeleteUser = (record: UserRecord) => {
 }
 
 .readonly-label {
-  font-size: 11px;
+  font-size: var(--du-font-size-xs, 11px);
   color: var(--du-text-muted);
 }
 </style>

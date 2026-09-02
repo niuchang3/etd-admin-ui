@@ -72,13 +72,13 @@ const statusText = computed(() => {
 
 .status-tag {
   margin-right: 0;
-  font-size: 10px;
+  font-size: var(--du-font-size-xs, 11px);
   line-height: 18px;
   padding-inline: 6px;
 }
 
 .plain-status {
   color: var(--du-text-secondary, #595959);
-  font-size: 11px;
+  font-size: var(--du-font-size-xs, 11px);
 }
 </style>

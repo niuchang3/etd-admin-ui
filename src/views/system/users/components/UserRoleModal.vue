@@ -139,7 +139,7 @@ const handleSubmit = async () => {
   background: var(--du-bg-subtle);
   border-radius: var(--du-radius-sm);
   margin-bottom: var(--du-space-3);
-  font-size: 11px;
+  font-size: var(--du-font-size-xs, 11px);
 }
 
 .tree-toolbar {

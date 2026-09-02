@@ -142,7 +142,7 @@ onMounted(() => {
 
 .environment :deep(.anticon) {
   color: var(--du-text-muted);
-  font-size: 9px;
+  font-size: var(--du-font-size-xs, 11px);
 }
 
 .header-tools {
@@ -188,7 +188,7 @@ onMounted(() => {
   border-radius: 3px;
   background: #fff;
   font-family: var(--du-font-sans);
-  font-size: 10px;
+  font-size: var(--du-font-size-xs, 11px);
 }
 
 /* 帮助与通知图标按钮。 */
@@ -247,7 +247,7 @@ onMounted(() => {
   color: #fff;
   border-radius: var(--du-radius-sm);
   background: #344154;
-  font-size: 10px;
+  font-size: var(--du-font-size-xs, 11px);
   font-weight: 700;
   overflow: hidden;
 }
@@ -271,12 +271,12 @@ onMounted(() => {
 .profile-copy small {
   margin-top: 2px;
   color: var(--du-text-muted);
-  font-size: 9px;
+  font-size: var(--du-font-size-xs, 11px);
 }
 
 .profile-button > :deep(.anticon) {
   color: var(--du-text-muted);
-  font-size: 9px;
+  font-size: var(--du-font-size-xs, 11px);
 }
 
 /* 用户下拉菜单与身份摘要。 */
@@ -304,7 +304,7 @@ onMounted(() => {
   overflow: hidden;
   margin-top: 2px;
   color: var(--du-text-muted);
-  font-size: 9px;
+  font-size: var(--du-font-size-xs, 11px);
   text-overflow: ellipsis;
   white-space: nowrap;
 }

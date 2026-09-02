@@ -69,7 +69,7 @@ const showTooltip = computed(() => {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-size: 11px;
+  font-size: inherit;
   color: var(--du-text);
   max-width: 100%;
 }

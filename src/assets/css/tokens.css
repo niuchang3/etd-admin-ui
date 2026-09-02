@@ -11,6 +11,8 @@
   --du-radius-sm: 3px;
   --du-radius-md: 4px;
   --du-control-height: 32px;
+  --du-table-row-height: 40px;
+  --du-table-header-height: 40px;
   --du-sidebar-width: 216px;
   --du-header-height: 48px;
   /* 界面背景与容器颜色。 */
@@ -38,4 +40,15 @@
   /* 正文使用系统无衬线字体，数据字段使用等宽字体。 */
   --du-font-sans: Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
   --du-font-mono: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+  /* 严谨的 5 级字号阶梯变量（Dense Utility 基线，全站严禁使用低于 11px 的不可读微型字） */
+  --du-font-size-xs: 11px;
+  --du-font-size-sm: 12px;
+  --du-font-size-base: 13px;
+  --du-font-size-md: 14px;
+  --du-font-size-lg: 16px;
+  /* 标准字重阶梯 */
+  --du-font-weight-normal: 400;
+  --du-font-weight-medium: 500;
+  --du-font-weight-semibold: 600;
+  --du-font-weight-bold: 700;
 }

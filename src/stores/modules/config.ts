@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import { getSystemConfigValues } from '@/apis/upms/config'
+import { getAccessToken } from '@/stores/modules/oauth'
 
 export const SYSTEM_CONFIG_KEY = {
   branding: 'system.branding',
@@ -122,14 +123,80 @@ export const useSystemConfigStore = defineStore('system-config', () => {
   const network = ref<NetworkPolicy>({ ...DEFAULT_NETWORK_POLICY })
   const loading = ref(false)
   const isLoaded = ref(false)
+  const isBrandingLoaded = ref(false)
 
   let fetchPromise: Promise<void> | null = null
+  let fetchBrandingPromise: Promise<void> | null = null
+
+  const safeParse = (val: unknown) => {
+    if (!val) return null
+    if (typeof val === 'object') return val
+    if (typeof val === 'string') {
+      try {
+        return JSON.parse(val)
+      } catch {
+        return null
+      }
+    }
+    return null
+  }
+
+  const updateBrandingState = (raw: unknown) => {
+    const rawBranding = safeParse(raw)
+    if (rawBranding) {
+      branding.value = {
+        ...DEFAULT_BRANDING,
+        ...rawBranding,
+        watermark: {
+          ...DEFAULT_BRANDING.watermark,
+          ...(rawBranding.watermark || {}),
+        },
+      }
+    }
+  }
 
   /**
-   * 拉取系统核心内置参数（自带已加载缓存拦截与并发合并）
+   * 仅拉取公开品牌基础配置（系统名称、Logo、Favicon、版权等）
+   * 适用于登录页与未登录初始状态，避免在匿名阶段获取内部安全策略与配额
+   */
+  const fetchBrandingConfig = async (force = false) => {
+    if (isBrandingLoaded.value && !force) {
+      return
+    }
+
+    if (fetchBrandingPromise) {
+      return fetchBrandingPromise
+    }
+
+    fetchBrandingPromise = (async () => {
+      try {
+        const response = await getSystemConfigValues([SYSTEM_CONFIG_KEY.branding])
+        const data = response.data || {}
+        updateBrandingState(data[SYSTEM_CONFIG_KEY.branding])
+        isBrandingLoaded.value = true
+      } catch (e) {
+        console.warn('Failed to load branding config, falling back to defaults:', e)
+        branding.value = { ...DEFAULT_BRANDING }
+      } finally {
+        fetchBrandingPromise = null
+      }
+    })()
+
+    return fetchBrandingPromise
+  }
+
+  /**
+   * 拉取系统核心内置参数（包含安全策略、资源配额与网络策略）
+   * 仅在已登录有访问令牌的状态下拉取；未登录状态下自动降级为仅拉取基础 branding
    * @param force 是否强制跳过缓存重新请求后端（默认 false）
    */
   const fetchConfigs = async (force = false) => {
+    // 0. 安全守卫：未登录匿名状态下，严格禁止向后端索取内部敏感配置，自动降级为只拉取公开 branding
+    const hasToken = Boolean(getAccessToken())
+    if (!hasToken) {
+      return fetchBrandingConfig(force)
+    }
+
     // 1. 已加载且非强制刷新，直接命中缓存
     if (isLoaded.value && !force) {
       return
@@ -152,31 +219,9 @@ export const useSystemConfigStore = defineStore('system-config', () => {
         const response = await getSystemConfigValues(keys)
         const data = response.data || {}
 
-        const safeParse = (val: unknown) => {
-          if (!val) return null
-          if (typeof val === 'object') return val
-          if (typeof val === 'string') {
-            try {
-              return JSON.parse(val)
-            } catch {
-              return null
-            }
-          }
-          return null
-        }
-
         // 如果获取成功，解析 JSON。如果解析失败或值不存在，执行回滚兜底。
-        const rawBranding = safeParse(data[SYSTEM_CONFIG_KEY.branding])
-        if (rawBranding) {
-          branding.value = {
-            ...DEFAULT_BRANDING,
-            ...rawBranding,
-            watermark: {
-              ...DEFAULT_BRANDING.watermark,
-              ...(rawBranding.watermark || {}),
-            },
-          }
-        }
+        updateBrandingState(data[SYSTEM_CONFIG_KEY.branding])
+        isBrandingLoaded.value = true
 
         const rawSecurity = safeParse(data[SYSTEM_CONFIG_KEY.securityPolicy])
         if (rawSecurity) {
@@ -237,7 +282,9 @@ export const useSystemConfigStore = defineStore('system-config', () => {
     network.value = { ...DEFAULT_NETWORK_POLICY }
     loading.value = false
     isLoaded.value = false
+    isBrandingLoaded.value = false
     fetchPromise = null
+    fetchBrandingPromise = null
   }
 
   return {
@@ -247,6 +294,8 @@ export const useSystemConfigStore = defineStore('system-config', () => {
     network,
     loading,
     isLoaded,
+    isBrandingLoaded,
+    fetchBrandingConfig,
     fetchConfigs,
     $reset,
   }

@@ -239,7 +239,7 @@ const handleSaveMenuSettings = async () => {
 }
 
 .node-type-tag {
-  font-size: 10px;
+  font-size: var(--du-font-size-xs, 11px);
   line-height: 16px;
   padding: 0 4px;
 }

@@ -208,11 +208,11 @@ defineExpose({
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-size: 11px;
+  font-size: var(--du-font-size-sm, 12px);
 }
 
 .org-icon {
-  font-size: 11px;
+  font-size: var(--du-font-size-sm, 12px);
   color: var(--du-text-muted);
 }
 

@@ -160,7 +160,7 @@ const rules: FormProps['rules'] = {
 }
 
 onMounted(() => {
-  void configStore.fetchConfigs()
+  void configStore.fetchBrandingConfig()
 })
 
 /**
@@ -273,7 +273,7 @@ const submit = async () => {
 .brand small {
   margin-top: 4px;
   color: #778196;
-  font-size: 9px;
+  font-size: var(--du-font-size-xs, 11px);
 }
 
 /* 平台介绍文案。 */
@@ -285,7 +285,7 @@ const submit = async () => {
   margin: 0 0 var(--du-space-2);
   color: #748095;
   font-family: var(--du-font-mono);
-  font-size: 9px;
+  font-size: var(--du-font-size-xs, 11px);
   font-weight: 700;
   letter-spacing: 0.09em;
   text-transform: uppercase;
@@ -295,7 +295,7 @@ const submit = async () => {
   margin: 0;
   color: #fff;
   font-size: 24px;
-  font-weight: 650;
+  font-weight: var(--du-font-weight-bold, 700);
   letter-spacing: -0.03em;
 }
 
@@ -323,7 +323,7 @@ const submit = async () => {
 .system-facts dt {
   color: #626d80;
   font-family: var(--du-font-mono);
-  font-size: 8px;
+  font-size: var(--du-font-size-xs, 11px);
   font-weight: 700;
   letter-spacing: 0.06em;
   text-transform: uppercase;
@@ -335,7 +335,7 @@ const submit = async () => {
   gap: 5px;
   margin: 6px 0 0;
   color: #b9c2d1;
-  font-size: 9px;
+  font-size: var(--du-font-size-xs, 11px);
 }
 
 .status-dot {
@@ -352,7 +352,7 @@ const submit = async () => {
   gap: 6px;
   margin-top: auto;
   color: #687387;
-  font-size: 9px;
+  font-size: var(--du-font-size-xs, 11px);
 }
 
 /* 右侧登录表单区。 */
@@ -371,7 +371,7 @@ const submit = async () => {
   margin: 0;
   color: var(--du-text);
   font-size: 22px;
-  font-weight: 650;
+  font-weight: var(--du-font-weight-semibold, 600);
   letter-spacing: -0.025em;
 }
 
@@ -417,7 +417,7 @@ const submit = async () => {
   border: 1px solid var(--du-border);
   border-radius: var(--du-radius-sm);
   background: var(--du-bg-subtle);
-  font-size: 9px;
+  font-size: var(--du-font-size-xs, 11px);
   line-height: 1.45;
 }
 
@@ -434,7 +434,7 @@ const submit = async () => {
   align-items: center;
   gap: var(--du-space-2);
   color: #7b8493;
-  font-size: 9px;
+  font-size: var(--du-font-size-xs, 11px);
 }
 
 .page-footer .separator {

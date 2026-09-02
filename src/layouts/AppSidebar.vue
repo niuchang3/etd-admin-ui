@@ -202,7 +202,7 @@ onMounted(() => {
 
 .brand-copy { display: flex; min-width: 0; flex-direction: column; line-height: 1.15; }
 .brand-copy strong { color: #f4f7fb; font-size: 12px; letter-spacing: 0.02em; }
-.brand-copy span { margin-top: 3px; color: #778196; font-size: 10px; }
+.brand-copy span { margin-top: 3px; color: #778196; font-size: var(--du-font-size-xs, 11px); }
 
 .navigation { min-height: 0; flex: 1; overflow: auto; padding: var(--du-space-2); }
 .navigation :deep(.ant-menu) { border-inline-end: 0 !important; background: transparent; font-size: 11px; }
@@ -218,12 +218,12 @@ onMounted(() => {
   justify-content: center;
   gap: var(--du-space-2);
   color: #7f8a9d;
-  font-size: 10px;
+  font-size: var(--du-font-size-xs, 11px);
 }
 
 .menu-error { flex-direction: column; }
-.menu-error button { color: #8fb0ff; border: 0; background: transparent; cursor: pointer; font-size: 10px; }
-.navigation :deep(.ant-empty-description) { color: #687287; font-size: 10px; }
+.menu-error button { color: #8fb0ff; border: 0; background: transparent; cursor: pointer; font-size: var(--du-font-size-xs, 11px); }
+.navigation :deep(.ant-empty-description) { color: #687287; font-size: var(--du-font-size-xs, 11px); }
 
 .sidebar-footer { padding: var(--du-space-2); border-top: 1px solid var(--du-sidebar-border); }
 .collapse-button {

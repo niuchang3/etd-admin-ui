@@ -47,14 +47,14 @@ const parentItems = computed(() => (route.meta.breadcrumb || []) as BreadcrumbIt
   gap: 6px;
   margin-bottom: var(--du-space-3);
   color: var(--du-text-muted);
-  font-size: 10px;
+  font-size: var(--du-font-size-xs, 11px);
   font-weight: 600;
   letter-spacing: 0.02em;
 }
 
 .app-breadcrumb :deep(.anticon) {
   color: #aab2c0;
-  font-size: 8px;
+  font-size: 10px;
 }
 
 .breadcrumb-link {

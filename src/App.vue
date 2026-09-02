@@ -56,11 +56,11 @@ watch(
 )
 
 onMounted(async () => {
-  if (!configStore.isLoaded) {
+  if (!configStore.isBrandingLoaded) {
     try {
-      await configStore.fetchConfigs()
+      await configStore.fetchBrandingConfig()
     } catch (e) {
-      console.warn('App.vue failed to initialize system config:', e)
+      console.warn('App.vue failed to initialize branding config:', e)
     }
   }
 })

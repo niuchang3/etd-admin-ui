@@ -486,20 +486,19 @@ onMounted(() => {
 
 .page-toolbar > div:first-child { gap: var(--du-space-2); }
 .page-toolbar strong { font-size: 13px; }
-.page-toolbar span { color: var(--du-text-muted); font-size: 10px; }
+.page-toolbar span { color: var(--du-text-muted); font-size: var(--du-font-size-xs, 11px); }
 .toolbar-actions { gap: var(--du-space-2); }
 .search-input { width: 220px; }
 
 .menu-name-cell { gap: var(--du-space-2); }
 .menu-name-cell :deep(.anticon) { color: var(--du-text-muted); font-size: 13px; }
-.menu-name-cell strong { font-size: 11px; font-weight: 600; }
-.type-label { color: var(--du-text-secondary); font-size: 10px; }
-.route-value { color: var(--du-text-secondary); font-family: var(--du-font-mono); font-size: 10px; }
+.menu-name-cell strong { font-size: var(--du-font-size-base, 13px); font-weight: 600; }
+.type-label { color: var(--du-text-secondary); font-size: var(--du-font-size-xs, 11px); }
+.route-value { color: var(--du-text-secondary); font-family: var(--du-font-mono); font-size: var(--du-font-size-xs, 11px); }
 
 .row-actions { justify-content: flex-end; }
-.row-actions :deep(.ant-btn) { padding-inline: 5px; font-size: 10px; }
+.row-actions :deep(.ant-btn) { padding-inline: 5px; font-size: var(--du-font-size-sm, 12px); }
 
-.menu-panel :deep(.ant-table-cell) { padding-top: 7px !important; padding-bottom: 7px !important; }
 .menu-panel :deep(.ant-table-row-expand-icon) { transform: scale(.88); }
 
 .menu-form { padding-top: var(--du-space-3); }

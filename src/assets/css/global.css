@@ -13,7 +13,7 @@ body {
   color: var(--du-text);
   background: var(--du-bg-app);
   font-family: var(--du-font-sans);
-  font-size: 13px;
+  font-size: var(--du-font-size-base, 13px);
   line-height: 1.45;
   -webkit-font-smoothing: antialiased;
 }
@@ -65,20 +65,24 @@ button {
 }
 
 .ant-btn {
-  font-weight: 500;
+  font-weight: var(--du-font-weight-medium, 500);
 }
 
-/* 表格表头使用小字号与强层级分隔线。 */
+/* 表格统一样式：表头与数据行固定 40px 高度，保证高密度界面行高绝对一致。 */
 .ant-table-wrapper .ant-table-thead > tr > th {
+  height: var(--du-table-header-height);
+  padding: 0 var(--du-space-2);
   border-bottom-color: var(--du-border-strong);
   color: var(--du-text-secondary);
-  font-size: 11px;
-  font-weight: 700;
+  font-size: var(--du-font-size-xs, 11px);
+  font-weight: var(--du-font-weight-bold, 700);
   letter-spacing: 0.035em;
   text-transform: uppercase;
 }
 
 .ant-table-wrapper .ant-table-tbody > tr > td {
+  height: var(--du-table-row-height);
+  padding: 0 var(--du-space-2);
   border-bottom-color: #e7eaf0;
   vertical-align: middle;
 }

@@ -111,7 +111,23 @@
 - 优先检查并复用 `src/components` 中的已有展示组件（如 `EllipsisText`、`StatusTag`、`DictTag`、`DictSelect` 等）与 Ant Design Vue 现有原生组件及 `@ant-design/icons-vue`，不引入另一套组件库；在确认已有组件无法满足时再考虑新增。
 - 使用 `src/assets/css/tokens.css` 中的 `--du-*` 变量；不要在业务页面重新发明主色、状态色、圆角和间距体系。
 - 保持 32px 控件、小表格、弱阴影、小圆角和高密度布局。新增页面应先对照 `src/views/system` 下最接近的页面。
+- **表格行高与排版等高规范（Dense Utility 基准）**：
+  - **标准行高统一为 40px**：全站所有业务表格必须使用 `size="small"`，表头行（`thead > tr > th`）与数据行（`tbody > tr > td`）高度统一锁定为 `--du-table-row-height: 40px`。
+  - **全表行高绝对齐平**：同一表格内的所有数据行必须保持严格一致的高度，严禁因某一行数据内容较多而忽高忽低。
+  - **杜绝行高被撑开的三大纪律**：
+    1. **长文本必须单行截断**：文本类列过长时必须统一使用 `EllipsisText` 组件或 CSS 单行省略，严禁文字折行撑高单元格；
+    2. **操作按钮统一尺寸**：操作列一律使用 `<a-button type="link" size="small">`，容器使用 `display: flex; align-items: center; justify-content: flex-end;` 垂直居中，禁止混入默认 32px 尺寸按钮撑破行高；
+    3. **行内控件高度受控**：单元格内的 `StatusTag`、`DictTag`、`a-tag`、`a-avatar`（如 24px）或 `a-switch`（建议 `size="small"`）必须垂直居中且清除多余上下 margin，控件外轮廓总高度不得超过 24px。
 - 表格使用稳定的字符串 `row-key="id"`，操作列保持紧凑；代码、键名、路由和 ID 等数据型文本使用等宽字体。
+- **全局排版与字号阶梯规范（严禁各自为战与手写非标字号）**：
+  - **字体族统一**：正文统一使用 `var(--du-font-sans)`，编码、路由、哈希及数据字段统一使用 `var(--du-font-mono)` 或 `.du-mono` 类名，严禁生造外来字体族。
+  - **五级标准字号 Token（严禁低于 11px）**：
+    1. `--du-font-size-xs: 11px`：辅助微小字。用于等宽代码字段（`code-value`）、创建时间、只读标记（`readonly-label`）、次要标签。**全站绝对禁止使用低于 11px 的不可读微型字（如 9px、10px）**；
+    2. `--du-font-size-sm: 12px`：紧凑辅助字。用于表格操作列按钮文本、分区小标题、侧边栏子菜单、表单提示文本；
+    3. `--du-font-size-base: 13px`：系统正文基准。全站主要数据文本、输入框内容、标准表格数据主字段；
+    4. `--du-font-size-md: 14px`：卡片与弹窗标题。用于 Modal 标题、Panel 面板头部；
+    5. `--du-font-size-lg: 16px`：主页面大标题。
+  - **标准字重阶梯**：统一使用 400（常规）、500（中等）、600（半粗）、700（粗体），严禁使用如 `650` 等非标字重。
 - 表单必须有与后端约束一致的必填、长度、范围和条件校验。提交前 trim 文本，并将可选空字符串按接口契约转换为 `null` 或省略。
 - 只读权限下仍应允许查看、查询和分页，但不能出现可触发写请求的交互。
 - 成功提示使用中文并说明具体动作；危险操作用 `a-popconfirm` 或明确的确认弹窗。

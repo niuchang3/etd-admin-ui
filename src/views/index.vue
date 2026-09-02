@@ -17,12 +17,20 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
+import { onMounted, ref } from 'vue'
 import AppBreadcrumb from '@/layouts/AppBreadcrumb.vue'
 import AppHeader from '@/layouts/AppHeader.vue'
 import AppSidebar from '@/layouts/AppSidebar.vue'
+import { useSystemConfigStore } from '@/stores/modules/config'
 
 const collapsed = ref(false)
+const configStore = useSystemConfigStore()
+
+onMounted(() => {
+  if (!configStore.isLoaded) {
+    void configStore.fetchConfigs()
+  }
+})
 </script>
 
 <style scoped>
