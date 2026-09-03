@@ -14,7 +14,7 @@
       </div>
       <div v-if="!collapsed" class="brand-copy">
         <strong>{{ configStore.branding.name || 'ETD Console' }}</strong>
-        <span>Operations Suite</span>
+        <span>{{ configStore.branding.subtitle || 'Operations Suite' }}</span>
       </div>
     </div>
 

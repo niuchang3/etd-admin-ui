@@ -17,14 +17,14 @@
           </span>
           <div>
             <strong>{{ configStore.branding.name || 'ETD Console' }}</strong>
-            <small>Operations Suite</small>
+            <small>{{ configStore.branding.subtitle || 'Operations Suite' }}</small>
           </div>
         </div>
 
         <div class="system-copy">
-          <p class="eyebrow">Enterprise Operations Console</p>
-          <h1>统一运营管理平台</h1>
-          <p>集中管理任务、资源和平台运行状态。</p>
+          <p class="eyebrow">{{ configStore.branding.eyebrow }}</p>
+          <h1>{{ configStore.branding.title }}</h1>
+          <p>{{ configStore.branding.description }}</p>
         </div>
 
         <!-- 紧凑展示当前环境、区域与版本。 -->
@@ -35,26 +35,26 @@
           </div>
           <div>
             <dt>Region</dt>
-            <dd class="du-mono">CN-EAST-1</dd>
+            <dd class="du-mono">{{ configStore.branding.region }}</dd>
           </div>
           <div>
             <dt>Version</dt>
-            <dd class="du-mono">v2.8.4</dd>
+            <dd class="du-mono">{{ configStore.branding.version }}</dd>
           </div>
         </dl>
 
         <div class="system-footer">
           <SafetyCertificateOutlined />
-          <span>Secure access · TLS 1.3</span>
+          <span>{{ configStore.branding.securityText }}</span>
         </div>
       </aside>
 
       <!-- 右侧仅保留账号密码登录，不提供其他登录方式。 -->
       <section class="form-panel">
         <header class="form-header">
-          <p class="eyebrow">Account Access</p>
-          <h2>登录控制台</h2>
-          <p>请输入你的账号和密码以继续。</p>
+          <p class="eyebrow">{{ configStore.branding.formEyebrow }}</p>
+          <h2>{{ configStore.branding.formTitle }}</h2>
+          <p>{{ configStore.branding.formDescription }}</p>
         </header>
 
         <!-- Ant Design Vue 表单在提交前统一执行字段校验。 -->
@@ -94,7 +94,7 @@
 
         <div class="access-note">
           <InfoCircleOutlined />
-          <span>仅限已授权的平台账号访问。登录行为将被安全审计。</span>
+          <span>{{ configStore.branding.auditNote }}</span>
         </div>
       </section>
     </section>
@@ -103,7 +103,7 @@
     <footer class="page-footer">
       <span>{{ configStore.branding.copyright || '© 2026 ETD Platform' }}</span>
       <span class="separator" />
-      <span>Service status: <b>Operational</b></span>
+      <span>Service status: <b>{{ configStore.branding.serviceStatus }}</b></span>
     </footer>
   </main>
 </template>

@@ -13,9 +13,21 @@ export const SYSTEM_CONFIG_KEY = {
 // 定义系统内置配置项的强类型结构
 export interface BrandingConfig {
   name: string
+  subtitle: string
   logo: string
   favicon: string
   copyright: string
+  eyebrow: string
+  title: string
+  description: string
+  region: string
+  version: string
+  securityText: string
+  formEyebrow: string
+  formTitle: string
+  formDescription: string
+  auditNote: string
+  serviceStatus: string
   watermark: {
     enabled: boolean
     opacity: number
@@ -66,9 +78,21 @@ export interface NetworkPolicy {
 // 本地兜底默认值
 export const DEFAULT_BRANDING: BrandingConfig = {
   name: 'ETD 后台管理系统',
+  subtitle: 'Operations Suite',
   logo: '',
   favicon: '/favicon.ico',
   copyright: 'Copyright © 2026 ETD. All Rights Reserved.',
+  eyebrow: 'Enterprise Operations Console',
+  title: '统一运营管理平台',
+  description: '集中管理任务、资源和平台运行状态。',
+  region: 'CN-EAST-1',
+  version: 'v2.8.4',
+  securityText: 'Secure access · TLS 1.3',
+  formEyebrow: 'Account Access',
+  formTitle: '登录控制台',
+  formDescription: '请输入你的账号和密码以继续。',
+  auditNote: '仅限已授权的平台账号访问。登录行为将被安全审计。',
+  serviceStatus: 'Operational',
   watermark: {
     enabled: false,
     opacity: 0.15,
@@ -156,7 +180,7 @@ export const useSystemConfigStore = defineStore('system-config', () => {
   }
 
   /**
-   * 仅拉取公开品牌基础配置（系统名称、Logo、Favicon、版权等）
+   * 仅拉取公开品牌与登录页展示配置（系统名称、Logo、Favicon、版权及登录页文案等）
    * 适用于登录页与未登录初始状态，避免在匿名阶段获取内部安全策略与配额
    */
   const fetchBrandingConfig = async (force = false) => {
