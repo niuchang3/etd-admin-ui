@@ -64,7 +64,7 @@
 
       <!-- 操作按钮区 -->
       <div class="toolbar-actions">
-        <a-button v-if="isPlatformAdmin" type="primary" @click="openCreate">
+        <a-button v-if="canWrite" type="primary" @click="openCreate">
           <PlusOutlined />新增租户
         </a-button>
       </div>
@@ -130,7 +130,7 @@
 
           <!-- 操作列 -->
           <div v-else-if="column.key === 'actions'" class="row-actions">
-            <template v-if="isPlatformAdmin">
+            <template v-if="canWrite">
               <!-- 编辑租户基础信息 -->
               <a-button type="link" size="small" @click="openEdit(record)">
                 <EditOutlined />编辑
@@ -215,6 +215,7 @@
 
 <script setup lang="ts">
 import { computed, ref } from 'vue'
+import { useRoute } from 'vue-router'
 import { message, type TableColumnsType } from 'ant-design-vue'
 import {
   DeleteOutlined,
@@ -234,6 +235,7 @@ import {
 } from '@/apis/upms/tenant'
 import type { PageTenantParams, TenantRecord } from '@/apis/upms/tenant/type'
 import { useAdminAuth } from '@/composables/useAdminAuth'
+import { menusStore } from '@/stores/modules/user'
 import { useTablePagination } from '@/composables/useTablePagination'
 import { SYSTEM_DICT_TYPE } from '@/utils/SystemDict'
 import { formatDateTime } from '@/utils/format'
@@ -247,7 +249,9 @@ import StatusTag from '@/components/StatusTag.vue'
 import TenantFormModal from './components/TenantFormModal.vue'
 import TenantMenuDrawer from './components/TenantMenuDrawer.vue'
 
-const { isPlatformAdmin, isCurrentLoginTenant } = useAdminAuth()
+const route = useRoute()
+const canWrite = computed(() => menusStore().canWritePath(route.path))
+const { isCurrentLoginTenant } = useAdminAuth()
 
 // 表格列定义
 const columns = computed<TableColumnsType<TenantRecord>>(() => [
@@ -306,26 +310,26 @@ const {
 )
 
 const openCreate = () => {
-  if (!isPlatformAdmin.value) return
+  if (!canWrite.value) return
   currentEditingRecord.value = null
   editorOpen.value = true
 }
 
 const openEdit = (record: TenantRecord) => {
-  if (!isPlatformAdmin.value) return
+  if (!canWrite.value) return
   currentEditingRecord.value = record
   editorOpen.value = true
 }
 
 const openMenuSettings = (record: TenantRecord) => {
-  if (!isPlatformAdmin.value || record.tenantType !== 'ordinary') return
+  if (!canWrite.value || record.tenantType !== 'ordinary') return
   menuSettingsTenant.value = record
   menuSettingsOpen.value = true
 }
 
 // 启停与锁定操作
 const confirmToggleStatus = (record: TenantRecord) => {
-  if (!isPlatformAdmin.value || isCurrentLoginTenant(record.id)) return
+  if (!canWrite.value || isCurrentLoginTenant(record.id)) return
   const nextStatus = record.dataStatus === 1 ? 0 : 1
   const actionText = nextStatus === 1 ? '启用' : '停用'
 
@@ -348,7 +352,7 @@ const confirmToggleStatus = (record: TenantRecord) => {
 }
 
 const confirmToggleLocked = (record: TenantRecord) => {
-  if (!isPlatformAdmin.value || isCurrentLoginTenant(record.id)) return
+  if (!canWrite.value || isCurrentLoginTenant(record.id)) return
   const nextLocked = !record.locked
   const actionText = nextLocked ? '安全锁定' : '解除锁定'
 
@@ -373,7 +377,7 @@ const confirmToggleLocked = (record: TenantRecord) => {
 }
 
 const confirmDelete = (record: TenantRecord) => {
-  if (!isPlatformAdmin.value || isCurrentLoginTenant(record.id)) return
+  if (!canWrite.value || isCurrentLoginTenant(record.id)) return
   confirmAction({
     title: '确认删除租户',
     content: `确定要删除租户【${record.tenantName}】吗？此操作不可逆，将清除该租户的所有组织、用户与业务数据。`,
