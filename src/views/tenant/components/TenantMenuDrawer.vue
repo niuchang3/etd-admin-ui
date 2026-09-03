@@ -49,6 +49,7 @@
           <div class="menu-node-title">
             <component :is="resolveMenuIcon(node.menuIcon)" class="node-icon" />
             <span class="node-name">{{ node.title }}</span>
+            <code v-if="node.permissionCode" class="permission-code-tag">{{ node.permissionCode }}</code>
             <a-tag :color="node.menuType === 'DIRECTORY' ? 'orange' : 'blue'" class="node-type-tag">
               {{ node.menuType === 'DIRECTORY' ? '目录' : '菜单' }}
             </a-tag>
@@ -126,6 +127,7 @@ const loadMenuSettings = async () => {
         menuType: item.menuType || 'MENU',
         menuIcon: item.menuIcon,
         sort: Number(item.sort ?? 0),
+        permissionCode: item.permissionCode || null,
         children: [],
       }),
     })
@@ -236,6 +238,12 @@ const handleSaveMenuSettings = async () => {
 
 .node-name {
   font-weight: 500;
+}
+
+.permission-code-tag {
+  font-family: var(--du-font-mono);
+  font-size: var(--du-font-size-xs, 11px);
+  color: var(--du-text-secondary);
 }
 
 .node-type-tag {

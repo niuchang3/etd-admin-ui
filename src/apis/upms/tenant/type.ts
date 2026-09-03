@@ -60,6 +60,7 @@ export interface TenantMenuItem {
   menuIcon?: string
   menuType: string
   sort?: number
+  permissionCode?: string | null
 }
 
 /** 租户菜单配置查询响应 */

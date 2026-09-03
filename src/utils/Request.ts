@@ -109,6 +109,13 @@ instance.interceptors.response.use((config: AxiosResponse) => {
 
     }
 
+    // 权限不足提示
+    if (error.response?.status === 403) {
+        const errorMsg = error.response.data?.message || '无操作权限，请联系管理员分配权限或重新登录';
+        message.error(errorMsg);
+        return await Promise.reject(error);
+    }
+
     // 服务器内部错误优先展示后端返回的详细消息。
     if (error.response?.status === 500) {
         message.error(`${error.response.data.message || '服务器内部错误'}`)

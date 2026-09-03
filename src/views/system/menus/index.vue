@@ -43,6 +43,8 @@
 
           <code v-else-if="column.key === 'menuRouter'" class="route-value">{{ record.menuRouter || '—' }}</code>
 
+          <code v-else-if="column.key === 'permissionCode'" class="route-value">{{ record.permissionCode || '—' }}</code>
+
           <a-switch
             v-else-if="column.key === 'dataStatus'"
             :checked="record.dataStatus === 1"
@@ -110,6 +112,20 @@
             <a-input v-model:value="formState.menuRouter" :maxlength="100" placeholder="例如：@/views/system/menus/index.vue" />
           </a-form-item>
 
+          <a-form-item
+            v-if="formState.menuType !== MENU_TYPE.DIRECTORY"
+            label="资源权限码"
+            name="permissionCode"
+            extra="与后端接口权限注解一致，用于角色的只读/读写授权；纯导航可不填。"
+          >
+            <a-input
+              v-model:value="formState.permissionCode"
+              :maxlength="100"
+              placeholder="例如：system:user"
+              allow-clear
+            />
+          </a-form-item>
+
           <a-form-item label="菜单图标" name="menuIcon">
             <a-select v-model:value="formState.menuIcon" :options="menuIconOptions" placeholder="请选择图标">
               <template #option="option">
@@ -129,7 +145,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, reactive, ref } from 'vue'
+import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { message, type FormInstance, type FormProps, type TableColumnsType } from 'ant-design-vue'
 import {
@@ -172,6 +188,7 @@ interface MenuFormState extends MenuSaveRequest {
   menuIcon: string
   menuType: MenuType
   sort: number
+  permissionCode: string
 }
 
 const currentMenus = menusStore()
@@ -203,15 +220,25 @@ const createEmptyForm = (): MenuFormState => ({
   menuIcon: DEFAULT_MENU_ICON,
   menuType: MENU_TYPE.MENU,
   sort: 0,
+  permissionCode: '',
 })
 
 const formState = reactive<MenuFormState>(createEmptyForm())
+
+// 切换为目录时清空资源权限码并移除校验错误
+watch(() => formState.menuType, (newType) => {
+  if (newType === MENU_TYPE.DIRECTORY) {
+    formState.permissionCode = ''
+    formRef.value?.clearValidate('permissionCode')
+  }
+})
 
 const columns: TableColumnsType<MenuDetail> = [
   { title: '菜单名称', dataIndex: 'menuName', key: 'menuName', width: 230 },
   { title: '类型', dataIndex: 'menuType', key: 'menuType', width: 80 },
   { title: '访问路径', dataIndex: 'menuPath', key: 'menuPath', width: 180 },
   { title: '组件地址', dataIndex: 'menuRouter', key: 'menuRouter', width: 220 },
+  { title: '资源权限码', dataIndex: 'permissionCode', key: 'permissionCode', width: 140 },
   { title: '排序', dataIndex: 'sort', key: 'sort', width: 70, align: 'center' },
   { title: '状态', dataIndex: 'dataStatus', key: 'dataStatus', width: 80 },
   { title: '操作', key: 'actions', width: 250, align: 'center' },
@@ -240,6 +267,26 @@ const rules: FormProps['rules'] = {
     trigger: 'blur',
   }],
   menuRouter: [{ max: 100, message: '组件地址不能超过 100 个字符', trigger: ['blur', 'change'] }],
+  permissionCode: [
+    { max: 100, message: '资源权限码不能超过 100 个字符', trigger: ['blur', 'change'] },
+    {
+      validator: async (_rule: unknown, value: string) => {
+        if (!value || !value.trim()) return
+        if (formState.menuType === MENU_TYPE.DIRECTORY) {
+          throw new Error('目录节点不允许配置资源权限码')
+        }
+        const trimmed = value.trim()
+        if (trimmed.length > 100) {
+          throw new Error('资源权限码不能超过 100 个字符')
+        }
+        const regex = /^[a-z][a-z0-9-]*(?::[a-z][a-z0-9-]*)*$/
+        if (!regex.test(trimmed)) {
+          throw new Error('权限码格式不正确（示例 system:user，仅允许小写字母、数字、中划线及冒号）')
+        }
+      },
+      trigger: ['blur', 'change'],
+    },
+  ],
   menuIcon: [
     requiredRule('请选择菜单图标', 'change'),
     { max: 200, message: '菜单图标不能超过 200 个字符', trigger: ['blur', 'change'] },
@@ -296,7 +343,7 @@ const filteredMenus = computed(() => {
 
   const filterTree = (menus: MenuDetail[]): MenuDetail[] => menus.flatMap((menu) => {
     const children = filterTree(menu.children || [])
-    const matched = `${menu.menuName || ''}${menu.menuRouter || ''}${menu.menuPath || ''}`.toLowerCase().includes(searchText)
+    const matched = `${menu.menuName || ''}${menu.menuRouter || ''}${menu.menuPath || ''}${menu.permissionCode || ''}`.toLowerCase().includes(searchText)
     if (matched || children.length) {
       return [{
         ...menu,
@@ -344,6 +391,7 @@ const loadMenus = async () => {
         menuRouter: menu.menuRouter,
         menuIcon: menu.menuIcon,
         menuType: null,
+        permissionCode: menu.permissionCode || null,
         sort: menu.sort ?? 0,
         children: hasChildren ? convertAuthorizedMenus(menu.children!) : undefined,
       }
@@ -394,6 +442,7 @@ const openEdit = async (menu: MenuDetail) => {
     menuIcon: String(detail.menuIcon || 'menuoutlined').toLowerCase(),
     menuType: String(detail.menuType || 'MENU').toUpperCase() as MenuType,
     sort: detail.sort ?? 0,
+    permissionCode: detail.permissionCode || '',
   })
   editorOpen.value = true
 }
@@ -442,6 +491,10 @@ const saveMenu = async () => {
   await formRef.value?.validate()
   saving.value = true
   try {
+    const permissionCode = formState.menuType === MENU_TYPE.DIRECTORY
+      ? null
+      : (formState.permissionCode?.trim() || null)
+
     const payload: MenuSaveRequest = {
       parentId: formState.parentId || null,
       menuPath: formState.menuPath.trim() || null,
@@ -450,6 +503,7 @@ const saveMenu = async () => {
       menuIcon: formState.menuIcon || null,
       menuType: formState.menuType || null,
       sort: formState.sort,
+      permissionCode,
     }
     if (formState.id) await updateSystemMenu(formState.id, payload)
     else await createSystemMenu(payload)

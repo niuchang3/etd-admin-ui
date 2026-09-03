@@ -121,7 +121,10 @@
         >
           <template #title="node">
             <div class="menu-tree-title">
-              <span>{{ node.title }}</span>
+              <div class="menu-node-info">
+                <span>{{ node.title }}</span>
+                <code v-if="node.permissionCode" class="permission-code-tag">{{ node.permissionCode }}</code>
+              </div>
               <a-select
                 v-if="checkedMenuIds.includes(String(node.key))"
                 :value="menuAccessLevels[String(node.key)] || 'READ_WRITE'"
@@ -172,7 +175,7 @@ import { codeRules, requiredRule } from '@/utils/rules'
 import EllipsisText from '@/components/EllipsisText.vue'
 
 interface RoleFormState extends SystemRoleSaveDTO { id?: string, builtIn: boolean }
-interface MenuTreeNode { key: string, title: string, children?: MenuTreeNode[] }
+interface MenuTreeNode { key: string, title: string, permissionCode?: string | null, children?: MenuTreeNode[] }
 interface OrgTreeNode { key: string, value: string, title: string, children?: OrgTreeNode[] }
 
 // 当前菜单只有读写级别为 2 时才显示角色管理写操作。
@@ -389,6 +392,7 @@ const openAuthorization = async (role: SystemRole) => {
     const convertTree = (nodes: typeof normalized.tree): MenuTreeNode[] => nodes.map((node) => ({
       key: node.id,
       title: node.menuName || '未命名菜单',
+      permissionCode: node.permissionCode || null,
       children: node.children?.length ? convertTree(node.children) : undefined,
     }))
     menuTree.value = convertTree(normalized.tree)
@@ -453,7 +457,7 @@ const saveAuthorization = async () => {
       menus: uniqueMenuIds.map((menuId) => ({ menuId, accessLevel: menuAccessLevels[menuId] || MENU_ACCESS_LEVEL.READ_WRITE })),
     })
     if (!response.data) return void message.warning('菜单授权未生效，请刷新后重试')
-    message.success('菜单授权保存成功')
+    message.success('菜单授权保存成功，相关用户重新登录或刷新会话后生效')
     authorizationOpen.value = false
   } finally { authorizationSaving.value = false }
 }
@@ -480,5 +484,7 @@ onMounted(() => {
 .authorization-summary > span { color: var(--du-text-muted); font-size: var(--du-font-size-xs, 11px); }
 .tree-toolbar { display: flex; gap: var(--du-space-2); margin: var(--du-space-3) 0; }
 .menu-tree-title { display: flex; min-height: 28px; align-items: center; justify-content: space-between; gap: var(--du-space-3); }
+.menu-node-info { display: inline-flex; align-items: center; gap: var(--du-space-2); }
+.permission-code-tag { color: var(--du-text-secondary); font-family: var(--du-font-mono); font-size: var(--du-font-size-xs, 11px); }
 .access-select { width: 82px; }
 </style>

@@ -15,6 +15,7 @@ export interface MenuDetail {
   menuIcon: string | null
   menuType: string | null
   sort: number | null
+  permissionCode?: string | null
   children?: MenuDetail[]
 }
 
@@ -27,4 +28,5 @@ export interface MenuSaveRequest {
   menuIcon: string | null
   menuType: string | null
   sort: number | null
+  permissionCode: string | null
 }

@@ -94,7 +94,7 @@ export type CommonStatusValue = typeof COMMON_STATUS[keyof typeof COMMON_STATUS]
  */
 export const MENU_TYPE = {
   /** 目录 */
-  DIR: 'DIR',
+  DIRECTORY: 'DIRECTORY',
   /** 菜单 */
   MENU: 'MENU',
   /** 按钮权限 */

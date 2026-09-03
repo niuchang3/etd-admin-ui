@@ -68,6 +68,7 @@ export interface UserMenu{
     menuIcon:string | null,
     sort:number | null,
     accessLevel:'READ_ONLY' | 'READ_WRITE' | null,
+    permissionCode?: string | null,
 }
 
 /** 当前用户角色仅用于身份判断，不参与菜单权限计算。 */
