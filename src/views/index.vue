@@ -1,6 +1,11 @@
 <template>
-  <!-- 管理平台主页面负责组合侧边导航、顶栏和业务内容区。 -->
-  <div class="app-shell">
+  <!-- 管理平台主页面负责组合侧边导航、顶栏和业务内容区，支持全局合规水印。 -->
+  <a-watermark
+    :content="watermarkContent"
+    :font="watermarkFont"
+    :gap="[120, 120]"
+    class="app-shell"
+  >
     <!-- 侧边栏 -->
     <AppSidebar :collapsed="collapsed" @toggle="collapsed = !collapsed" />
     <div class="app-main">
@@ -13,18 +18,48 @@
         <router-view />
       </main>
     </div>
-  </div>
+  </a-watermark>
 </template>
 
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import AppBreadcrumb from '@/layouts/AppBreadcrumb.vue'
 import AppHeader from '@/layouts/AppHeader.vue'
 import AppSidebar from '@/layouts/AppSidebar.vue'
 import { useSystemConfigStore } from '@/stores/modules/config'
+import { userStore } from '@/stores/modules/user'
 
 const collapsed = ref(false)
 const configStore = useSystemConfigStore()
+const userState = userStore()
+
+/**
+ * 动态水印内容：组合展示系统平台名称与当前操作人员，层次丰富自然
+ */
+const watermarkContent = computed<string | string[]>(() => {
+  if (!configStore.branding.watermark?.enabled) {
+    return ''
+  }
+  const systemName = configStore.branding.name || 'ETD Console'
+  const userName = userState.userInfo?.userName || userState.userInfo?.nickName || ''
+
+  if (systemName && userName) {
+    return [systemName, userName]
+  }
+  return systemName || userName || ''
+})
+
+/**
+ * 动态水印字体与透明度
+ */
+const watermarkFont = computed(() => {
+  const opacity = configStore.branding.watermark?.opacity ?? 0.15
+  const fontSize = configStore.branding.watermark?.fontSize || 14
+  return {
+    fontSize,
+    color: `rgba(0, 0, 0, ${opacity})`,
+  }
+})
 
 onMounted(() => {
   if (!configStore.isLoaded) {

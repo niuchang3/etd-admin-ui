@@ -1,6 +1,7 @@
 import { computed, onMounted, reactive, ref, type ComputedRef } from 'vue'
 import type { PageRequest, PageResult, ResultModel } from '@/apis/types'
 import type { TablePaginationConfig } from 'ant-design-vue'
+import { useSystemConfigStore } from '@/stores/modules/config'
 
 export interface UseTablePaginationOptions<T> {
   defaultSize?: number
@@ -32,7 +33,11 @@ export function useTablePagination<T, Q extends PageRequest>(
   initialQuery: Q,
   options: UseTablePaginationOptions<T> = {}
 ): UseTablePaginationReturn<T, Q> {
-  const { defaultSize = 10, immediate = false, onLoaded } = options
+  const configStore = useSystemConfigStore()
+  const fallbackDefaultSize = configStore.resource?.pagination?.defaultSize || 10
+  const maxPageSize = configStore.resource?.pagination?.maxSize || 200
+
+  const { defaultSize = fallbackDefaultSize, immediate = false, onLoaded } = options
 
   const loading = ref(false)
   const records = ref<T[]>([]) as Ref<T[]>
@@ -46,15 +51,25 @@ export function useTablePagination<T, Q extends PageRequest>(
     size: defaultQueryParams.size || defaultSize,
   })
 
-  // 适配 Ant Design Vue Table 的 pagination 配置
-  const pagination = computed<TablePaginationConfig>(() => ({
-    current: query.current,
-    pageSize: query.size,
-    total: total.value,
-    showSizeChanger: true,
-    pageSizeOptions: ['10', '20', '50', '100'],
-    showTotal: (count: number) => `共 ${count} 条`,
-  }))
+  // 适配 Ant Design Vue Table 的 pagination 配置，动态适配全局 resourceLimit.pagination
+  const pagination = computed<TablePaginationConfig>(() => {
+    const candidateSizes = [10, 20, 50, 100, 200]
+    const validSizes = candidateSizes.filter((s) => s <= maxPageSize)
+    if (!validSizes.includes(maxPageSize) && maxPageSize > 0) {
+      validSizes.push(maxPageSize)
+      validSizes.sort((a, b) => a - b)
+    }
+    const pageSizeOptions = (validSizes.length ? validSizes : [10]).map(String)
+
+    return {
+      current: query.current,
+      pageSize: query.size,
+      total: total.value,
+      showSizeChanger: true,
+      pageSizeOptions,
+      showTotal: (count: number) => `共 ${count} 条`,
+    }
+  })
 
   /** 加载列表数据 */
   const loadData = async () => {
@@ -91,7 +106,8 @@ export function useTablePagination<T, Q extends PageRequest>(
   /** 分页或每页条数变化回调 */
   const handleTableChange = (page: { current?: number; pageSize?: number }) => {
     query.current = page.current || 1
-    query.size = page.pageSize || defaultSize
+    const targetSize = page.pageSize || defaultSize
+    query.size = Math.min(targetSize, maxPageSize)
     void loadData()
   }
 

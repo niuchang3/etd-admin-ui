@@ -23,6 +23,9 @@
             :placeholder="passwordPlaceholder"
             autocomplete="new-password"
           />
+          <template #extra>
+            <span class="form-item-extra">已填充系统默认初始密码，创建后可由用户自行修改</span>
+          </template>
         </a-form-item>
 
         <a-form-item label="真实姓名" name="userName" :rules="userNameRules">
@@ -127,7 +130,7 @@ const saving = ref(false)
 const roleListLoading = ref(false)
 const rawRoles = ref<SystemRole[]>([])
 
-const { passwordRules, passwordPlaceholder } = usePasswordPolicy({
+const { passwordRules, passwordPlaceholder, defaultPassword } = usePasswordPolicy({
   required: true,
   requiredMessage: '请输入登录密码',
   fieldLabel: '登录密码',
@@ -139,7 +142,7 @@ const mobileRules = getMobileRules({ maxLength: 20 })
 
 const createEmptyForm = (): UserCreatePayload => ({
   account: '',
-  password: '',
+  password: defaultPassword.value,
   userName: '',
   nickName: '',
   mobile: '',
@@ -277,6 +280,14 @@ const handleSubmit = async () => {
 
 .full-row {
   grid-column: span 2;
+}
+
+.form-item-extra {
+  font-size: var(--du-font-size-xs, 11px);
+  color: var(--du-text-tertiary, #8c8c8c);
+  line-height: 1.4;
+  margin-top: 2px;
+  display: block;
 }
 
 .w-full {

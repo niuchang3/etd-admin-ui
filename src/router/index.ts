@@ -1,9 +1,8 @@
 import { createRouter, createWebHistory, type RouteRecordRaw } from 'vue-router'
 import type { UserMenu } from '@/apis/upms/login/type'
 import { getAccessToken, getRefreshToken } from '@/stores/modules/oauth'
-import AdminView from '@/views/index.vue'
-
 const NotFoundView = () => import('@/views/404.vue')
+const AdminView = () => import('@/views/index.vue')
 const viewModules = import.meta.glob(['../views/**/*.vue', '!../views/index.vue'])
 const dynamicRouteRemovers: Array<() => void> = []
 let dynamicRoutesReady = false

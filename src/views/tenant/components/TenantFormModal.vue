@@ -56,6 +56,9 @@
               :placeholder="passwordPlaceholder"
               autocomplete="new-password"
             />
+            <template #extra>
+              <span class="form-item-extra">已填充系统默认初始密码，创建后可由用户自行修改</span>
+            </template>
           </a-form-item>
           <a-form-item label="手机号码" :name="['administrator', 'mobile']" :rules="administratorMobileRules">
             <a-input v-model:value="formState.administrator.mobile" :maxlength="20" show-count placeholder="请输入手机号码" />
@@ -112,7 +115,7 @@ const saving = ref(false)
 
 const { getDict, getOptions, getLabel } = useSystemDict([SYSTEM_DICT_TYPE.tenantType])
 
-const { passwordRules, passwordPlaceholder } = usePasswordPolicy({
+const { passwordRules, passwordPlaceholder, defaultPassword } = usePasswordPolicy({
   required: true,
   requiredMessage: '请输入管理员密码',
   fieldLabel: '管理员密码',
@@ -127,7 +130,7 @@ const emptyForm = (): TenantFormState => ({
   tenantType: 'ordinary',
   administrator: {
     account: '',
-    password: '',
+    password: defaultPassword.value,
     userName: '',
     mobile: '',
   },
@@ -244,5 +247,13 @@ const handleSubmit = async () => {
 
 .full-row {
   grid-column: span 2;
+}
+
+.form-item-extra {
+  font-size: var(--du-font-size-xs, 11px);
+  color: var(--du-text-tertiary, #8c8c8c);
+  line-height: 1.4;
+  margin-top: 2px;
+  display: block;
 }
 </style>

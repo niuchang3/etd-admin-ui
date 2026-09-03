@@ -3,6 +3,7 @@ import qs from 'qs';
 import { message } from 'ant-design-vue';
 import { clear, getAccessToken, refreshToken } from '@/stores/modules/oauth';
 import { clearStore, tenantsStore } from '@/stores/modules/user';
+import { useSystemConfigStore } from '@/stores/modules/config';
 import router from '@/router/index';
 import { AUTH_TOKEN_PREFIX, HTTP_HEADER, RESULT_CODE } from '@/constant';
 import { APP_NAME, APP_VERSION, getDeviceId, getDeviceFingerprint } from './device';
@@ -41,6 +42,16 @@ instance.interceptors.request.use((config: InternalAxiosRequestConfig) => {
     // 注入客户端设备唯一标识 ID 与指纹
     config.headers[HTTP_HEADER.DEVICE_ID] = getDeviceId();
     config.headers[HTTP_HEADER.DEVICE_FINGERPRINT] = getDeviceFingerprint();
+
+    // 动态应用全局网络策略中的请求超时配置（未配置或异常时保持默认 5000ms）
+    try {
+        const timeoutMs = useSystemConfigStore().network?.request?.timeoutMs;
+        if (typeof timeoutMs === 'number' && timeoutMs > 0) {
+            config.timeout = timeoutMs;
+        }
+    } catch {
+        // Pinia 尚未初始化挂载时的静默降级
+    }
 
     // 已登录请求统一使用 Bearer Token。
     const token = getAccessToken();

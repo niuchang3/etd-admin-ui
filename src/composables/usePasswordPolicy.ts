@@ -12,6 +12,7 @@ export interface UsePasswordPolicyReturn {
   passwordRules: ComputedRef<Rule[]>
   passwordPlaceholder: ComputedRef<string>
   minLength: ComputedRef<number>
+  defaultPassword: ComputedRef<string>
 }
 
 /**
@@ -28,6 +29,7 @@ export function usePasswordPolicy(options: UsePasswordPolicyOptions = {}): UsePa
   const configStore = useSystemConfigStore()
 
   const minLength = computed(() => configStore.security?.password?.minLength || 8)
+  const defaultPassword = computed(() => configStore.security?.password?.defaultPassword || 'Etd@123456')
 
   const passwordPlaceholder = computed(() => {
     return `请输入${fieldLabel}（至少 ${minLength.value} 位，需符合安全强度要求）`
@@ -83,5 +85,6 @@ export function usePasswordPolicy(options: UsePasswordPolicyOptions = {}): UsePa
     passwordRules,
     passwordPlaceholder,
     minLength,
+    defaultPassword,
   }
 }
