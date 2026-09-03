@@ -52,16 +52,19 @@
           />
           <span v-else-if="column.key === 'updateTime'" class="code-value du-mono">{{ formatDateTime(record.updateTime) }}</span>
           <div v-else-if="column.key === 'actions'" class="row-actions">
-            <a-button v-if="canWrite" type="link" size="small" @click="openEdit(record)"><EditOutlined />编辑</a-button>
-            <a-popconfirm
-              v-if="canWrite && !record.builtIn"
-              title="确认删除该系统参数吗？"
-              ok-text="删除"
-              cancel-text="取消"
-              @confirm="removeConfig(record)"
-            >
-              <a-button type="link" size="small" danger><DeleteOutlined />删除</a-button>
-            </a-popconfirm>
+            <template v-if="canWrite">
+              <a-button type="link" size="small" @click="openEdit(record)"><EditOutlined />编辑</a-button>
+              <a-popconfirm
+                v-if="!record.builtIn"
+                title="确认删除该系统参数吗？"
+                ok-text="删除"
+                cancel-text="取消"
+                @confirm="removeConfig(record)"
+              >
+                <a-button type="link" size="small" danger><DeleteOutlined />删除</a-button>
+              </a-popconfirm>
+            </template>
+            <span v-else class="readonly-label">只读</span>
           </div>
         </template>
         <template #emptyText><a-empty description="暂无系统参数" /></template>

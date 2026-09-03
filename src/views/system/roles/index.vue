@@ -33,18 +33,21 @@
             @change="changeStatus(record, Boolean($event))"
           />
           <div v-else-if="column.key === 'actions'" class="row-actions">
-            <span v-if="canWrite && record.builtIn" class="readonly-label">内置数据只读</span>
-            <a-button v-if="canWrite && !record.builtIn" type="link" size="small" @click="openAuthorization(record)"><SafetyCertificateOutlined />菜单授权</a-button>
-            <a-button v-if="canWrite && !record.builtIn" type="link" size="small" @click="openEdit(record)"><EditOutlined />编辑</a-button>
-            <a-popconfirm
-              v-if="canWrite && !record.builtIn"
-              title="已分配给用户的角色将无法删除，确认继续吗？"
-              ok-text="删除"
-              cancel-text="取消"
-              @confirm="removeRole(record)"
-            >
-              <a-button type="link" size="small" danger><DeleteOutlined />删除</a-button>
-            </a-popconfirm>
+            <template v-if="canWrite">
+              <span v-if="record.builtIn" class="readonly-label">内置数据只读</span>
+              <a-button v-if="!record.builtIn" type="link" size="small" @click="openAuthorization(record)"><SafetyCertificateOutlined />菜单授权</a-button>
+              <a-button v-if="!record.builtIn" type="link" size="small" @click="openEdit(record)"><EditOutlined />编辑</a-button>
+              <a-popconfirm
+                v-if="!record.builtIn"
+                title="已分配给用户的角色将无法删除，确认继续吗？"
+                ok-text="删除"
+                cancel-text="取消"
+                @confirm="removeRole(record)"
+              >
+                <a-button type="link" size="small" danger><DeleteOutlined />删除</a-button>
+              </a-popconfirm>
+            </template>
+            <span v-else class="readonly-label">只读</span>
           </div>
         </template>
         <template #emptyText><a-empty description="暂无角色数据" /></template>
@@ -102,7 +105,7 @@
             <strong>{{ authorizationRole?.roleName }}</strong>
             <code>{{ authorizationRole?.roleCode }}</code>
           </div>
-          <span>已选择 {{ checkedMenuIds.length }} 个菜单；新选择菜单默认{{ getLabel(SYSTEM_DICT_TYPE.menuAccessLevel, 'READ_WRITE') }}</span>
+          <span>已选择 {{ selectedCount }} 个菜单；新选择菜单默认{{ getLabel(SYSTEM_DICT_TYPE.menuAccessLevel, 'READ_WRITE') }}</span>
         </div>
         <a-alert message="取消全部勾选并保存，将清空该角色的菜单权限。" type="info" show-icon />
         <div class="tree-toolbar">
@@ -126,7 +129,7 @@
                 <code v-if="node.permissionCode" class="permission-code-tag">{{ node.permissionCode }}</code>
               </div>
               <a-select
-                v-if="checkedMenuIds.includes(String(node.key))"
+                v-if="isNodeChecked(node)"
                 :value="menuAccessLevels[String(node.key)] || 'READ_WRITE'"
                 size="small"
                 class="access-select"
@@ -375,8 +378,66 @@ const removeRole = async (record: SystemRole) => {
   await refreshAfterDelete()
 }
 
+// 半选父节点 ID 列表，用于保存时合并提交，确保菜单层级完整
+const halfCheckedMenuIds = ref<string[]>([])
+
 // 递归收集菜单键，仅用于一键展开树，不对字符串 ID 做数值转换。
 const flattenTreeKeys = (nodes: MenuTreeNode[]): string[] => nodes.flatMap((node) => [node.key, ...flattenTreeKeys(node.children || [])])
+
+// 收集节点及其所有子孙的叶子节点 key
+const getAllDescendantLeafKeys = (node: MenuTreeNode): string[] => {
+  if (!node.children || node.children.length === 0) {
+    return [node.key]
+  }
+  return node.children.flatMap(getAllDescendantLeafKeys)
+}
+
+// 递归收集整个树的所有叶子节点 key
+const getLeafNodeKeys = (nodes: MenuTreeNode[]): string[] => {
+  return nodes.flatMap((node) => getAllDescendantLeafKeys(node))
+}
+
+const checkedKeySet = computed(() => new Set(checkedMenuIds.value))
+
+/**
+ * 判断节点是否处于完全勾选状态（全选的父节点或被勾选的叶子节点）
+ */
+const isNodeChecked = (node: { key: string | number; children?: unknown[] }): boolean => {
+  const nodeKey = String(node.key)
+  if (checkedKeySet.value.has(nodeKey)) {
+    return true
+  }
+  const fullNode = findNodeInTree(menuTree.value, nodeKey)
+  if (fullNode && fullNode.children && fullNode.children.length > 0) {
+    const leaves = getAllDescendantLeafKeys(fullNode)
+    return leaves.length > 0 && leaves.every((leafKey) => checkedKeySet.value.has(leafKey))
+  }
+  return false
+}
+
+/**
+ * 计算当前勾选的菜单总数（含完全选中的父节点与叶子节点）
+ */
+const selectedCount = computed(() => {
+  let count = checkedMenuIds.value.length
+  const checkedSet = checkedKeySet.value
+  const walk = (nodes: MenuTreeNode[]) => {
+    nodes.forEach((n) => {
+      if (n.children && n.children.length > 0) {
+        walk(n.children)
+        if (!checkedSet.has(n.key)) {
+          const leaves = getAllDescendantLeafKeys(n)
+          if (leaves.length > 0 && leaves.every((l) => checkedSet.has(l))) {
+            count++
+          }
+        }
+      }
+    })
+  }
+  walk(menuTree.value)
+  return count
+})
+
 /** 同时加载当前用户可见菜单和角色已有授权，避免抽屉出现错误回显。 */
 const openAuthorization = async (role: SystemRole) => {
   if (role.builtIn) return
@@ -384,6 +445,7 @@ const openAuthorization = async (role: SystemRole) => {
   authorizationOpen.value = true
   authorizationLoading.value = true
   checkedMenuIds.value = []
+  halfCheckedMenuIds.value = []
   menuTree.value = []
   Object.keys(menuAccessLevels).forEach((key) => delete menuAccessLevels[key])
   try {
@@ -397,17 +459,26 @@ const openAuthorization = async (role: SystemRole) => {
     }))
     menuTree.value = convertTree(normalized.tree)
     expandedMenuIds.value = flattenTreeKeys(menuTree.value)
+
     // 使用 Map 按 menuId 去重，保证后续全量提交同一个菜单最多出现一次。
-    const uniqueAssigned = new Map((assignedResponse.data || []).map((item) => [item.menuId, item.accessLevel]))
-    checkedMenuIds.value = Array.from(uniqueAssigned.keys())
+    const uniqueAssigned = new Map((assignedResponse.data || []).map((item) => [String(item.menuId), item.accessLevel]))
     uniqueAssigned.forEach((level, menuId) => {
       menuAccessLevels[menuId] = level === MENU_ACCESS_LEVEL.READ_ONLY ? MENU_ACCESS_LEVEL.READ_ONLY : MENU_ACCESS_LEVEL.READ_WRITE
     })
+
+    const leafKeySet = new Set(getLeafNodeKeys(menuTree.value))
+    const assignedIds = Array.from(uniqueAssigned.keys())
+
+    // 关键修正：checkedMenuIds 回显时只设置纯叶子节点！
+    // Ant Design Vue 会自动计算父节点是全选还是半选，绝不会把未授权的子节点误显示为勾选状态！
+    checkedMenuIds.value = assignedIds.filter((id) => leafKeySet.has(id))
+    // 记录原本已授权但属于非叶子的父级目录
+    halfCheckedMenuIds.value = assignedIds.filter((id) => !leafKeySet.has(id))
   } finally { authorizationLoading.value = false }
 }
 
 /** 同步树的勾选结果，新勾选的菜单默认赋予读写级别。 */
-const handleMenuCheck = (keys: unknown) => {
+const handleMenuCheck = (keys: unknown, e?: { halfCheckedKeys?: unknown[] }) => {
   const rawKeys = Array.isArray(keys)
     ? keys
     : typeof keys === 'object' && keys && 'checked' in keys && Array.isArray((keys as { checked: unknown }).checked)
@@ -415,7 +486,18 @@ const handleMenuCheck = (keys: unknown) => {
       : []
   const uniqueKeys = Array.from(new Set(rawKeys.map(String)))
   checkedMenuIds.value = uniqueKeys
-  uniqueKeys.forEach((menuId) => { if (!menuAccessLevels[menuId]) menuAccessLevels[menuId] = MENU_ACCESS_LEVEL.READ_WRITE })
+
+  if (e && e.halfCheckedKeys && Array.isArray(e.halfCheckedKeys)) {
+    halfCheckedMenuIds.value = Array.from(new Set(e.halfCheckedKeys.map(String)))
+  } else {
+    halfCheckedMenuIds.value = []
+  }
+
+  uniqueKeys.forEach((menuId) => {
+    if (!menuAccessLevels[menuId]) {
+      menuAccessLevels[menuId] = MENU_ACCESS_LEVEL.READ_WRITE
+    }
+  })
 }
 const findNodeInTree = (nodes: MenuTreeNode[], key: string): MenuTreeNode | null => {
   for (const node of nodes) {
@@ -446,15 +528,39 @@ const setMenuAccessLevel = (menuId: string, level: unknown) => {
   }
 }
 const expandAll = () => { expandedMenuIds.value = flattenTreeKeys(menuTree.value) }
-const clearCheckedMenus = () => { checkedMenuIds.value = [] }
+const clearCheckedMenus = () => {
+  checkedMenuIds.value = []
+  halfCheckedMenuIds.value = []
+}
 /** 全量保存授权；未勾选任何菜单时明确提交 { menus: [] } 清空权限。 */
 const saveAuthorization = async () => {
   if (!authorizationRole.value) return
   authorizationSaving.value = true
   try {
-    const uniqueMenuIds = Array.from(new Set(checkedMenuIds.value))
+    const allSelectedKeys = new Set<string>(checkedMenuIds.value)
+
+    // 若父节点名下的所有叶子均被勾选，父节点本身也补齐提交
+    const addParentIfChildrenChecked = (nodes: MenuTreeNode[]) => {
+      nodes.forEach((node) => {
+        if (node.children && node.children.length > 0) {
+          addParentIfChildrenChecked(node.children)
+          const leaves = getAllDescendantLeafKeys(node)
+          if (leaves.length > 0 && leaves.every((k) => allSelectedKeys.has(k))) {
+            allSelectedKeys.add(node.key)
+          }
+        }
+      })
+    }
+    addParentIfChildrenChecked(menuTree.value)
+
+    // 半选的父级节点也必须提交，确保角色登录后能正常渲染出父级导航目录
+    halfCheckedMenuIds.value.forEach((id) => allSelectedKeys.add(id))
+
     const response = await assignSystemRoleMenus(authorizationRole.value.id, {
-      menus: uniqueMenuIds.map((menuId) => ({ menuId, accessLevel: menuAccessLevels[menuId] || MENU_ACCESS_LEVEL.READ_WRITE })),
+      menus: Array.from(allSelectedKeys).map((menuId) => ({
+        menuId,
+        accessLevel: menuAccessLevels[menuId] || MENU_ACCESS_LEVEL.READ_WRITE,
+      })),
     })
     if (!response.data) return void message.warning('菜单授权未生效，请刷新后重试')
     message.success('菜单授权保存成功，相关用户重新登录或刷新会话后生效')

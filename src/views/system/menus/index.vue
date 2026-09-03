@@ -55,12 +55,15 @@
             @change="changeStatus(record, Boolean($event))"
           />
 
-          <div v-else-if="column.key === 'actions' && canWrite" class="row-actions">
-            <a-button type="link" size="small" @click="openCreate(record.id)"><BranchesOutlined />添加下级</a-button>
-            <a-button type="link" size="small" @click="openEdit(record)"><EditOutlined />编辑</a-button>
-            <a-popconfirm title="删除后将同时删除该菜单的全部下级菜单，并清理租户、角色和接口权限关系，是否继续？" ok-text="删除" cancel-text="取消" @confirm="removeMenu(record)">
-              <a-button type="link" size="small" danger><DeleteOutlined />删除</a-button>
-            </a-popconfirm>
+          <div v-else-if="column.key === 'actions'" class="row-actions">
+            <template v-if="canWrite">
+              <a-button type="link" size="small" @click="openCreate(record.id)"><BranchesOutlined />添加下级</a-button>
+              <a-button type="link" size="small" @click="openEdit(record)"><EditOutlined />编辑</a-button>
+              <a-popconfirm title="删除后将同时删除该菜单的全部下级菜单，并清理租户、角色和接口权限关系，是否继续？" ok-text="删除" cancel-text="取消" @confirm="removeMenu(record)">
+                <a-button type="link" size="small" danger><DeleteOutlined />删除</a-button>
+              </a-popconfirm>
+            </template>
+            <span v-else class="readonly-label">只读</span>
           </div>
         </template>
 
@@ -575,6 +578,7 @@ onMounted(() => {
 .menu-name-cell span { font-size: var(--du-font-size-sm, 12px); font-weight: var(--du-font-weight-normal, 400); }
 .type-label { color: var(--du-text-secondary); font-size: var(--du-font-size-xs, 11px); }
 .route-value { color: var(--du-text-secondary); font-family: var(--du-font-mono); font-size: var(--du-font-size-xs, 11px); }
+.readonly-label { color: var(--du-text-muted); font-size: var(--du-font-size-xs, 11px); }
 
 .menu-panel :deep(.ant-table-row-expand-icon) { transform: scale(.88); }
 

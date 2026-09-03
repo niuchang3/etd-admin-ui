@@ -58,20 +58,23 @@
             @change="changeStatus(record, Boolean($event))"
           />
 
-          <div v-else-if="column.key === 'actions' && canWrite" class="row-actions">
-            <a-button type="link" size="small" @click="openCreate(record.id)"><BranchesOutlined />添加下级</a-button>
-            <a-button type="link" size="small" @click="openEdit(record)"><EditOutlined />编辑</a-button>
-            <a-popconfirm
-              ok-text="删除"
-              cancel-text="取消"
-              @confirm="removeOrg(record)"
-            >
-              <template #title>
-                <div>确定要删除此组织及其全部下级组织吗？</div>
-                <div style="color: var(--du-negative); margin-top: 4px;">该操作不可逆，且将同时清除关联的角色和组织关系。</div>
-              </template>
-              <a-button type="link" size="small" danger><DeleteOutlined />删除</a-button>
-            </a-popconfirm>
+          <div v-else-if="column.key === 'actions'" class="row-actions">
+            <template v-if="canWrite">
+              <a-button type="link" size="small" @click="openCreate(record.id)"><BranchesOutlined />添加下级</a-button>
+              <a-button type="link" size="small" @click="openEdit(record)"><EditOutlined />编辑</a-button>
+              <a-popconfirm
+                ok-text="删除"
+                cancel-text="取消"
+                @confirm="removeOrg(record)"
+              >
+                <template #title>
+                  <div>确定要删除此组织及其全部下级组织吗？</div>
+                  <div style="color: var(--du-negative); margin-top: 4px;">该操作不可逆，且将同时清除关联的角色和组织关系。</div>
+                </template>
+                <a-button type="link" size="small" danger><DeleteOutlined />删除</a-button>
+              </a-popconfirm>
+            </template>
+            <span v-else class="readonly-label">只读</span>
           </div>
         </template>
 
@@ -448,6 +451,11 @@ onMounted(() => {
 
 .sort-value {
   color: var(--du-text-secondary);
+}
+
+.readonly-label {
+  color: var(--du-text-muted);
+  font-size: var(--du-font-size-xs, 11px);
 }
 
 .org-panel :deep(.ant-table-row-expand-icon) { transform: scale(.88); }

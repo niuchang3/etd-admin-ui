@@ -55,7 +55,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
 import { ApartmentOutlined, ClusterOutlined, ReloadOutlined, SearchOutlined, TeamOutlined } from '@ant-design/icons-vue'
-import { getOrganizationTree } from '@/apis/upms/organization'
+import { getUserOrganizationTree } from '@/apis/upms/user'
 import type { Organization } from '@/apis/upms/organization/type'
 import { filterTreeNodes } from '@/composables/useTreeHelper'
 
@@ -100,7 +100,7 @@ const filteredTree = computed(() => {
 const loadOrgTree = async () => {
   loading.value = true
   try {
-    const response = await getOrganizationTree({ enabled: true })
+    const response = await getUserOrganizationTree({ enabled: true })
     rawTree.value = response.data || []
     if (expandedKeys.value.length === 0) {
       expandedKeys.value = rawTree.value.map((o) => String(o.id))

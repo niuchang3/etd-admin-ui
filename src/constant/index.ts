@@ -56,14 +56,20 @@ export const ROLE_PERMISSION_TYPE = {
 export type RolePermissionTypeValue = typeof ROLE_PERMISSION_TYPE[keyof typeof ROLE_PERMISSION_TYPE]
 
 /**
- * 系统内置受保护的角色编码
+ * 系统内置受保护的角色编码（后端已统一为大写下划线格式）
  */
 export const SYSTEM_ROLE_CODE = {
   /** 平台管理员角色编码 */
-  PLATFORM_ADMIN: 'platformAdmin',
+  PLATFORM_ADMIN: 'PLATFORM_ADMIN',
   /** 租户管理员角色编码 */
-  TENANT_ADMIN: 'tenantAdmin',
+  TENANT_ADMIN: 'TENANT_ADMIN',
+  /** 普通用户角色编码 */
+  ORDINARY: 'ORDINARY',
 } as const
+
+export const SystemRole = SYSTEM_ROLE_CODE
+
+export type SystemRoleCodeValue = typeof SYSTEM_ROLE_CODE[keyof typeof SYSTEM_ROLE_CODE]
 
 /**
  * 菜单访问控制级别

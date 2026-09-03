@@ -95,7 +95,18 @@
 - `menuPath` 是浏览器访问路径；`menuRouter` 是 Vue 组件地址，例如 `@/views/system/roles/index.vue`。新增页面时保证文件路径与后端菜单配置一致。
 - 动态路由、租户切换和菜单树逻辑集中在 `src/router/index.ts` 与 `src/stores/modules/user.ts`；修改前必须理解登录和租户初始化顺序。
 - 页面读写权限统一使用 `menusStore().canWritePath(route.path)` 等现有权限工具，不自行解释 `accessLevel`。
-- 所有写入口都要受权限控制：模板隐藏或禁用按钮，事件处理函数也再次拦截。只隐藏按钮不算完整权限处理。
+- **页面读写权限与交互动作判定规则（严禁误杀查询接口）**：
+  - **按业务动作划分读写**：权限划分严格按“业务交互动作”而非 HTTP Method。用于数据检索、列表加载、表格分页的请求（即使后端设计为 POST 查询接口）均属于“读”操作，只读用户完全允许调用；新增、编辑、删除、启停、分配等破坏性操作才属于“写”操作。
+  - **页面统一声明**：页面统一声明 `const canWrite = computed(() => menusStore().canWritePath(route.path))`。
+  - **事件层二次拦截**：所有写操作函数（如 `openCreate`、`openEdit`、`handleDelete`、`changeStatus`）内部首行必须执行 `if (!canWrite.value) return` 防御拦截，严禁只依赖模板隐藏按钮。
+- **表格操作列与只读状态展示统一规范（全站强制标准，杜绝留白）**：
+  - **杜绝空白操作列**：严禁在操作列容器直接增加 `&& canWrite`，严禁只给按钮写 `v-if="canWrite"` 却遗漏 `v-else`，导致只读用户看到整列空白单元格。
+  - **统一渲染只读标签**：当当前用户为只读状态（`!canWrite`）时，表格操作列单元格必须统一通过 `<span v-else class="readonly-label">只读</span>` 进行兜底降级展示，类名样式统一为 `--du-font-size-xs: 11px` 与浅灰文字，保持整表行高齐平。
+  - **数据内置（`builtIn`）与账号只读（`!canWrite`）分层逻辑**：
+    - 外层优先判断账号权限 `v-if="canWrite"`；
+    - 内层再判断单行数据是否内置 `record.builtIn`（内置时展示“内置数据只读”或禁用按钮，非内置展示正常编辑/删除等写操作）；
+    - 外层 `v-else` 兜底渲染 `<span class="readonly-label">只读</span>`。
+  - **行内控件禁用规范**：表格单元格内的启停 Switch 开关必须统一绑定 `:disabled="!canWrite"`（若同时存在内置属性则为 `:disabled="!canWrite || record.builtIn"`）。
 - `builtIn` 数据视为系统维护的只读数据。编辑、删除、启停、授权等写入口同时在 UI 层和事件层禁止，除非后端契约明确允许某项操作。
 - 删除、清空、覆盖授权等不可逆操作必须使用明确的二次确认，并说明可能影响。
 

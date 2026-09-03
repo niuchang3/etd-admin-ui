@@ -1,5 +1,6 @@
 import type { Id, PageResult, ResultModel } from '@/apis/types'
 import request from '@/utils/Request'
+import type { Organization } from '@/apis/upms/organization/type'
 import type {
   UserCreatePayload,
   UserOrganizationAssignPayload,
@@ -12,6 +13,14 @@ import type {
 } from './type'
 
 const USER_API = '/upms/api/v1/user'
+
+/** 查询用户列表专用的组织树（GET /v1/user/organization/tree） */
+export const getUserOrganizationTree = async (params?: { keyword?: string; enabled?: boolean }) => {
+  return await request.get<ResultModel<Organization[]>>({
+    url: `${USER_API}/organization/tree`,
+    params,
+  })
+}
 
 /** 分页查询用户列表 */
 export const getUserPage = async (params: UserQueryParams) => {

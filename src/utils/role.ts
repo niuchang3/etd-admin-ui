@@ -4,48 +4,56 @@ import type { UserRecord, UserRoleItem } from '@/apis/upms/user/type'
 import { SYSTEM_ROLE_CODE } from '@/constant'
 
 /**
- * 角色编码规范化：去除首尾空格并统一转为小写（忽略大小写比对）。
+ * 提取角色对象或角色编码字符串中的 roleCode（严格保持原始大小写，仅去除首尾空格）。
  */
-export const normalizeRoleCode = (roleCode?: string | null): string => {
-  return String(roleCode || '').trim().toLowerCase()
+export const getRoleCode = (role?: { roleCode?: string | null } | string | null): string => {
+  if (!role) return ''
+  return typeof role === 'string' ? role.trim() : String(role.roleCode || '').trim()
 }
 
 /**
  * 判断角色是否为平台管理员
- * 严格依据系统内置角色 roleCode 忽略大小写判断，绝不依赖中文名称
+ * 严格依据系统内置角色 roleCode 区分大小写比较（PLATFORM_ADMIN），绝不依赖中文名称
  */
-export const isPlatformAdminRole = (role?: { roleCode?: string | null } | null): boolean => {
-  if (!role) return false
-  return normalizeRoleCode(role.roleCode) === SYSTEM_ROLE_CODE.PLATFORM_ADMIN.toLowerCase()
+export const isPlatformAdminRole = (role?: { roleCode?: string | null } | string | null): boolean => {
+  return getRoleCode(role) === SYSTEM_ROLE_CODE.PLATFORM_ADMIN
 }
 
 /**
  * 判断角色是否为租户管理员
- * 严格依据系统内置角色 roleCode 忽略大小写判断，绝不依赖中文名称
+ * 严格依据系统内置角色 roleCode 区分大小写比较（TENANT_ADMIN），绝不依赖中文名称
  */
-export const isTenantAdminRole = (role?: { roleCode?: string | null } | null): boolean => {
-  if (!role) return false
-  return normalizeRoleCode(role.roleCode) === SYSTEM_ROLE_CODE.TENANT_ADMIN.toLowerCase()
+export const isTenantAdminRole = (role?: { roleCode?: string | null } | string | null): boolean => {
+  return getRoleCode(role) === SYSTEM_ROLE_CODE.TENANT_ADMIN
+}
+
+/**
+ * 判断角色是否为普通用户
+ * 严格依据系统内置角色 roleCode 区分大小写比较（ORDINARY），绝不依赖中文名称
+ */
+export const isOrdinaryRole = (role?: { roleCode?: string | null } | string | null): boolean => {
+  return getRoleCode(role) === SYSTEM_ROLE_CODE.ORDINARY
 }
 
 /**
  * 判断是否为禁止在页面端分配给用户的受限管理员角色（平台管理员、租户管理员）
  * 严格依据系统内置角色 roleCode 判断，绝不依赖中文名称
  */
-export const isRestrictedAssignRole = (role?: { roleCode?: string | null } | null): boolean => {
+export const isRestrictedAssignRole = (role?: { roleCode?: string | null } | string | null): boolean => {
   return isPlatformAdminRole(role) || isTenantAdminRole(role)
 }
 
 /**
  * 判断用户对象或当前登录用户是否为平台管理员
- * 依据 userInfo.platformAdmin 字段或绑定的 platformAdmin 角色
+ * 依据 userInfo.platformAdmin 布尔字段（后端 JSON 字段名）或绑定的 PLATFORM_ADMIN 角色
  */
 export const isPlatformAdminUser = (
   userInfo?: (Partial<UserInfo> & Record<string, unknown>) | null,
-  roles?: (UserRole | UserRoleItem | { roleCode?: string | null })[] | null
+  roles?: (UserRole | UserRoleItem | { roleCode?: string | null } | string)[] | null
 ): boolean => {
   if (!userInfo && !roles?.length) return false
 
+  // 保留后端返回的 JSON 布尔字段名 platformAdmin
   if (Boolean((userInfo as Record<string, unknown> | undefined)?.platformAdmin)) {
     return true
   }
@@ -55,16 +63,16 @@ export const isPlatformAdminUser = (
 
 /**
  * 判断用户对象是否为租户管理员
- * 依据租户绑定的 tenantAdminUser ID、或绑定的 tenantAdmin 角色
+ * 依据租户绑定的 tenantAdminUser ID（后端 JSON 字段名）或绑定的 TENANT_ADMIN 角色
  */
 export const isTenantAdminUser = (
   userRecord?: { id?: Id | string | null; [key: string]: unknown } | null,
-  roles?: (UserRole | UserRoleItem | { roleCode?: string | null })[] | null,
+  roles?: (UserRole | UserRoleItem | { roleCode?: string | null } | string)[] | null,
   currentTenant?: (Partial<Tenant> & { tenantAdminUser?: Id | null }) | null
 ): boolean => {
   if (!userRecord && !roles?.length) return false
 
-  // 1. 租户绑定管理员 ID 判断
+  // 1. 租户绑定管理员 ID 判断（保留后端 JSON 字段名 tenantAdminUser）
   const currentTenantAdminId = currentTenant?.tenantAdminUser ? String(currentTenant.tenantAdminUser) : ''
   const userId = userRecord?.id ? String(userRecord.id) : ''
   if (currentTenantAdminId && userId && currentTenantAdminId === userId) {
@@ -73,6 +81,16 @@ export const isTenantAdminUser = (
 
   // 2. 角色编码判断
   return (roles || []).some((r) => isTenantAdminRole(r))
+}
+
+/**
+ * 判断用户是否具备普通用户系统角色 (ORDINARY)
+ */
+export const isOrdinaryUser = (
+  roles?: (UserRole | UserRoleItem | { roleCode?: string | null } | string)[] | null
+): boolean => {
+  if (!roles?.length) return false
+  return (roles || []).some((r) => isOrdinaryRole(r))
 }
 
 /**

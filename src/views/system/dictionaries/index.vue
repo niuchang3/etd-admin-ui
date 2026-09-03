@@ -39,12 +39,15 @@
               size="small"
               @change="changeTypeEnabled(record, Boolean($event))"
             />
-            <div v-else-if="column.key === 'actions' && canWrite" class="type-actions" @click.stop>
-              <span v-if="record.builtIn" class="readonly-label">只读</span>
-              <a-tooltip v-if="!record.builtIn" title="编辑"><a-button type="text" size="small" @click="openTypeEdit(record)"><EditOutlined /></a-button></a-tooltip>
-              <a-popconfirm v-if="!record.builtIn" title="存在字典项时后端将拒绝删除，确认继续吗？" ok-text="删除" cancel-text="取消" @confirm="removeType(record)">
-                <a-tooltip title="删除"><a-button type="text" size="small" danger><DeleteOutlined /></a-button></a-tooltip>
-              </a-popconfirm>
+            <div v-else-if="column.key === 'actions'" class="type-actions" @click.stop>
+              <template v-if="canWrite">
+                <span v-if="record.builtIn" class="readonly-label">只读</span>
+                <a-tooltip v-if="!record.builtIn" title="编辑"><a-button type="text" size="small" @click="openTypeEdit(record)"><EditOutlined /></a-button></a-tooltip>
+                <a-popconfirm v-if="!record.builtIn" title="存在字典项时后端将拒绝删除，确认继续吗？" ok-text="删除" cancel-text="取消" @confirm="removeType(record)">
+                  <a-tooltip title="删除"><a-button type="text" size="small" danger><DeleteOutlined /></a-button></a-tooltip>
+                </a-popconfirm>
+              </template>
+              <span v-else class="readonly-label">只读</span>
             </div>
           </template>
           <template #emptyText><a-empty description="暂无字典类型" /></template>
@@ -102,6 +105,7 @@
                   <a-button type="link" size="small" danger><DeleteOutlined />删除</a-button>
                 </a-popconfirm>
               </template>
+              <span v-else class="readonly-label">只读</span>
             </div>
           </template>
           <template #emptyText><a-empty :description="selectedType ? '暂无字典项' : '请先选择左侧字典类型'" /></template>
