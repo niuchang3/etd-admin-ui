@@ -26,10 +26,7 @@
           @change="changeTypePage"
         >
           <template #bodyCell="{ column, record }">
-            <div v-if="column.key === 'typeName'" class="type-name-cell">
-              <span>{{ record.typeName }}</span>
-              <a-tag v-if="record.builtIn" color="gold">{{ getLabel(SYSTEM_DICT_TYPE.commonBuiltIn, record.builtIn) }}</a-tag>
-            </div>
+            <span v-if="column.key === 'typeName'">{{ record.typeName }}</span>
             <code v-else-if="column.key === 'typeCode'" class="code-value">{{ record.typeCode }}</code>
             <a-switch
               v-else-if="column.key === 'enabled'"
@@ -96,7 +93,7 @@
             <div v-else-if="column.key === 'actions'" class="row-actions">
               <template v-if="record.builtIn">
                 <a-tooltip title="系统内置字典项，不允许修改或删除">
-                  <span class="readonly-label">内置</span>
+                  <span class="readonly-label">只读</span>
                 </a-tooltip>
               </template>
               <template v-else-if="canWrite">

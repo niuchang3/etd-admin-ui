@@ -65,14 +65,13 @@
         :data-source="records"
         :loading="loading"
         :pagination="pagination"
-        :scroll="{ x: 1250 }"
         row-key="id"
         size="small"
         @change="handleTableChange"
       >
         <template #bodyCell="{ column, record }">
           <!-- 账号 -->
-          <code v-if="column.key === 'account'" class="account-cell du-mono">{{ record.account }}</code>
+          <code v-if="column.key === 'account'" class="code-value du-mono">{{ record.account }}</code>
 
           <!-- 姓名 -->
           <span v-else-if="column.key === 'userName'" class="user-name-cell">
@@ -85,7 +84,7 @@
           </span>
 
           <!-- 手机号 -->
-          <span v-else-if="column.key === 'mobile'" class="du-mono">
+          <span v-else-if="column.key === 'mobile'" class="code-value du-mono">
             {{ record.mobile || '—' }}
           </span>
 
@@ -93,25 +92,45 @@
           <EllipsisText
             v-else-if="column.key === 'roleNames'"
             :text="record.roleNames"
-            max-width="170px"
+            max-width="140px"
           />
 
           <!-- 所属组织（通用 EllipsisText 组件） -->
           <EllipsisText
             v-else-if="column.key === 'organizationNames'"
             :text="record.organizationNames"
-            max-width="170px"
+            max-width="140px"
           />
 
-          <!-- 启用状态（通用 StatusTag 组件） -->
-          <div v-else-if="column.key === 'enabled'" class="center-cell">
-            <StatusTag :value="record.enabled" type="enabled" />
-          </div>
+          <!-- 启用状态（对齐标准 Switch 开关） -->
+          <a-tooltip
+            v-else-if="column.key === 'enabled'"
+            :title="getAdminStatus(record).isProtected ? `${getAdminStatus(record).label}账号禁止停用` : undefined"
+          >
+            <a-switch
+              :checked="record.enabled"
+              :loading="statusChangingId === record.id"
+              :disabled="!canWrite || getAdminStatus(record).isProtected"
+              checked-children="启用"
+              un-checked-children="停用"
+              @change="handleStatusChange(record, Boolean($event))"
+            />
+          </a-tooltip>
 
-          <!-- 安全锁定状态（通用 StatusTag 组件） -->
-          <div v-else-if="column.key === 'locked'" class="center-cell">
-            <StatusTag :value="record.locked" type="locked" />
-          </div>
+          <!-- 安全锁定状态（对齐标准 Switch 开关） -->
+          <a-tooltip
+            v-else-if="column.key === 'locked'"
+            :title="getAdminStatus(record).isProtected ? `${getAdminStatus(record).label}账号禁止锁定` : undefined"
+          >
+            <a-switch
+              :checked="record.locked"
+              :loading="lockChangingId === record.id"
+              :disabled="!canWrite || getAdminStatus(record).isProtected"
+              checked-children="锁定"
+              un-checked-children="正常"
+              @change="handleLockedChange(record, Boolean($event))"
+            />
+          </a-tooltip>
 
           <!-- 创建时间（通用 formatDateTime 工具） -->
           <span v-else-if="column.key === 'createTime'" class="create-time-cell du-mono">
@@ -150,45 +169,6 @@
               </a-tooltip>
               <a-button v-else type="link" size="small" @click="openOrgAssign(record)">
                 <ApartmentOutlined />组织
-              </a-button>
-
-              <!-- 启停状态（平台/租户管理员禁止停用） -->
-              <a-tooltip
-                v-if="getAdminStatus(record).isProtected"
-                :title="`${getAdminStatus(record).label}账号禁止停用`"
-              >
-                <a-button type="link" size="small" disabled class="action-btn-disabled">
-                  停用
-                </a-button>
-              </a-tooltip>
-              <a-button
-                v-else
-                type="link"
-                size="small"
-                :danger="record.enabled"
-                :loading="statusChangingId === record.id"
-                @click="confirmToggleEnabled(record)"
-              >
-                {{ record.enabled ? '停用' : '启用' }}
-              </a-button>
-
-              <!-- 锁定状态（平台/租户管理员禁止锁定） -->
-              <a-tooltip
-                v-if="getAdminStatus(record).isProtected"
-                :title="`${getAdminStatus(record).label}账号禁止锁定`"
-              >
-                <a-button type="link" size="small" disabled class="action-btn-disabled">
-                  锁定
-                </a-button>
-              </a-tooltip>
-              <a-button
-                v-else
-                type="link"
-                size="small"
-                :loading="lockChangingId === record.id"
-                @click="confirmToggleLocked(record)"
-              >
-                {{ record.locked ? '解锁' : '锁定' }}
               </a-button>
 
               <!-- 删除用户（平台/租户管理员禁止删除） -->
@@ -280,7 +260,6 @@ import { useAdminAuth } from '@/composables/useAdminAuth'
 import { formatDateTime } from '@/utils/format'
 import { confirmAction } from '@/utils/confirm'
 import EllipsisText from '@/components/EllipsisText.vue'
-import StatusTag from '@/components/StatusTag.vue'
 
 // 引入模块专属私有子组件
 import UserOrgSidebar from './components/UserOrgSidebar.vue'
@@ -298,18 +277,18 @@ const { getUserProtection } = useAdminAuth()
 const canWrite = computed(() => currentMenus.canWritePath(route.path))
 const getAdminStatus = getUserProtection
 
-// 表格列定义
+// 表格列定义（完全对齐标准单行流式规范与操作列宽度）
 const columns = computed<TableColumnsType<UserRecord>>(() => [
-  { title: '登录账号', dataIndex: 'account', key: 'account', width: 120 },
-  { title: '用户姓名', dataIndex: 'userName', key: 'userName', width: 110 },
-  { title: '昵称', dataIndex: 'nickName', key: 'nickName', width: 110 },
-  { title: '手机号码', dataIndex: 'mobile', key: 'mobile', width: 125 },
-  { title: '分配角色', dataIndex: 'roleNames', key: 'roleNames', width: 170 },
-  { title: '所属组织', dataIndex: 'organizationNames', key: 'organizationNames', width: 180 },
-  { title: '启用状态', key: 'enabled', width: 85, align: 'center' },
-  { title: '安全锁定', key: 'locked', width: 90, align: 'center' },
-  { title: '创建时间', dataIndex: 'createTime', key: 'createTime', width: 155 },
-  { title: '操作', key: 'actions', width: 300, align: 'right', fixed: 'right' },
+  { title: '登录账号', dataIndex: 'account', key: 'account', width: 110 },
+  { title: '用户姓名', dataIndex: 'userName', key: 'userName', width: 85 },
+  { title: '昵称', dataIndex: 'nickName', key: 'nickName', width: 90, ellipsis: true },
+  { title: '手机号码', dataIndex: 'mobile', key: 'mobile', width: 110 },
+  { title: '分配角色', dataIndex: 'roleNames', key: 'roleNames', ellipsis: true },
+  { title: '所属组织', dataIndex: 'organizationNames', key: 'organizationNames', ellipsis: true },
+  { title: '启用状态', dataIndex: 'enabled', key: 'enabled', width: 80 },
+  { title: '安全锁定', dataIndex: 'locked', key: 'locked', width: 80 },
+  { title: '创建时间', dataIndex: 'createTime', key: 'createTime', width: 145 },
+  { title: '操作', key: 'actions', width: 220, align: 'right' },
 ])
 
 // 状态定义
@@ -387,66 +366,72 @@ const openOrgAssign = (record: UserRecord) => {
   orgModalOpen.value = true
 }
 
-// 状态切换与删除确认
-const confirmToggleEnabled = (record: UserRecord) => {
+// 状态切换与删除确认（Switch 行内操作）
+const handleStatusChange = (record: UserRecord, enabled: boolean) => {
   if (!canWrite.value) return
   const adminStatus = getAdminStatus(record)
   if (adminStatus.isProtected) {
     message.warning(`${adminStatus.label}账号受系统安全保护，禁止停用`)
     return
   }
-  const nextEnabled = !record.enabled
-  const actionText = nextEnabled ? '启用' : '停用'
+  const actionText = enabled ? '启用' : '停用'
   const isSelf = String(record.id) === String(currentUser.userInfo?.id)
 
   confirmAction({
     title: `确认${actionText}用户`,
-    content: nextEnabled
+    content: enabled
       ? `确定要启用用户【${record.userName || record.account}】吗？启用后该账号可正常登录。`
       : isSelf
         ? `警告：你正在停用当前登录账号【${record.userName || record.account}】，停用后你将被强制退出系统。确认继续吗？`
         : `确定要停用用户【${record.userName || record.account}】吗？停用后该用户将无法登录系统。`,
     okText: '确认',
-    okType: nextEnabled ? 'primary' : 'danger',
+    okType: enabled ? 'primary' : 'danger',
     onOk: async () => {
       statusChangingId.value = record.id
       try {
-        await changeUserEnabled(record.id, nextEnabled)
+        await changeUserEnabled(record.id, enabled)
         message.success(`用户已${actionText}`)
         await loadUsers()
       } finally {
         statusChangingId.value = ''
       }
     },
+    onCancel: () => {
+      // 取消时重新拉取刷新，确保 Switch 视图复位
+      void loadUsers()
+    },
   })
 }
 
-const confirmToggleLocked = (record: UserRecord) => {
+const handleLockedChange = (record: UserRecord, locked: boolean) => {
   if (!canWrite.value) return
   const adminStatus = getAdminStatus(record)
   if (adminStatus.isProtected) {
     message.warning(`${adminStatus.label}账号受系统安全保护，禁止锁定`)
     return
   }
-  const nextLocked = !record.locked
-  const actionText = nextLocked ? '安全锁定' : '解除锁定'
+  const actionText = locked ? '安全锁定' : '解除锁定'
 
   confirmAction({
     title: `确认${actionText}用户`,
-    content: nextLocked
+    content: locked
       ? `锁定用户【${record.userName || record.account}】后，该用户登录后将被强制设为只读模式，禁止所有写操作。是否继续？`
       : `确定要解除用户【${record.userName || record.account}】的安全锁定吗？`,
     okText: '确认',
-    okType: nextLocked ? 'danger' : 'primary',
+    okType: locked ? 'danger' : 'primary',
     onOk: async () => {
       lockChangingId.value = record.id
       try {
-        await changeUserLocked(record.id, nextLocked)
+        await changeUserLocked(record.id, locked)
         message.success(`用户已${actionText}`)
         await loadUsers()
       } finally {
         lockChangingId.value = ''
       }
+    },
+    onCancel: () => {
+      // 取消时重新拉取刷新，确保 Switch 视图复位
+      void loadUsers()
     },
   })
 }
@@ -546,36 +531,32 @@ const confirmDeleteUser = (record: UserRecord) => {
 }
 
 .code-value {
+  color: var(--du-text-secondary);
   font-family: var(--du-font-mono);
   font-size: var(--du-font-size-xs, 11px);
-  color: var(--du-text);
-}
-
-.font-bold {
-  font-weight: 700;
-}
-
-.font-semibold {
-  font-weight: 600;
 }
 
 .text-secondary {
   color: var(--du-text-secondary);
 }
 
-.center-cell {
-  display: flex;
-  justify-content: center;
-}
-
 .create-time-cell {
-  font-size: var(--du-font-size-xs, 11px);
   color: var(--du-text-secondary);
+  font-family: var(--du-font-mono);
+  font-size: var(--du-font-size-xs, 11px);
 }
 
 .action-btn-disabled {
   color: var(--du-text-muted) !important;
   cursor: not-allowed;
+}
+
+.row-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 2px;
+  white-space: nowrap;
 }
 
 .readonly-label {

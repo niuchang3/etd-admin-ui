@@ -78,17 +78,37 @@ button {
   font-weight: var(--du-font-weight-medium, 500);
 }
 
+.ant-table-wrapper .ant-table-tbody > tr {
+  height: var(--du-table-row-height, 34px);
+}
+
 .ant-table-wrapper .ant-table-tbody > tr > td {
-  height: var(--du-table-row-height);
+  height: var(--du-table-row-height, 34px);
   padding: 0 var(--du-space-2);
   border-bottom-color: #e7eaf0;
   vertical-align: middle;
   font-size: var(--du-font-size-sm, 12px);
   font-weight: var(--du-font-weight-normal, 400);
+  box-sizing: border-box;
+}
+
+/* 无论是否有横滚与固定列，固定列单元格与主表单元格高度绝对齐平 */
+.ant-table-wrapper .ant-table-tbody > tr > td.ant-table-cell-fix-left,
+.ant-table-wrapper .ant-table-tbody > tr > td.ant-table-cell-fix-right {
+  height: var(--du-table-row-height, 34px);
+  vertical-align: middle;
+  box-sizing: border-box;
 }
 
 .ant-table-wrapper .ant-table-tbody strong {
   font-weight: var(--du-font-weight-normal, 400);
+}
+
+/* 表格内 Tag 标签消除上下边距，高度锁定 20px 防止撑高行高 */
+.ant-table-wrapper .ant-table-tbody > tr > td .ant-tag {
+  margin-block: 0;
+  height: 20px;
+  line-height: 18px;
 }
 
 /* 表格操作列统一容器与紧凑链接按钮样式。 */
@@ -96,7 +116,9 @@ button {
   display: flex;
   align-items: center;
   justify-content: flex-end;
-  gap: var(--du-space-1);
+  gap: 2px;
+  white-space: nowrap;
+  flex-wrap: nowrap;
 }
 
 .row-actions .ant-btn-link,
@@ -106,6 +128,19 @@ button {
   padding-inline: 4px;
   font-size: var(--du-font-size-sm, 12px);
   line-height: 24px;
+}
+
+.row-actions .readonly-label {
+  display: inline-flex;
+  align-items: center;
+  height: 24px;
+  line-height: 24px;
+}
+
+/* 表格单元格内 Switch 垂直居中，清除可能撑高行高的外边距 */
+.ant-table-cell .ant-switch {
+  vertical-align: middle;
+  margin: 0;
 }
 /* 运行环境语义色供登录页和管理平台顶栏共同使用。 */
 .runtime-environment--development {

@@ -1,97 +1,86 @@
 <template>
-  <!-- 租户管理主页面： Dense Utility 高密度列表、多条件查询、启停/锁定/删除及菜单设置 -->
-  <section class="tenant-page du-page">
-    <header class="page-toolbar du-panel">
-      <!-- 搜索筛选表单 -->
-      <div class="filters">
-        <a-input
-          v-model:value="query.tenantName"
-          allow-clear
-          class="search-input"
-          placeholder="搜索租户名称"
-          @press-enter="handleSearch"
-        >
-          <template #prefix><SearchOutlined /></template>
-        </a-input>
+  <!-- 租户管理主页面：完全对齐角色与系统管理标准 Dense Utility 规范 -->
+  <section class="management-page tenant-page">
+    <div class="du-panel table-panel">
+      <header class="page-toolbar">
+        <!-- 搜索筛选表单 -->
+        <div class="filters">
+          <a-input
+            v-model:value="query.tenantName"
+            allow-clear
+            class="search-input"
+            placeholder="搜索租户名称"
+            @press-enter="handleSearch"
+          >
+            <template #prefix><SearchOutlined /></template>
+          </a-input>
 
-        <a-input
-          v-model:value="query.creditCode"
-          allow-clear
-          class="search-input"
-          placeholder="搜索统一社会信用代码"
-          @press-enter="handleSearch"
-        >
-          <template #prefix><SearchOutlined /></template>
-        </a-input>
+          <a-input
+            v-model:value="query.creditCode"
+            allow-clear
+            class="search-input"
+            placeholder="搜索统一社会信用代码"
+            @press-enter="handleSearch"
+          >
+            <template #prefix><SearchOutlined /></template>
+          </a-input>
 
-        <DictSelect
-          v-model:value="query.tenantType"
-          :type-code="SYSTEM_DICT_TYPE.tenantType"
-          allow-clear
-          class="status-select"
-          placeholder="租户类型"
-        />
+          <DictSelect
+            v-model:value="query.tenantType"
+            :type-code="SYSTEM_DICT_TYPE.tenantType"
+            allow-clear
+            class="status-select"
+            placeholder="租户类型"
+          />
 
-        <a-select
-          v-model:value="query.dataStatus"
-          allow-clear
-          class="status-select"
-          placeholder="启用状态"
-          :options="[
-            { label: '已启用', value: 1 },
-            { label: '已停用', value: 0 },
-          ]"
-        />
+          <a-select
+            v-model:value="query.dataStatus"
+            allow-clear
+            class="status-select"
+            placeholder="启用状态"
+            :options="[
+              { label: '已启用', value: 1 },
+              { label: '已停用', value: 0 },
+            ]"
+          />
 
-        <a-select
-          v-model:value="query.locked"
-          allow-clear
-          class="status-select"
-          placeholder="锁定状态"
-          :options="[
-            { label: '未锁定', value: false },
-            { label: '已锁定', value: true },
-          ]"
-        />
+          <a-select
+            v-model:value="query.locked"
+            allow-clear
+            class="status-select"
+            placeholder="锁定状态"
+            :options="[
+              { label: '未锁定', value: false },
+              { label: '已锁定', value: true },
+            ]"
+          />
 
-        <a-button type="primary" @click="handleSearch">
-          <SearchOutlined />查询
-        </a-button>
-        <a-button @click="resetSearch()">
-          <ReloadOutlined />重置
-        </a-button>
-      </div>
+          <a-button type="primary" @click="handleSearch">
+            <SearchOutlined />查询
+          </a-button>
+          <a-button @click="resetSearch()">
+            <ReloadOutlined />重置
+          </a-button>
+        </div>
 
-      <!-- 操作按钮区 -->
-      <div class="toolbar-actions">
         <a-button v-if="canWrite" type="primary" @click="openCreate">
           <PlusOutlined />新增租户
         </a-button>
-      </div>
-    </header>
+      </header>
 
-    <!-- 租户数据表格 -->
-    <div class="table-container du-panel">
+      <!-- 租户数据表格：无额外内边距，行高严格齐平 34px -->
       <a-table
         :columns="columns"
         :data-source="records"
         :loading="loading"
         :pagination="pagination"
-        :scroll="{ x: 1200 }"
         row-key="id"
         size="small"
         @change="handleTableChange"
       >
         <template #bodyCell="{ column, record }">
-          <!-- 租户名称与 Logo 缩略图 -->
+          <!-- 租户名称 -->
           <div v-if="column.key === 'tenantName'" class="tenant-name-cell">
-            <a-avatar
-              v-if="record.logo"
-              :src="record.logo"
-              shape="square"
-              size="small"
-              class="tenant-avatar"
-            />
             <span class="tenant-name-text" :title="record.tenantName">{{ record.tenantName }}</span>
             <a-tag v-if="isCurrentLoginTenant(record.id)" color="blue" class="current-tenant-tag">当前</a-tag>
           </div>
@@ -102,26 +91,36 @@
           </code>
 
           <!-- 租户类型（字典翻译） -->
-          <div v-else-if="column.key === 'tenantType'">
-            <DictTag :type-code="SYSTEM_DICT_TYPE.tenantType" :value="record.tenantType" />
-          </div>
+          <DictTag v-else-if="column.key === 'tenantType'" :type-code="SYSTEM_DICT_TYPE.tenantType" :value="record.tenantType" />
 
           <!-- 租户描述 -->
           <EllipsisText
             v-else-if="column.key === 'description'"
             :text="record.description"
-            max-width="220px"
+            max-width="240px"
           />
 
-          <!-- 启用状态（通用 StatusTag 组件） -->
-          <div v-else-if="column.key === 'dataStatus'" class="center-cell">
-            <StatusTag :value="record.dataStatus === 1" type="enabled" />
-          </div>
+          <!-- 启用状态（对齐标准 Switch 开关） -->
+          <a-switch
+            v-else-if="column.key === 'dataStatus'"
+            :checked="record.dataStatus === 1"
+            :loading="statusChangingId === record.id"
+            :disabled="!canWrite || isCurrentLoginTenant(record.id)"
+            checked-children="启用"
+            un-checked-children="停用"
+            @change="handleStatusChange(record, Boolean($event))"
+          />
 
-          <!-- 安全锁定状态（通用 StatusTag 组件） -->
-          <div v-else-if="column.key === 'locked'" class="center-cell">
-            <StatusTag :value="record.locked" type="locked" />
-          </div>
+          <!-- 安全锁定状态（对齐标准 Switch 开关） -->
+          <a-switch
+            v-else-if="column.key === 'locked'"
+            :checked="record.locked"
+            :loading="lockedChangingId === record.id"
+            :disabled="!canWrite || isCurrentLoginTenant(record.id)"
+            checked-children="锁定"
+            un-checked-children="正常"
+            @change="handleLockedChange(record, Boolean($event))"
+          />
 
           <!-- 创建时间（格式化） -->
           <span v-else-if="column.key === 'createTime'" class="create-time-cell du-mono">
@@ -143,34 +142,6 @@
               >
                 <a-button type="link" size="small" @click="openMenuSettings(record)">
                   <SettingOutlined />菜单
-                </a-button>
-              </a-tooltip>
-
-              <!-- 启停状态切换 -->
-              <a-tooltip :title="isCurrentLoginTenant(record.id) ? '不能操作当前登录租户。' : undefined">
-                <a-button
-                  type="link"
-                  size="small"
-                  :disabled="isCurrentLoginTenant(record.id) || statusChangingId === record.id"
-                  :loading="statusChangingId === record.id"
-                  :danger="record.dataStatus === 1"
-                  @click="confirmToggleStatus(record)"
-                >
-                  {{ record.dataStatus === 1 ? '停用' : '启用' }}
-                </a-button>
-              </a-tooltip>
-
-              <!-- 安全锁定/解锁切换 -->
-              <a-tooltip :title="isCurrentLoginTenant(record.id) ? '不能操作当前登录租户。' : undefined">
-                <a-button
-                  type="link"
-                  size="small"
-                  :disabled="isCurrentLoginTenant(record.id) || lockedChangingId === record.id"
-                  :loading="lockedChangingId === record.id"
-                  @click="confirmToggleLocked(record)"
-                >
-                  <component :is="record.locked ? UnlockOutlined : LockOutlined" />
-                  {{ record.locked ? '解锁' : '锁定' }}
                 </a-button>
               </a-tooltip>
 
@@ -220,12 +191,10 @@ import { message, type TableColumnsType } from 'ant-design-vue'
 import {
   DeleteOutlined,
   EditOutlined,
-  LockOutlined,
   PlusOutlined,
   ReloadOutlined,
   SearchOutlined,
   SettingOutlined,
-  UnlockOutlined,
 } from '@ant-design/icons-vue'
 import {
   changeTenantLocked,
@@ -243,7 +212,6 @@ import { confirmAction } from '@/utils/confirm'
 import DictSelect from '@/components/DictSelect.vue'
 import DictTag from '@/components/DictTag.vue'
 import EllipsisText from '@/components/EllipsisText.vue'
-import StatusTag from '@/components/StatusTag.vue'
 
 // 引入模块专属私有子组件
 import TenantFormModal from './components/TenantFormModal.vue'
@@ -253,16 +221,16 @@ const route = useRoute()
 const canWrite = computed(() => menusStore().canWritePath(route.path))
 const { isCurrentLoginTenant } = useAdminAuth()
 
-// 表格列定义
+// 表格列定义（完全对齐标准单行规范）
 const columns = computed<TableColumnsType<TenantRecord>>(() => [
-  { title: '租户名称', dataIndex: 'tenantName', key: 'tenantName', width: 170 },
-  { title: '社会信用代码', dataIndex: 'creditCode', key: 'creditCode', width: 170 },
-  { title: '租户类型', dataIndex: 'tenantType', key: 'tenantType', width: 100 },
-  { title: '租户描述', dataIndex: 'description', key: 'description', width: 220 },
-  { title: '启用状态', key: 'dataStatus', width: 85, align: 'center' },
-  { title: '安全锁定', key: 'locked', width: 85, align: 'center' },
-  { title: '创建时间', dataIndex: 'createTime', key: 'createTime', width: 155 },
-  { title: '操作', key: 'actions', width: 260, align: 'right', fixed: 'right' },
+  { title: '租户名称', dataIndex: 'tenantName', key: 'tenantName', width: 180 },
+  { title: '统一社会信用代码', dataIndex: 'creditCode', key: 'creditCode', width: 175 },
+  { title: '租户类型', dataIndex: 'tenantType', key: 'tenantType', width: 95 },
+  { title: '租户描述', dataIndex: 'description', key: 'description', ellipsis: true },
+  { title: '启用状态', dataIndex: 'dataStatus', key: 'dataStatus', width: 85 },
+  { title: '安全锁定', dataIndex: 'locked', key: 'locked', width: 85 },
+  { title: '创建时间', dataIndex: 'createTime', key: 'createTime', width: 150 },
+  { title: '操作', key: 'actions', width: 150, align: 'right' },
 ])
 
 // 异步操作状态
@@ -327,17 +295,17 @@ const openMenuSettings = (record: TenantRecord) => {
   menuSettingsOpen.value = true
 }
 
-// 启停与锁定操作
-const confirmToggleStatus = (record: TenantRecord) => {
+// 启停与锁定 Switch 操作
+const handleStatusChange = (record: TenantRecord, enabled: boolean) => {
   if (!canWrite.value || isCurrentLoginTenant(record.id)) return
-  const nextStatus = record.dataStatus === 1 ? 0 : 1
-  const actionText = nextStatus === 1 ? '启用' : '停用'
+  const nextStatus = enabled ? 1 : 0
+  const actionText = enabled ? '启用' : '停用'
 
   confirmAction({
     title: `确认${actionText}租户`,
-    content: `确定要${actionText}租户【${record.tenantName}】吗？${nextStatus === 0 ? '停用后该租户下所有用户将无法登录，已有登录令牌也会被清理。' : '启用后该租户下用户可恢复正常登录。'}`,
+    content: `确定要${actionText}租户【${record.tenantName}】吗？${!enabled ? '停用后该租户下所有用户将无法登录，已有登录令牌也会被清理。' : '启用后该租户下用户可恢复正常登录。'}`,
     okText: '确认',
-    okType: nextStatus === 0 ? 'danger' : 'primary',
+    okType: enabled ? 'primary' : 'danger',
     onOk: async () => {
       statusChangingId.value = record.id
       try {
@@ -348,30 +316,37 @@ const confirmToggleStatus = (record: TenantRecord) => {
         statusChangingId.value = ''
       }
     },
+    onCancel: () => {
+      // 取消时重新拉取刷新，确保 Switch 视图复位
+      void loadTenants()
+    },
   })
 }
 
-const confirmToggleLocked = (record: TenantRecord) => {
+const handleLockedChange = (record: TenantRecord, locked: boolean) => {
   if (!canWrite.value || isCurrentLoginTenant(record.id)) return
-  const nextLocked = !record.locked
-  const actionText = nextLocked ? '安全锁定' : '解除锁定'
+  const actionText = locked ? '安全锁定' : '解除锁定'
 
   confirmAction({
     title: `确认${actionText}租户`,
-    content: nextLocked
+    content: locked
       ? `安全锁定租户【${record.tenantName}】后，用户登录后将被限制所有写操作，仅保留只读权限。是否继续？`
       : `确定要解除租户【${record.tenantName}】的安全锁定状态吗？`,
     okText: '确认',
-    okType: nextLocked ? 'danger' : 'primary',
+    okType: locked ? 'danger' : 'primary',
     onOk: async () => {
       lockedChangingId.value = record.id
       try {
-        await changeTenantLocked(record.id, nextLocked)
+        await changeTenantLocked(record.id, locked)
         message.success(`租户已${actionText}`)
         await loadTenants()
       } finally {
         lockedChangingId.value = ''
       }
+    },
+    onCancel: () => {
+      // 取消时重新拉取刷新，确保 Switch 视图复位
+      void loadTenants()
     },
   })
 }
@@ -401,7 +376,10 @@ const confirmDelete = (record: TenantRecord) => {
 .tenant-page {
   display: flex;
   flex-direction: column;
-  gap: var(--du-space-3);
+}
+
+.table-panel {
+  overflow: hidden;
 }
 
 .page-toolbar {
@@ -411,83 +389,57 @@ const confirmDelete = (record: TenantRecord) => {
   justify-content: space-between;
   gap: var(--du-space-3);
   padding: var(--du-space-2) var(--du-space-3);
-  border-radius: var(--du-radius-sm);
-  background: var(--du-bg-surface);
+  border-bottom: 1px solid var(--du-border);
 }
 
-.filters {
+.filters,
+.row-actions {
   display: flex;
-  flex-wrap: wrap;
   align-items: center;
   gap: var(--du-space-2);
 }
 
 .search-input {
-  width: 180px;
+  width: 170px;
 }
 
 .status-select {
-  width: 110px;
-}
-
-.toolbar-actions {
-  display: flex;
-  align-items: center;
-  gap: var(--du-space-2);
-}
-
-.table-container {
-  padding: var(--du-space-3);
-  border-radius: var(--du-radius-sm);
-  background: var(--du-bg-surface);
+  width: 105px;
 }
 
 .tenant-name-cell {
   display: flex;
   align-items: center;
-  gap: 6px;
-}
-
-.tenant-avatar {
-  flex-shrink: 0;
+  gap: var(--du-space-1);
 }
 
 .tenant-name-text {
-  max-width: 120px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
   font-size: var(--du-font-size-sm, 12px);
   font-weight: var(--du-font-weight-normal, 400);
 }
 
-.font-bold {
-  font-weight: 700;
-}
-
 .current-tenant-tag {
   font-size: var(--du-font-size-xs, 11px);
-  line-height: 16px;
+  height: 18px;
+  line-height: 18px;
   padding: 0 4px;
+  margin: 0;
 }
 
 .code-value {
+  color: var(--du-text-secondary);
   font-family: var(--du-font-mono);
   font-size: var(--du-font-size-xs, 11px);
 }
 
-.center-cell {
-  display: flex;
-  justify-content: center;
-}
-
 .create-time-cell {
-  font-size: var(--du-font-size-xs, 11px);
   color: var(--du-text-secondary);
+  font-family: var(--du-font-mono);
+  font-size: var(--du-font-size-xs, 11px);
 }
 
 .readonly-label {
-  font-size: var(--du-font-size-xs, 11px);
   color: var(--du-text-muted);
+  font-size: var(--du-font-size-xs, 11px);
 }
 </style>

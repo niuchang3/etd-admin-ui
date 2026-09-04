@@ -16,10 +16,7 @@
 
       <a-table :columns="columns" :data-source="records" :loading="loading" :pagination="pagination" row-key="id" size="small" @change="handleTableChange">
         <template #bodyCell="{ column, record }">
-          <div v-if="column.key === 'roleName'" class="role-name">
-            <span>{{ record.roleName }}</span>
-            <a-tag v-if="record.builtIn" color="gold">{{ getLabel(SYSTEM_DICT_TYPE.commonBuiltIn, record.builtIn) }}</a-tag>
-          </div>
+          <span v-if="column.key === 'roleName'">{{ record.roleName }}</span>
           <code v-else-if="column.key === 'roleCode'" class="code-value">{{ record.roleCode }}</code>
           <span v-else-if="column.key === 'permissionType'">{{ getPermissionTypeLabel(record.permissionType) }}</span>
           <EllipsisText v-else-if="column.key === 'roleDesc'" :text="record.roleDesc" max-width="260px" />

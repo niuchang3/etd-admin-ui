@@ -39,7 +39,7 @@
             v-else-if="column.key === 'builtIn'"
             :type-code="SYSTEM_DICT_TYPE.commonBuiltIn"
             :value="record.builtIn"
-            :color-map="{ 'true': 'gold', 'false': 'default' }"
+            :as-tag="false"
           />
           <a-switch
             v-else-if="column.key === 'enabled'"
