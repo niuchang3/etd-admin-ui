@@ -160,8 +160,12 @@ VITE_SERVER_PORT=7000
 # 前端请求代理前缀
 VITE_SERVER_BASE_API="/upms/api"
 
-# 本地后端服务地址
+# 本地 UPMS 后端服务地址
 VITE_SERVER_PROXY_TARGET="http://127.0.0.1:8100/"
+
+# 事件中心后端服务代理前缀与本地服务地址
+VITE_EVENT_SERVER_BASE_API="/event/api"
+VITE_EVENT_SERVER_PROXY_TARGET="http://127.0.0.1:8200/"
 ```
 
 注意事项：

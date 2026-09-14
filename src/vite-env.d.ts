@@ -6,6 +6,8 @@ interface ImportMetaEnv {
     readonly VITE_SERVER_PORT: number;
     readonly VITE_SERVER_BASE_API:string;
     readonly VITE_SERVER_PROXY_TARGET: string;
+    readonly VITE_EVENT_SERVER_BASE_API?: string;
+    readonly VITE_EVENT_SERVER_PROXY_TARGET?: string;
 }
 
 interface ImportMeta {

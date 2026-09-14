@@ -113,3 +113,62 @@ export type MenuTypeValue = typeof MENU_TYPE[keyof typeof MENU_TYPE]
  * 默认菜单图标
  */
 export const DEFAULT_MENU_ICON = 'menuoutlined'
+
+/**
+ * 事件中心权限资源码
+ */
+export const EVENT_PERMISSION_CODE = {
+  TYPE: 'event:type',
+  SUBSCRIPTION: 'event:subscription',
+  MESSAGE: 'event:message',
+  DELIVERY: 'event:delivery',
+} as const
+
+export type EventPermissionCodeValue = typeof EVENT_PERMISSION_CODE[keyof typeof EVENT_PERMISSION_CODE]
+
+/**
+ * 事件投递状态常量
+ * 0: 待投递, 1: 投递中, 2: 成功, 3: 等待重试, 4: 死信
+ */
+export const EVENT_DELIVERY_STATUS = {
+  PENDING: 0,
+  DELIVERING: 1,
+  SUCCESS: 2,
+  RETRYING: 3,
+  DEAD_LETTER: 4,
+} as const
+
+export type EventDeliveryStatusValue = typeof EVENT_DELIVERY_STATUS[keyof typeof EVENT_DELIVERY_STATUS]
+
+/**
+ * 事件投递状态中文标签映射
+ */
+export const EVENT_DELIVERY_STATUS_LABEL: Record<number, string> = {
+  [EVENT_DELIVERY_STATUS.PENDING]: '待投递',
+  [EVENT_DELIVERY_STATUS.DELIVERING]: '投递中',
+  [EVENT_DELIVERY_STATUS.SUCCESS]: '成功',
+  [EVENT_DELIVERY_STATUS.RETRYING]: '等待重试',
+  [EVENT_DELIVERY_STATUS.DEAD_LETTER]: '死信',
+}
+
+/**
+ * 事件投递状态对应的 Badge/Tag 状态
+ */
+export const EVENT_DELIVERY_STATUS_BADGE: Record<number, 'default' | 'processing' | 'success' | 'warning' | 'error'> = {
+  [EVENT_DELIVERY_STATUS.PENDING]: 'default',
+  [EVENT_DELIVERY_STATUS.DELIVERING]: 'processing',
+  [EVENT_DELIVERY_STATUS.SUCCESS]: 'success',
+  [EVENT_DELIVERY_STATUS.RETRYING]: 'warning',
+  [EVENT_DELIVERY_STATUS.DEAD_LETTER]: 'error',
+}
+
+/**
+ * 事件投递状态筛选下拉选项
+ */
+export const EVENT_DELIVERY_STATUS_OPTIONS = [
+  { label: '待投递', value: EVENT_DELIVERY_STATUS.PENDING },
+  { label: '投递中', value: EVENT_DELIVERY_STATUS.DELIVERING },
+  { label: '成功', value: EVENT_DELIVERY_STATUS.SUCCESS },
+  { label: '等待重试', value: EVENT_DELIVERY_STATUS.RETRYING },
+  { label: '死信', value: EVENT_DELIVERY_STATUS.DEAD_LETTER },
+]

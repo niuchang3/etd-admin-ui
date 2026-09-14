@@ -34,13 +34,21 @@ export default defineConfig(({mode}) => {
       // 将指定前缀的前端请求转发到后端，避免本地开发跨域问题。
       proxy:{
         [env.VITE_SERVER_BASE_API]:{
-            // 真实后端服务地址。
+            // 真实 UPMS 后端服务地址。
             target: env.VITE_SERVER_PROXY_TARGET,
             // 将转发请求的 Host 改为后端目标地址。
             changeOrigin:true,
             // 转发前移除公共代理前缀，避免后端路径重复。
             rewrite: (path) => path.replace(new RegExp('^' + env.VITE_SERVER_BASE_API), '')
-          }
+        },
+        [env.VITE_EVENT_SERVER_BASE_API]:{
+            // 真实事件中心后端服务地址。
+            target: env.VITE_EVENT_SERVER_PROXY_TARGET,
+            // 将转发请求的 Host 改为后端目标地址。
+            changeOrigin: true,
+            // 转发前移除公共代理前缀，避免后端路径重复。
+            rewrite: (path) => path.replace(new RegExp('^' + env.VITE_EVENT_SERVER_BASE_API), '')
+        }
       }
     }
   }
