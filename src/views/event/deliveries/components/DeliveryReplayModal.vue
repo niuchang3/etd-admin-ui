@@ -26,7 +26,7 @@
         </div>
         <div class="info-row">
           <span class="info-label">订阅名称：</span>
-          <span class="info-value">{{ record?.subscriptionName || record?.subscriptionCode || '—' }}</span>
+          <span class="info-value">{{ record?.subscriptionName || '—' }}</span>
         </div>
         <div class="info-row">
           <span class="info-label">订阅应用：</span>

@@ -71,7 +71,7 @@
 
           <!-- 订阅名称 -->
           <span v-else-if="column.key === 'subscriptionName'" class="entity-name-text">
-            {{ record.subscriptionName || record.subscriptionCode || '—' }}
+            {{ record.subscriptionName || '—' }}
           </span>
 
           <!-- 订阅应用 -->
@@ -82,11 +82,6 @@
           <!-- Kafka Topic -->
           <code v-else-if="column.key === 'targetTopic'" class="code-value du-mono">
             {{ record.targetTopic || '—' }}
-          </code>
-
-          <!-- Consumer Group -->
-          <code v-else-if="column.key === 'consumerGroup'" class="code-value du-mono">
-            {{ record.consumerGroup || '—' }}
           </code>
 
           <!-- 投递状态（集中映射 Badge） -->
@@ -184,10 +179,9 @@ const canWrite = computed(() => menusStore().canWritePath(route.path))
 // 表格列定义
 const columns = computed<TableColumnsType<EventDeliveryRecord>>(() => [
   { title: '事件 ID', dataIndex: 'eventId', key: 'eventId', width: 220 },
-  { title: '订阅名称', dataIndex: 'subscriptionName', key: 'subscriptionName', width: 160 },
-  { title: '订阅应用', dataIndex: 'subscriberApplication', key: 'subscriberApplication', width: 150 },
-  { title: 'Kafka Topic', dataIndex: 'targetTopic', key: 'targetTopic', width: 180 },
-  { title: 'Consumer Group', dataIndex: 'consumerGroup', key: 'consumerGroup', width: 180 },
+  { title: '订阅名称', dataIndex: 'subscriptionName', key: 'subscriptionName', width: 180 },
+  { title: '订阅应用', dataIndex: 'subscriberApplication', key: 'subscriberApplication', width: 160 },
+  { title: 'Kafka Topic', dataIndex: 'targetTopic', key: 'targetTopic', width: 200 },
   { title: '投递状态', dataIndex: 'deliveryStatus', key: 'deliveryStatus', width: 100 },
   { title: '尝试次数', dataIndex: 'attemptCount', key: 'attemptCount', width: 85 },
   { title: '更新时间', dataIndex: 'updateTime', key: 'updateTime', width: 145 },
@@ -214,9 +208,7 @@ const loadSubscriptionOptions = async () => {
 const subscriptionSelectOptions = computed(() => {
   return subscriptionOptions.value.map((item) => {
     const val = item.id || item.value || ''
-    const label = item.subscriptionName
-      ? `${item.subscriptionName} (${item.subscriptionCode})`
-      : item.label || item.subscriptionCode || val
+    const label = item.subscriptionName || item.label || val
     return {
       value: val,
       label,

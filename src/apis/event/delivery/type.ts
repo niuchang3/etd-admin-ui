@@ -16,11 +16,9 @@ export interface EventDeliveryRecord {
   eventId: string
   eventMessageId?: Id
   subscriptionId: Id
-  subscriptionCode?: string
   subscriptionName?: string
   subscriberApplication?: string
   targetTopic?: string
-  consumerGroup?: string
   deliveryStatus: number
   attemptCount: number
   nextRetryAt?: string | null

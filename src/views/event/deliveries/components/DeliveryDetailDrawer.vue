@@ -22,17 +22,11 @@
             <a-descriptions-item label="订阅名称">
               {{ detail.subscriptionName || '—' }}
             </a-descriptions-item>
-            <a-descriptions-item label="订阅编码">
-              <code class="code-value du-mono">{{ detail.subscriptionCode || '—' }}</code>
-            </a-descriptions-item>
             <a-descriptions-item label="订阅应用">
               {{ detail.subscriberApplication || '—' }}
             </a-descriptions-item>
-            <a-descriptions-item label="Kafka Topic">
+            <a-descriptions-item label="Kafka Topic" :span="2">
               <code class="code-value du-mono">{{ detail.targetTopic || '—' }}</code>
-            </a-descriptions-item>
-            <a-descriptions-item label="Consumer Group">
-              <code class="code-value du-mono">{{ detail.consumerGroup || '—' }}</code>
             </a-descriptions-item>
             <a-descriptions-item label="当前投递状态">
               <a-badge

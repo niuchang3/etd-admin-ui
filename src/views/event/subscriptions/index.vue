@@ -9,7 +9,7 @@
             v-model:value="query.keyword"
             allow-clear
             class="search-input"
-            placeholder="搜索订阅名称或编码"
+            placeholder="搜索订阅名称"
             @press-enter="handleSearch"
           >
             <template #prefix><SearchOutlined /></template>
@@ -65,7 +65,7 @@
         :data-source="records"
         :loading="loading"
         :pagination="pagination"
-        :scroll="{ x: 1280 }"
+        :scroll="{ x: 1160 }"
         row-key="id"
         size="small"
         @change="handleTableChange"
@@ -76,14 +76,9 @@
             {{ record.subscriptionName }}
           </span>
 
-          <!-- 订阅编码 -->
-          <code v-else-if="column.key === 'subscriptionCode'" class="code-value du-mono">
-            {{ record.subscriptionCode }}
-          </code>
-
           <!-- 所属事件类型 -->
           <span v-else-if="column.key === 'eventType'" class="event-type-text">
-            {{ record.eventName || record.eventTypeName || record.eventType || '—' }}
+            {{ record.eventName ? `${record.eventName} (${record.eventType})` : (record.eventType || '—') }}
           </span>
 
           <!-- 订阅应用 -->
@@ -94,11 +89,6 @@
           <!-- Kafka Topic -->
           <code v-else-if="column.key === 'targetTopic'" class="code-value du-mono">
             {{ record.targetTopic || '—' }}
-          </code>
-
-          <!-- Consumer Group -->
-          <code v-else-if="column.key === 'consumerGroup'" class="code-value du-mono">
-            {{ record.consumerGroup || '—' }}
           </code>
 
           <!-- 启用状态（标准 Switch 开关） -->
@@ -186,12 +176,10 @@ const canWrite = computed(() => menusStore().canWritePath(route.path))
 
 // 表格列定义
 const columns = computed<TableColumnsType<EventSubscriptionRecord>>(() => [
-  { title: '订阅名称', dataIndex: 'subscriptionName', key: 'subscriptionName', width: 160 },
-  { title: '订阅编码', dataIndex: 'subscriptionCode', key: 'subscriptionCode', width: 170 },
-  { title: '事件类型', dataIndex: 'eventType', key: 'eventType', width: 180, ellipsis: true },
-  { title: '订阅应用', dataIndex: 'subscriberApplication', key: 'subscriberApplication', width: 150 },
-  { title: 'Kafka Topic', dataIndex: 'targetTopic', key: 'targetTopic', width: 180 },
-  { title: 'Consumer Group', dataIndex: 'consumerGroup', key: 'consumerGroup', width: 180 },
+  { title: '订阅名称', dataIndex: 'subscriptionName', key: 'subscriptionName', width: 180 },
+  { title: '事件类型', dataIndex: 'eventType', key: 'eventType', width: 220, ellipsis: true },
+  { title: '订阅应用', dataIndex: 'subscriberApplication', key: 'subscriberApplication', width: 160 },
+  { title: 'Kafka Topic', dataIndex: 'targetTopic', key: 'targetTopic', width: 220 },
   { title: '状态', dataIndex: 'enabled', key: 'enabled', width: 85 },
   { title: '更新时间', dataIndex: 'updateTime', key: 'updateTime', width: 145 },
   { title: '操作', key: 'actions', width: 120, fixed: 'right', align: 'right' },
@@ -272,7 +260,7 @@ const handleStatusChange = (record: EventSubscriptionRecord, enabled: boolean) =
 
   confirmAction({
     title: `确认${actionText}事件订阅`,
-    content: `确定要${actionText}订阅【${record.subscriptionName}】(${record.subscriptionCode}) 吗？${!enabled ? '停用后事件中心将停止向该消费组投递新消息。' : ''}`,
+    content: `确定要${actionText}订阅【${record.subscriptionName}】吗？${!enabled ? '停用后事件中心将停止向该订阅投递新消息。' : ''}`,
     okText: '确认',
     okType: enabled ? 'primary' : 'danger',
     onOk: async () => {
@@ -295,7 +283,7 @@ const confirmDelete = (record: EventSubscriptionRecord) => {
   if (!canWrite.value) return
   confirmAction({
     title: '确认删除事件订阅',
-    content: `确定要删除订阅【${record.subscriptionName}】(${record.subscriptionCode}) 吗？此操作将逻辑删除该订阅配置。`,
+    content: `确定要删除订阅【${record.subscriptionName}】吗？此操作将逻辑删除该订阅配置。`,
     okText: '确认删除',
     okType: 'danger',
     onOk: async () => {

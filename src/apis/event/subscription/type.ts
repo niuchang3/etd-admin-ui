@@ -1,6 +1,6 @@
 import type { Id, PageRequest } from '@/apis/types'
 
-/** 事件订阅分页查询参数 */
+/** 事件订阅分页查询参数（keyword 仅匹配订阅名称） */
 export interface EventSubscriptionQuery extends PageRequest {
   keyword?: string
   eventTypeId?: Id
@@ -8,18 +8,15 @@ export interface EventSubscriptionQuery extends PageRequest {
   enabled?: boolean
 }
 
-/** 事件订阅单条记录 */
+/** 事件订阅单条记录（列表项 / 详情） */
 export interface EventSubscriptionRecord {
   id: Id
-  subscriptionCode: string
   subscriptionName: string
   eventTypeId: Id
   eventType?: string
   eventName?: string
-  eventTypeName?: string
   subscriberApplication: string
   targetTopic: string
-  consumerGroup: string
   description?: string | null
   enabled: boolean
   version: number
@@ -29,24 +26,20 @@ export interface EventSubscriptionRecord {
 
 /** 新增事件订阅请求体 */
 export interface EventSubscriptionCreateForm {
-  subscriptionCode: string
   subscriptionName: string
   eventTypeId: Id
   subscriberApplication: string
   targetTopic: string
-  consumerGroup: string
   description?: string | null
 }
 
 /** 更新事件订阅请求体（乐观锁包装） */
 export interface EventSubscriptionUpdateDTO {
   content: {
-    subscriptionCode: string
     subscriptionName: string
     eventTypeId: Id
     subscriberApplication: string
     targetTopic: string
-    consumerGroup: string
     description?: string | null
   }
   version: number
@@ -56,7 +49,6 @@ export interface EventSubscriptionUpdateDTO {
 export interface EventSubscriptionOption {
   id?: Id
   value?: Id
-  subscriptionCode: string
   subscriptionName: string
   label?: string
   subscriberApplication?: string

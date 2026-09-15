@@ -43,7 +43,7 @@ test('仅状态 3（等待重试）与 4（死信）具备重播资格', () => {
   assert.strictEqual(isReplayable(EVENT_DELIVERY_STATUS.DEAD_LETTER), true)
 })
 
-test('事件类型与订阅编码点分格式正则校验（对齐后端 Pattern）', () => {
+test('事件类型编码点分格式正则校验（对齐后端 Pattern）', () => {
   const eventCodeRegex = /^[a-z][a-z0-9-]*(\.[a-z][a-z0-9-]*)+$/
 
   // 合法格式（小写字母、数字及中划线，点分分隔）

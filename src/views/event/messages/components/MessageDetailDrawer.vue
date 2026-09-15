@@ -81,7 +81,7 @@
             <template #bodyCell="{ column, record: delivery }">
               <!-- 订阅名称 -->
               <span v-if="column.key === 'subscriptionName'">
-                {{ delivery.subscriptionName || delivery.subscriptionCode || '—' }}
+                {{ delivery.subscriptionName || '—' }}
               </span>
 
               <!-- 订阅应用 -->
@@ -92,11 +92,6 @@
               <!-- Kafka Topic -->
               <code v-else-if="column.key === 'targetTopic'" class="code-value du-mono">
                 {{ delivery.targetTopic || '—' }}
-              </code>
-
-              <!-- Consumer Group -->
-              <code v-else-if="column.key === 'consumerGroup'" class="code-value du-mono">
-                {{ delivery.consumerGroup || '—' }}
               </code>
 
               <!-- 投递状态 -->
@@ -161,10 +156,9 @@ const loading = ref(false)
 const detail = ref<EventMessageDetail | null>(null)
 
 const deliveryColumns: TableColumnsType<EventDeliveryRecord> = [
-  { title: '订阅名称', dataIndex: 'subscriptionName', key: 'subscriptionName', width: 140 },
-  { title: '订阅应用', dataIndex: 'subscriberApplication', key: 'subscriberApplication', width: 130 },
-  { title: 'Kafka Topic', dataIndex: 'targetTopic', key: 'targetTopic', width: 160 },
-  { title: 'Consumer Group', dataIndex: 'consumerGroup', key: 'consumerGroup', width: 160 },
+  { title: '订阅名称', dataIndex: 'subscriptionName', key: 'subscriptionName', width: 160 },
+  { title: '订阅应用', dataIndex: 'subscriberApplication', key: 'subscriberApplication', width: 140 },
+  { title: 'Kafka Topic', dataIndex: 'targetTopic', key: 'targetTopic', width: 180 },
   { title: '投递状态', dataIndex: 'deliveryStatus', key: 'deliveryStatus', width: 95 },
   { title: '尝试次数', dataIndex: 'attemptCount', key: 'attemptCount', width: 85 },
   { title: '发布时间', dataIndex: 'publishedAt', key: 'publishedAt', width: 140 },
