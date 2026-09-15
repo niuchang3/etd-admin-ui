@@ -65,8 +65,34 @@ button {
   font-size: var(--du-font-size-base, 12px) !important;
 }
 
+/* 全局按钮样式：统一图标与文字垂直水平严格居中，清除行高和垂直对齐偏移 */
 .ant-btn {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  vertical-align: middle;
+  padding-block: 0 !important;
+  line-height: 1 !important;
   font-weight: var(--du-font-weight-medium, 500);
+}
+
+.ant-btn > span {
+  display: inline-flex;
+  align-items: center;
+  line-height: 1;
+}
+
+.ant-btn .anticon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+  vertical-align: 0 !important;
+}
+
+.ant-btn .anticon + span,
+.ant-btn > span + .anticon {
+  margin-inline-start: var(--du-space-1, 4px);
 }
 
 .ant-table-wrapper .ant-table-thead > tr > th {
@@ -124,10 +150,14 @@ button {
 .row-actions .ant-btn-link,
 .row-actions .ant-btn-text,
 .row-actions .ant-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   height: 24px;
   padding-inline: 4px;
+  padding-block: 0 !important;
   font-size: var(--du-font-size-sm, 12px);
-  line-height: 24px;
+  line-height: 1 !important;
 }
 
 .row-actions .readonly-label {

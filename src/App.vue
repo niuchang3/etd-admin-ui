@@ -80,7 +80,7 @@ const themeConfig = {
     colorBgLayout: '#eef1f5',
     borderRadius: 4,
     controlHeight: 32,
-    fontSize: 13,
+    fontSize: 12,
     fontFamily: "Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif",
   },
 }
