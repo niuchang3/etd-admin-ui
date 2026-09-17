@@ -15,20 +15,41 @@
             <template #prefix><SearchOutlined /></template>
           </a-input>
 
+          <!-- 原始事件类型输入框 -->
+          <a-input
+            v-model:value="query.eventType"
+            allow-clear
+            class="search-input"
+            placeholder="原始事件类型"
+            @press-enter="handleSearch"
+          >
+            <template #prefix><SearchOutlined /></template>
+          </a-input>
+
+          <!-- 所属事件类型（已登记主键筛选） -->
           <a-select
             v-model:value="query.eventTypeId"
             allow-clear
             show-search
             option-filter-prop="label"
             class="event-type-select"
-            placeholder="事件类型"
+            placeholder="已登记事件类型"
             :options="eventTypeSelectOptions"
+          />
+
+          <!-- 消息状态下拉框 -->
+          <a-select
+            v-model:value="query.messageStatus"
+            allow-clear
+            class="status-select"
+            placeholder="消息状态"
+            :options="EVENT_MESSAGE_STATUS_OPTIONS"
           />
 
           <a-input
             v-model:value="query.sourceApplication"
             allow-clear
-            class="search-input"
+            class="search-input app-input"
             placeholder="来源应用"
             @press-enter="handleSearch"
           >
@@ -54,13 +75,13 @@
         </div>
       </header>
 
-      <!-- 消息列表数据表格：只读查看，不展示大 JSON -->
+      <!-- 消息列表数据表格：只读查看，不展示大 JSON，无投递状态避免混淆 -->
       <a-table
         :columns="columns"
         :data-source="records"
         :loading="loading"
         :pagination="pagination"
-        :scroll="{ x: 1080 }"
+        :scroll="{ x: 1125 }"
         row-key="id"
         size="small"
         @change="handleTableChange"
@@ -71,9 +92,10 @@
             {{ record.eventId }}
           </code>
 
-          <!-- 事件类型 -->
-          <span v-else-if="column.key === 'eventType'">
-            {{ record.eventName || record.eventType }}
+          <!-- 原始事件类型（直接显示 eventType，不依赖类型主键反查） -->
+          <span v-else-if="column.key === 'eventType'" class="event-type-cell">
+            <code class="code-value du-mono">{{ record.eventType || '—' }}</code>
+            <span v-if="record.eventName" class="sub-label">({{ record.eventName }})</span>
           </span>
 
           <!-- 来源应用 -->
@@ -85,6 +107,25 @@
           <code v-else-if="column.key === 'version'" class="code-value du-mono">
             v{{ record.eventVersion }}
           </code>
+
+          <!-- 消息状态：NORMAL 使用成功样式，ERROR 使用危险样式 -->
+          <span v-else-if="column.key === 'messageStatus'">
+            <a-badge
+              :status="EVENT_MESSAGE_STATUS_BADGE[record.messageStatus] || 'default'"
+              :text="EVENT_MESSAGE_STATUS_LABEL[record.messageStatus] || record.messageStatus"
+            />
+          </span>
+
+          <!-- 失败原因：ERROR 消息展示原因（省略+Tooltip），NORMAL 消息为空不显示占位错误 -->
+          <template v-else-if="column.key === 'failureReason'">
+            <a-tooltip
+              v-if="record.messageStatus === EVENT_MESSAGE_STATUS.ERROR && record.failureReason"
+              :title="record.failureReason"
+            >
+              <span class="failure-reason-cell">{{ record.failureReason }}</span>
+            </a-tooltip>
+            <span v-else class="empty-cell">—</span>
+          </template>
 
           <!-- 发生时间 -->
           <span v-else-if="column.key === 'createTime'" class="create-time-cell du-mono">
@@ -121,18 +162,26 @@ import { getEventMessagePage } from '@/apis/event/message'
 import type { EventMessageQuery, EventMessageRecord } from '@/apis/event/message/type'
 import { getEventTypeOptions } from '@/apis/event/type'
 import type { EventTypeOption } from '@/apis/event/type/type'
+import {
+  EVENT_MESSAGE_STATUS,
+  EVENT_MESSAGE_STATUS_BADGE,
+  EVENT_MESSAGE_STATUS_LABEL,
+  EVENT_MESSAGE_STATUS_OPTIONS,
+} from '@/constant'
 import { useTablePagination } from '@/composables/useTablePagination'
 import { formatDateTime } from '@/utils/format'
 import MessageDetailDrawer from './components/MessageDetailDrawer.vue'
 
 // 表格列定义
 const columns = computed<TableColumnsType<EventMessageRecord>>(() => [
-  { title: '事件 ID', dataIndex: 'eventId', key: 'eventId', width: 220 },
-  { title: '事件类型', dataIndex: 'eventType', key: 'eventType', width: 200, ellipsis: true },
-  { title: '来源应用', dataIndex: 'sourceApplication', key: 'sourceApplication', width: 170 },
-  { title: '协议版本', dataIndex: 'eventVersion', key: 'version', width: 90 },
-  { title: '发生时间', dataIndex: 'occurredAt', key: 'createTime', width: 160 },
-  { title: '操作', key: 'actions', width: 80, fixed: 'right', align: 'right' },
+  { title: '事件 ID', dataIndex: 'eventId', key: 'eventId', width: 200 },
+  { title: '原始事件类型', dataIndex: 'eventType', key: 'eventType', width: 180, ellipsis: true },
+  { title: '来源应用', dataIndex: 'sourceApplication', key: 'sourceApplication', width: 140 },
+  { title: '协议版本', dataIndex: 'eventVersion', key: 'version', width: 85 },
+  { title: '消息状态', dataIndex: 'messageStatus', key: 'messageStatus', width: 95 },
+  { title: '失败原因', dataIndex: 'failureReason', key: 'failureReason', width: 200, ellipsis: true },
+  { title: '发生时间', dataIndex: 'occurredAt', key: 'createTime', width: 155 },
+  { title: '操作', key: 'actions', width: 70, fixed: 'right', align: 'right' },
 ])
 
 const detailDrawerOpen = ref(false)
@@ -182,7 +231,9 @@ const {
     current: 1,
     size: 10,
     eventId: '',
+    eventType: '',
     eventTypeId: undefined,
+    messageStatus: undefined,
     sourceApplication: '',
     startTime: undefined,
     endTime: undefined,
@@ -203,6 +254,11 @@ const handleDateRangeChange = (dates: any) => {
 const handleResetSearch = () => {
   dateRange.value = null
   resetSearch({
+    eventId: '',
+    eventType: '',
+    eventTypeId: undefined,
+    messageStatus: undefined,
+    sourceApplication: '',
     startTime: undefined,
     endTime: undefined,
   })
@@ -239,22 +295,31 @@ const openDetail = (record: EventMessageRecord) => {
   display: flex;
   align-items: center;
   gap: var(--du-space-2, 8px);
+  flex-wrap: wrap;
 }
 
 .search-input {
-  width: 160px;
+  width: 140px;
 }
 
 .event-id-input {
-  width: 190px;
+  width: 170px;
 }
 
 .event-type-select {
-  width: 180px;
+  width: 170px;
+}
+
+.status-select {
+  width: 105px;
+}
+
+.app-input {
+  width: 130px;
 }
 
 .time-range-picker {
-  width: 320px;
+  width: 300px;
 }
 
 .code-value {
@@ -265,6 +330,31 @@ const openDetail = (record: EventMessageRecord) => {
 
 .event-id-cell {
   user-select: all;
+}
+
+.event-type-cell {
+  display: inline-flex;
+  align-items: center;
+  max-width: 100%;
+}
+
+.sub-label {
+  color: var(--du-text-tertiary, #8c8c8c);
+  font-size: var(--du-font-size-xs, 11px);
+  margin-left: 4px;
+}
+
+.failure-reason-cell {
+  color: var(--du-danger, #ff4d4f);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  display: inline-block;
+  max-width: 100%;
+}
+
+.empty-cell {
+  color: var(--du-text-tertiary, #8c8c8c);
 }
 
 .create-time-cell {

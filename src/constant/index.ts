@@ -172,3 +172,37 @@ export const EVENT_DELIVERY_STATUS_OPTIONS = [
   { label: '等待重试', value: EVENT_DELIVERY_STATUS.RETRYING },
   { label: '死信', value: EVENT_DELIVERY_STATUS.DEAD_LETTER },
 ]
+
+/**
+ * 事件消息状态常量
+ */
+export const EVENT_MESSAGE_STATUS = {
+  NORMAL: 'NORMAL',
+  ERROR: 'ERROR',
+} as const
+
+export type EventMessageStatusValue = typeof EVENT_MESSAGE_STATUS[keyof typeof EVENT_MESSAGE_STATUS]
+
+/**
+ * 事件消息状态中文标签映射
+ */
+export const EVENT_MESSAGE_STATUS_LABEL: Record<string, string> = {
+  [EVENT_MESSAGE_STATUS.NORMAL]: '正常',
+  [EVENT_MESSAGE_STATUS.ERROR]: '异常',
+}
+
+/**
+ * 事件消息状态对应的 Badge/Tag 状态
+ */
+export const EVENT_MESSAGE_STATUS_BADGE: Record<string, 'success' | 'error' | 'default'> = {
+  [EVENT_MESSAGE_STATUS.NORMAL]: 'success',
+  [EVENT_MESSAGE_STATUS.ERROR]: 'error',
+}
+
+/**
+ * 事件消息状态筛选下拉选项（大写 NORMAL 与 ERROR，全部时不传）
+ */
+export const EVENT_MESSAGE_STATUS_OPTIONS = [
+  { label: '正常', value: EVENT_MESSAGE_STATUS.NORMAL },
+  { label: '异常', value: EVENT_MESSAGE_STATUS.ERROR },
+]

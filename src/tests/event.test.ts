@@ -5,6 +5,10 @@ import {
   EVENT_DELIVERY_STATUS_BADGE,
   EVENT_DELIVERY_STATUS_LABEL,
   EVENT_DELIVERY_STATUS_OPTIONS,
+  EVENT_MESSAGE_STATUS,
+  EVENT_MESSAGE_STATUS_BADGE,
+  EVENT_MESSAGE_STATUS_LABEL,
+  EVENT_MESSAGE_STATUS_OPTIONS,
   EVENT_PERMISSION_CODE,
 } from '../constant/index.ts'
 
@@ -66,4 +70,83 @@ test('事件中心权限资源码合规性', () => {
   assert.strictEqual(EVENT_PERMISSION_CODE.SUBSCRIPTION, 'event:subscription')
   assert.strictEqual(EVENT_PERMISSION_CODE.MESSAGE, 'event:message')
   assert.strictEqual(EVENT_PERMISSION_CODE.DELIVERY, 'event:delivery')
+})
+
+test('事件消息状态常量及中文标签映射', () => {
+  assert.strictEqual(EVENT_MESSAGE_STATUS.NORMAL, 'NORMAL')
+  assert.strictEqual(EVENT_MESSAGE_STATUS.ERROR, 'ERROR')
+
+  assert.strictEqual(EVENT_MESSAGE_STATUS_LABEL['NORMAL'], '正常')
+  assert.strictEqual(EVENT_MESSAGE_STATUS_LABEL['ERROR'], '异常')
+
+  assert.strictEqual(EVENT_MESSAGE_STATUS_BADGE['NORMAL'], 'success')
+  assert.strictEqual(EVENT_MESSAGE_STATUS_BADGE['ERROR'], 'error')
+
+  assert.strictEqual(EVENT_MESSAGE_STATUS_OPTIONS.length, 2)
+  assert.strictEqual(EVENT_MESSAGE_STATUS_OPTIONS[0].value, 'NORMAL')
+  assert.strictEqual(EVENT_MESSAGE_STATUS_OPTIONS[1].value, 'ERROR')
+})
+
+test('消息分页查询参数清洗（空字符串、null、undefined 过滤，保留大写 NORMAL/ERROR）', () => {
+  // 模拟清洗逻辑
+  const sanitize = (params: Record<string, any>) => {
+    const clean: Record<string, any> = {}
+    for (const [key, value] of Object.entries(params)) {
+      if (value !== '' && value !== null && value !== undefined) {
+        clean[key] = value
+      }
+    }
+    return clean
+  }
+
+  const rawQuery = {
+    current: 1,
+    size: 10,
+    eventId: '',
+    eventType: 'order.created',
+    eventTypeId: undefined,
+    messageStatus: 'NORMAL',
+    sourceApplication: null,
+    startTime: '2026-09-17T12:00:00.000Z',
+    endTime: '',
+  }
+
+  const cleaned = sanitize(rawQuery)
+
+  assert.deepStrictEqual(cleaned, {
+    current: 1,
+    size: 10,
+    eventType: 'order.created',
+    messageStatus: 'NORMAL',
+    startTime: '2026-09-17T12:00:00.000Z',
+  })
+  assert.strictEqual('eventId' in cleaned, false)
+  assert.strictEqual('eventTypeId' in cleaned, false)
+  assert.strictEqual('sourceApplication' in cleaned, false)
+  assert.strictEqual('endTime' in cleaned, false)
+})
+
+test('消息状态业务规则：ERROR 消息不可重播且未进入投递流程', () => {
+  const canReplayDelivery = (messageStatus: string, deliveryStatus: number) => {
+    // 异常消息未进入投递流程，绝对不提供投递重试或重放
+    if (messageStatus === EVENT_MESSAGE_STATUS.ERROR) {
+      return false
+    }
+    // 正常消息仅等待重试(3)与死信(4)可重播
+    return (
+      deliveryStatus === EVENT_DELIVERY_STATUS.RETRYING ||
+      deliveryStatus === EVENT_DELIVERY_STATUS.DEAD_LETTER
+    )
+  }
+
+  // 正常消息
+  assert.strictEqual(canReplayDelivery('NORMAL', EVENT_DELIVERY_STATUS.PENDING), false)
+  assert.strictEqual(canReplayDelivery('NORMAL', EVENT_DELIVERY_STATUS.DELIVERING), false)
+  assert.strictEqual(canReplayDelivery('NORMAL', EVENT_DELIVERY_STATUS.SUCCESS), false)
+  assert.strictEqual(canReplayDelivery('NORMAL', EVENT_DELIVERY_STATUS.RETRYING), true)
+  assert.strictEqual(canReplayDelivery('NORMAL', EVENT_DELIVERY_STATUS.DEAD_LETTER), true)
+
+  // 异常消息：即使传入重试/死信状态也一律拒绝重播
+  assert.strictEqual(canReplayDelivery('ERROR', EVENT_DELIVERY_STATUS.RETRYING), false)
+  assert.strictEqual(canReplayDelivery('ERROR', EVENT_DELIVERY_STATUS.DEAD_LETTER), false)
 })
