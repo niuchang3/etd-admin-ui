@@ -206,3 +206,27 @@ export const EVENT_MESSAGE_STATUS_OPTIONS = [
   { label: '正常', value: EVENT_MESSAGE_STATUS.NORMAL },
   { label: '异常', value: EVENT_MESSAGE_STATUS.ERROR },
 ]
+
+/**
+ * AI 智能助手权限资源码
+ */
+export const AI_PERMISSION_CODE = {
+  MODEL_CONNECTION: 'ai:model-connection',
+  MODEL_CONFIG: 'ai:model-config',
+  KNOWLEDGE_FOLDER: 'ai:knowledge-folder',
+} as const
+
+export type AiPermissionCodeValue = typeof AI_PERMISSION_CODE[keyof typeof AI_PERMISSION_CODE]
+
+/**
+ * AI 模块系统字典类型编码（仅保留模型类型、接入协议、认证方式）
+ */
+export const AI_DICT_TYPE = {
+  MODEL_TYPE: 'ai_model_type',
+  MODEL_PROVIDER: 'ai_model_provider',
+  MODEL_AUTH_TYPE: 'ai_model_auth_type',
+} as const
+
+export type AiDictTypeValue = typeof AI_DICT_TYPE[keyof typeof AI_DICT_TYPE]
+
+

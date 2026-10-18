@@ -11,6 +11,7 @@ src/
 ├── components/                  # 通用 UI 展示组件
 │   ├── EllipsisText.vue         # 单行超长文本截断与 Tooltip 提示组件
 │   ├── StatusTag.vue            # 统一状态标签组件（启用/停用、锁定/正常等）
+│   ├── OrgSidebar.vue           # 通用组织架构/部门架构侧边栏树组件
 │   └── README.md                # 本使用说明文档
 ├── composables/                 # 通用业务逻辑 Hook（纯状态与副作用，不侵入模板）
 │   ├── useTablePagination.ts    # 标准 CRUD 表格分页、查询、重置与删除联动
@@ -275,6 +276,56 @@ import EllipsisText from '@/components/EllipsisText.vue'
 
 <script setup lang="ts">
 import StatusTag from '@/components/StatusTag.vue'
+</script>
+```
+
+---
+
+### 3. `<OrgSidebar />`（通用组织架构/部门架构侧栏树）
+
+统一封装了系统管理（用户管理）与 AI 模块（部门目录管理）等多个业务页面左侧高频复用的组织/部门架构树，集成搜索过滤、展开收起、顶部“全部”快捷节点、Antd 选中态保护与数据回传。
+
+#### Props
+
+| 属性名 | 类型 | 默认值 | 说明 |
+| :--- | :--- | :--- | :--- |
+| `selectedOrgId` | `string` | `''` | 当前选中的组织/部门 ID，支持 `v-model:selected-org-id` 双向绑定 |
+| `title` | `string` | `'组织架构'` | 侧栏标题，例如“组织架构”或“部门架构” |
+| `allNodeText` | `string` | `''` | 顶部全部快捷节点的文案（如“全部用户”、“全部可见目录”），留空则不显示 |
+| `allNodeIcon` | `'team' \| 'folder' \| 'none'` | `'team'` | 顶部全部节点的图标 |
+| `requestParams` | `Record<string, any>` | `undefined` | 请求组织架构树时的附加接口参数（例如 `{ enabled: true }`） |
+| `keepSelection` | `boolean` | `true` | 是否开启防取消选中逻辑（点击已选节点保持选中，防止 Antd 触发非预期清空） |
+| `width` | `string \| number` | `'230px'` | 侧边栏宽度 |
+| `autoSelectAllOnLoad` | `boolean` | `true` | 加载完成后若未选中任何组织，是否自动触发一次全部节点选中事件 |
+
+#### Events & Expose
+
+- `@select(orgId: string, orgName: string)`: 选中节点回调，提供部门 ID 和部门名称。
+- `@loaded(tree: Organization[])`: 部门树加载完成时回调原始树数据。
+- `defineExpose({ loadOrgTree, rawTree })`: 供父组件手动调用刷新或获取原始树数据。
+
+#### 使用示例
+
+```vue
+<template>
+  <OrgSidebar
+    v-model:selected-org-id="selectedOrgId"
+    title="部门架构"
+    all-node-text="全部可见目录"
+    all-node-icon="folder"
+    @select="handleOrgSelect"
+    @loaded="handleOrgTreeLoaded"
+  />
+</template>
+
+<script setup lang="ts">
+import { ref } from 'vue'
+import OrgSidebar from '@/components/OrgSidebar.vue'
+
+const selectedOrgId = ref('')
+const handleOrgSelect = (orgId: string, orgName: string) => {
+  console.log('当前选择部门:', orgId, orgName)
+}
 </script>
 ```
 

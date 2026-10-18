@@ -48,6 +48,14 @@ export default defineConfig(({mode}) => {
             changeOrigin: true,
             // 转发前移除公共代理前缀，避免后端路径重复。
             rewrite: (path) => path.replace(new RegExp('^' + env.VITE_EVENT_SERVER_BASE_API), '')
+        },
+        [env.VITE_AI_SERVER_BASE_API]:{
+            // 真实 AI 智能助手后端服务地址。
+            target: env.VITE_AI_SERVER_PROXY_TARGET,
+            // 将转发请求的 Host 改为后端目标地址。
+            changeOrigin: true,
+            // 转发前移除公共代理前缀，避免后端路径重复。
+            rewrite: (path) => path.replace(new RegExp('^' + env.VITE_AI_SERVER_BASE_API), '')
         }
       }
     }

@@ -23,11 +23,39 @@
           :custom-row="getTypeRowProps"
           row-key="id"
           size="small"
+          :scroll="{ x: 410 }"
           @change="changeTypePage"
         >
           <template #bodyCell="{ column, record }">
-            <span v-if="column.key === 'typeName'">{{ record.typeName }}</span>
-            <code v-else-if="column.key === 'typeCode'" class="code-value">{{ record.typeCode }}</code>
+            <a-tooltip
+              v-if="column.key === 'typeName'"
+              :title="activeTooltipMap['typeName_' + record.id]"
+              placement="topLeft"
+              :mouse-enter-delay="0.05"
+              :mouse-leave-delay="0.15"
+            >
+              <span
+                class="type-name-cell"
+                @mouseenter="handleCellMouseEnter($event, 'typeName_' + record.id, record.typeName)"
+              >
+                {{ record.typeName }}
+              </span>
+            </a-tooltip>
+
+            <a-tooltip
+              v-else-if="column.key === 'typeCode'"
+              :title="activeTooltipMap['typeCode_' + record.id]"
+              placement="topLeft"
+              :mouse-enter-delay="0.05"
+              :mouse-leave-delay="0.15"
+            >
+              <code
+                class="code-value type-code-cell"
+                @mouseenter="handleCellMouseEnter($event, 'typeCode_' + record.id, record.typeCode)"
+              >
+                {{ record.typeCode }}
+              </code>
+            </a-tooltip>
             <a-switch
               v-else-if="column.key === 'enabled'"
               :checked="record.enabled"
@@ -78,8 +106,48 @@
           @change="changeDataPage"
         >
           <template #bodyCell="{ column, record }">
-            <code v-if="column.key === 'dictCode'" class="code-value">{{ record.dictCode }}</code>
-            <code v-else-if="column.key === 'dictValue'" class="code-value">{{ record.dictValue }}</code>
+            <a-tooltip
+              v-if="column.key === 'dictCode'"
+              :title="activeTooltipMap['dictCode_' + record.id]"
+              placement="topLeft"
+              :mouse-enter-delay="0.05"
+              :mouse-leave-delay="0.15"
+            >
+              <code
+                class="code-value type-code-cell"
+                @mouseenter="handleCellMouseEnter($event, 'dictCode_' + record.id, record.dictCode)"
+              >
+                {{ record.dictCode }}
+              </code>
+            </a-tooltip>
+            <a-tooltip
+              v-else-if="column.key === 'dictLabel'"
+              :title="activeTooltipMap['dictLabel_' + record.id]"
+              placement="topLeft"
+              :mouse-enter-delay="0.05"
+              :mouse-leave-delay="0.15"
+            >
+              <span
+                class="type-name-cell"
+                @mouseenter="handleCellMouseEnter($event, 'dictLabel_' + record.id, record.dictLabel)"
+              >
+                {{ record.dictLabel }}
+              </span>
+            </a-tooltip>
+            <a-tooltip
+              v-else-if="column.key === 'dictValue'"
+              :title="activeTooltipMap['dictValue_' + record.id]"
+              placement="topLeft"
+              :mouse-enter-delay="0.05"
+              :mouse-leave-delay="0.15"
+            >
+              <code
+                class="code-value type-code-cell"
+                @mouseenter="handleCellMouseEnter($event, 'dictValue_' + record.id, record.dictValue)"
+              >
+                {{ record.dictValue }}
+              </code>
+            </a-tooltip>
             <span v-else-if="column.key === 'sort'">{{ record.sort ?? 0 }}</span>
             <a-switch
               v-else-if="column.key === 'enabled'"
@@ -203,6 +271,19 @@ const dataTotal = ref(0)
 const typeFormRef = ref<FormInstance>()
 const dataFormRef = ref<FormInstance>()
 
+// 仅当单元格文本真正发生溢出截断（显示...）时才激活 Tooltip 显示
+const activeTooltipMap = reactive<Record<string, string>>({})
+
+const handleCellMouseEnter = (e: MouseEvent, key: string, fullText: string) => {
+  const target = e.currentTarget as HTMLElement | null
+  // 核心判定：scrollWidth 大于 clientWidth 时说明存在实际溢出截断
+  if (target && target.scrollWidth > target.clientWidth + 0.5) {
+    activeTooltipMap[key] = fullText
+  } else {
+    activeTooltipMap[key] = ''
+  }
+}
+
 // 通用系统字典 Hook
 const { getOptions, getLabel } = useSystemDict([
   SYSTEM_DICT_TYPE.commonStatus,
@@ -222,10 +303,10 @@ const typeForm = reactive<DictTypeFormState>(emptyTypeForm())
 const dataForm = reactive<DictDataFormState>(emptyDataForm())
 
 const typeColumns: TableColumnsType<SystemDictType> = [
-  { title: '类型名称', key: 'typeName' },
-  { title: '类型编码', key: 'typeCode', width: 140 },
-  { title: '状态', key: 'enabled', width: 56, align: 'center' },
-  { title: '', key: 'actions', width: 68, align: 'center' },
+  { title: '类型名称', dataIndex: 'typeName', key: 'typeName', width: 135, ellipsis: true },
+  { title: '类型编码', dataIndex: 'typeCode', key: 'typeCode', width: 155, ellipsis: true },
+  { title: '状态', dataIndex: 'enabled', key: 'enabled', width: 56, align: 'center' },
+  { title: '', key: 'actions', width: 64, align: 'center' },
 ]
 const dataColumns: TableColumnsType<SystemDictData> = [
   { title: '字典编码', dataIndex: 'dictCode', key: 'dictCode', width: 150 },
@@ -406,18 +487,18 @@ onMounted(() => {
 </script>
 
 <style scoped>
-.dictionary-grid { display: grid; grid-template-columns: minmax(330px, 0.7fr) minmax(620px, 1.5fr); gap: var(--du-space-3); }
+.dictionary-grid { display: grid; grid-template-columns: 430px minmax(560px, 1fr); gap: var(--du-space-3); }
 .panel { min-width: 0; overflow: hidden; }
 .panel-header { display: flex; min-height: 48px; align-items: center; justify-content: space-between; gap: var(--du-space-2); padding: 0 var(--du-space-3); border-bottom: 1px solid var(--du-border); }
 .panel-header strong { font-size: 12px; }
 .panel-filters { display: flex; gap: var(--du-space-2); padding: var(--du-space-2) var(--du-space-3); border-bottom: 1px solid var(--du-border); }
 .type-panel .panel-filters :deep(.ant-input-affix-wrapper) { min-width: 0; }
-.status-select { width: 100px; flex: 0 0 100px; }
+.status-select { width: 86px; flex: 0 0 86px; }
 .data-search { max-width: 260px; }
 .current-type { display: flex; align-items: baseline; gap: var(--du-space-2); }
 .current-type span { color: var(--du-text-muted); font-size: var(--du-font-size-xs, 11px); }
-.type-name-cell { display: flex; align-items: center; gap: 5px; }
-.type-name-cell span { overflow: hidden; font-size: var(--du-font-size-sm, 12px); font-weight: var(--du-font-weight-normal, 400); text-overflow: ellipsis; white-space: nowrap; }
+.type-name-cell { display: block; width: 100%; overflow: hidden; font-size: var(--du-font-size-sm, 12px); font-weight: var(--du-font-weight-normal, 400); text-overflow: ellipsis; white-space: nowrap; line-height: 22px; color: var(--du-text); }
+.type-code-cell { display: block; width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; line-height: 22px; }
 .code-value { color: var(--du-text-secondary); font-family: var(--du-font-mono); font-size: var(--du-font-size-xs, 11px); }
 .row-actions { display: flex; justify-content: flex-end; align-items: center; }
 .type-actions { display: flex; justify-content: center; align-items: center; }
@@ -425,6 +506,7 @@ onMounted(() => {
 .readonly-label { color: var(--du-text-muted); font-size: var(--du-font-size-xs, 11px); }
 .type-panel :deep(.ant-table-tbody > tr) { cursor: pointer; }
 .type-panel :deep(.ant-table-tbody > tr.selected-type-row > td) { background: #edf3ff !important; }
+.type-panel :deep(.ant-table-cell) { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .editor-form { padding-top: var(--du-space-3); }
 .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0 var(--du-space-4); }
 .full-row { grid-column: 1 / -1; }

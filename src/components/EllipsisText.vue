@@ -1,18 +1,25 @@
 <template>
   <span class="ellipsis-text-wrapper" :style="{ maxWidth: computedMaxWidth }">
-    <a-tooltip v-if="hasContent && showTooltip" :title="displayText">
-      <span class="text-content" :class="{ 'is-muted': isMuted }">
+    <a-tooltip
+      :title="isOverflow && hasContent && showTooltip ? displayText : undefined"
+      :mouse-enter-delay="0.05"
+      :mouse-leave-delay="0.15"
+      placement="topLeft"
+    >
+      <span
+        ref="textRef"
+        class="text-content"
+        :class="{ 'is-muted': isMuted }"
+        @mouseenter="checkOverflow"
+      >
         {{ displayText }}
       </span>
     </a-tooltip>
-    <span v-else class="text-content" :class="{ 'is-muted': isMuted || !hasContent }">
-      {{ displayText }}
-    </span>
   </span>
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 
 const props = withDefaults(
   defineProps<{
@@ -30,6 +37,9 @@ const props = withDefaults(
     mutedKeyword: '暂未分配',
   }
 )
+
+const textRef = ref<HTMLElement>()
+const isOverflow = ref(false)
 
 const computedMaxWidth = computed(() => {
   if (typeof props.maxWidth === 'number') return `${props.maxWidth}px`
@@ -54,6 +64,15 @@ const showTooltip = computed(() => {
   if (!props.tooltip) return false
   return displayText.value !== props.mutedKeyword && displayText.value !== props.placeholder
 })
+
+const checkOverflow = () => {
+  const el = textRef.value
+  if (!el || !hasContent.value || displayText.value === props.placeholder) {
+    isOverflow.value = false
+    return
+  }
+  isOverflow.value = el.scrollWidth > el.clientWidth + 0.5
+}
 </script>
 
 <style scoped>

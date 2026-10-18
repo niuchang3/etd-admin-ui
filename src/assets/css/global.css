@@ -56,6 +56,28 @@ button {
   background: var(--du-bg-surface);
 }
 
+.table-panel {
+  overflow: hidden;
+}
+
+/* 标准管理页面顶部工具栏与筛选容器 */
+.page-toolbar {
+  display: flex;
+  min-height: 48px;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--du-space-3);
+  padding: var(--du-space-2) var(--du-space-3);
+  border-bottom: 1px solid var(--du-border);
+}
+
+.page-toolbar .filters {
+  display: flex;
+  align-items: center;
+  gap: var(--du-space-2);
+}
+
+
 /* 覆盖 Ant Design Vue 默认阴影与字号，保持扁平密集风格。 */
 .ant-btn,
 .ant-input,
@@ -191,4 +213,10 @@ button {
 .runtime-environment--production {
   --runtime-environment-color: #22a447;
   --runtime-environment-halo: #dcf4e3;
+}
+
+/* Tooltip 气泡文字允许选中文本进行复制，且移入时光标变为文本光标 */
+.ant-tooltip-inner {
+  user-select: text !important;
+  cursor: text;
 }

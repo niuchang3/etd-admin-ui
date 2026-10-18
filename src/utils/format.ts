@@ -21,3 +21,21 @@ export const formatDate = (val?: string | Date | null): string => {
   const dt = formatDateTime(val)
   return dt.split(' ')[0] || '—'
 }
+
+/**
+ * 格式化文件大小字节数为人类可读格式（B, KB, MB, GB）
+ * 安全兼容后端以十进制字符串形式返回的 Long 字节数
+ */
+export const formatFileSize = (bytes?: number | string | null): string => {
+  if (bytes === undefined || bytes === null || bytes === '') return '—'
+  const num = typeof bytes === 'number' ? bytes : Number(bytes)
+  if (isNaN(num) || num < 0) return '—'
+  if (num === 0) return '0 B'
+  const units = ['B', 'KB', 'MB', 'GB', 'TB']
+  const k = 1024
+  const i = Math.floor(Math.log(num) / Math.log(k))
+  const idx = Math.min(i, units.length - 1)
+  const formatted = (num / Math.pow(k, idx)).toFixed(idx === 0 ? 0 : 2)
+  return `${formatted} ${units[idx]}`
+}
+
