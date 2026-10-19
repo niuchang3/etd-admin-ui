@@ -46,14 +46,16 @@
         :pagination="pagination"
         row-key="id"
         size="small"
-        :scroll="{ x: 1040 }"
+        :scroll="{ x: 1080 }"
         @change="handleTableChange"
       >
         <template #bodyCell="{ column, record }">
           <!-- 连接名称 -->
-          <span v-if="column.key === 'connectionName'" class="entity-name-text">
-            {{ record.connectionName }}
-          </span>
+          <EllipsisText
+            v-if="column.key === 'connectionName'"
+            :text="record.connectionName"
+            max-width="150px"
+          />
 
           <!-- 接入协议 -->
           <DictTag
@@ -66,7 +68,8 @@
           <EllipsisText
             v-else-if="column.key === 'baseUrl'"
             :text="record.baseUrl"
-            max-width="260px"
+            max-width="220px"
+            class="du-mono"
           />
 
           <!-- 认证方式 -->
@@ -178,9 +181,9 @@ const statusOptions = computed(() => [
 ])
 
 const columns = computed<TableColumnsType<ModelConnectionRecord>>(() => [
-  { title: '连接名称', dataIndex: 'connectionName', key: 'connectionName', width: 160 },
-  { title: '接入协议', dataIndex: 'provider', key: 'provider', width: 130 },
-  { title: '服务地址', dataIndex: 'baseUrl', key: 'baseUrl', width: 220 },
+  { title: '连接名称', dataIndex: 'connectionName', key: 'connectionName', width: 170, ellipsis: true },
+  { title: '接入协议', dataIndex: 'provider', key: 'provider', width: 120 },
+  { title: '服务地址', dataIndex: 'baseUrl', key: 'baseUrl', width: 240, ellipsis: true },
   { title: '认证方式', dataIndex: 'authType', key: 'authType', width: 100 },
   { title: '凭证状态', dataIndex: 'credentialConfigured', key: 'credentialConfigured', width: 90 },
   { title: '状态', dataIndex: 'dataStatus', key: 'dataStatus', width: 85 },

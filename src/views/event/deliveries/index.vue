@@ -65,24 +65,34 @@
       >
         <template #bodyCell="{ column, record }">
           <!-- 事件 ID（等宽显示） -->
-          <code v-if="column.key === 'eventId'" class="code-value du-mono event-id-cell">
-            {{ record.eventId }}
-          </code>
+          <EllipsisText
+            v-if="column.key === 'eventId'"
+            :text="record.eventId"
+            max-width="200px"
+            class="code-value du-mono"
+          />
 
           <!-- 订阅名称 -->
-          <span v-else-if="column.key === 'subscriptionName'" class="entity-name-text">
-            {{ record.subscriptionName || '—' }}
-          </span>
+          <EllipsisText
+            v-else-if="column.key === 'subscriptionName'"
+            :text="record.subscriptionName || '—'"
+            max-width="160px"
+          />
 
           <!-- 订阅应用 -->
-          <span v-else-if="column.key === 'subscriberApplication'">
-            {{ record.subscriberApplication || '—' }}
-          </span>
+          <EllipsisText
+            v-else-if="column.key === 'subscriberApplication'"
+            :text="record.subscriberApplication || '—'"
+            max-width="140px"
+          />
 
           <!-- Kafka Topic -->
-          <code v-else-if="column.key === 'targetTopic'" class="code-value du-mono">
-            {{ record.targetTopic || '—' }}
-          </code>
+          <EllipsisText
+            v-else-if="column.key === 'targetTopic'"
+            :text="record.targetTopic || '—'"
+            max-width="180px"
+            class="code-value du-mono"
+          />
 
           <!-- 投递状态（集中映射 Badge） -->
           <span v-else-if="column.key === 'deliveryStatus'">
@@ -170,6 +180,7 @@ import {
 import { menusStore } from '@/stores/modules/user'
 import { useTablePagination } from '@/composables/useTablePagination'
 import { formatDateTime } from '@/utils/format'
+import EllipsisText from '@/components/EllipsisText.vue'
 import DeliveryDetailDrawer from './components/DeliveryDetailDrawer.vue'
 import DeliveryReplayModal from './components/DeliveryReplayModal.vue'
 
@@ -178,10 +189,10 @@ const canWrite = computed(() => menusStore().canWritePath(route.path))
 
 // 表格列定义
 const columns = computed<TableColumnsType<EventDeliveryRecord>>(() => [
-  { title: '事件 ID', dataIndex: 'eventId', key: 'eventId', width: 220 },
-  { title: '订阅名称', dataIndex: 'subscriptionName', key: 'subscriptionName', width: 180 },
-  { title: '订阅应用', dataIndex: 'subscriberApplication', key: 'subscriberApplication', width: 160 },
-  { title: 'Kafka Topic', dataIndex: 'targetTopic', key: 'targetTopic', width: 200 },
+  { title: '事件 ID', dataIndex: 'eventId', key: 'eventId', width: 220, ellipsis: true },
+  { title: '订阅名称', dataIndex: 'subscriptionName', key: 'subscriptionName', width: 180, ellipsis: true },
+  { title: '订阅应用', dataIndex: 'subscriberApplication', key: 'subscriberApplication', width: 160, ellipsis: true },
+  { title: 'Kafka Topic', dataIndex: 'targetTopic', key: 'targetTopic', width: 200, ellipsis: true },
   { title: '投递状态', dataIndex: 'deliveryStatus', key: 'deliveryStatus', width: 100 },
   { title: '尝试次数', dataIndex: 'attemptCount', key: 'attemptCount', width: 85 },
   { title: '更新时间', dataIndex: 'updateTime', key: 'updateTime', width: 145 },

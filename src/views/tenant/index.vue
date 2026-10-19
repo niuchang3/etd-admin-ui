@@ -81,14 +81,17 @@
         <template #bodyCell="{ column, record }">
           <!-- 租户名称 -->
           <div v-if="column.key === 'tenantName'" class="tenant-name-cell">
-            <span class="tenant-name-text" :title="record.tenantName">{{ record.tenantName }}</span>
+            <EllipsisText :text="record.tenantName" max-width="135px" />
             <a-tag v-if="isCurrentLoginTenant(record.id)" color="blue" class="current-tenant-tag">当前</a-tag>
           </div>
 
           <!-- 统一社会信用代码（等宽字体） -->
-          <code v-else-if="column.key === 'creditCode'" class="code-value du-mono">
-            {{ record.creditCode || '—' }}
-          </code>
+          <EllipsisText
+            v-else-if="column.key === 'creditCode'"
+            :text="record.creditCode || '—'"
+            max-width="155px"
+            class="code-value du-mono"
+          />
 
           <!-- 租户类型（字典翻译） -->
           <DictTag v-else-if="column.key === 'tenantType'" :type-code="SYSTEM_DICT_TYPE.tenantType" :value="record.tenantType" />
@@ -223,8 +226,8 @@ const { isCurrentLoginTenant } = useAdminAuth()
 
 // 表格列定义（完全对齐标准单行规范）
 const columns = computed<TableColumnsType<TenantRecord>>(() => [
-  { title: '租户名称', dataIndex: 'tenantName', key: 'tenantName', width: 180 },
-  { title: '统一社会信用代码', dataIndex: 'creditCode', key: 'creditCode', width: 175 },
+  { title: '租户名称', dataIndex: 'tenantName', key: 'tenantName', width: 190, ellipsis: true },
+  { title: '统一社会信用代码', dataIndex: 'creditCode', key: 'creditCode', width: 175, ellipsis: true },
   { title: '租户类型', dataIndex: 'tenantType', key: 'tenantType', width: 95 },
   { title: '租户描述', dataIndex: 'description', key: 'description', ellipsis: true },
   { title: '启用状态', dataIndex: 'dataStatus', key: 'dataStatus', width: 85 },

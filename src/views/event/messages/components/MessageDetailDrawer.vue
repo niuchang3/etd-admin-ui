@@ -145,19 +145,26 @@
           >
             <template #bodyCell="{ column, record: delivery }">
               <!-- 订阅名称 -->
-              <span v-if="column.key === 'subscriptionName'">
-                {{ delivery.subscriptionName || '—' }}
-              </span>
+              <EllipsisText
+                v-if="column.key === 'subscriptionName'"
+                :text="delivery.subscriptionName || '—'"
+                max-width="130px"
+              />
 
               <!-- 订阅应用 -->
-              <span v-else-if="column.key === 'subscriberApplication'">
-                {{ delivery.subscriberApplication || '—' }}
-              </span>
+              <EllipsisText
+                v-else-if="column.key === 'subscriberApplication'"
+                :text="delivery.subscriberApplication || '—'"
+                max-width="120px"
+              />
 
               <!-- Kafka Topic -->
-              <code v-else-if="column.key === 'targetTopic'" class="code-value du-mono">
-                {{ delivery.targetTopic || '—' }}
-              </code>
+              <EllipsisText
+                v-else-if="column.key === 'targetTopic'"
+                :text="delivery.targetTopic || '—'"
+                max-width="160px"
+                class="code-value du-mono"
+              />
 
               <!-- 投递状态 -->
               <span v-else-if="column.key === 'deliveryStatus'">
@@ -231,6 +238,7 @@ import { menusStore } from '@/stores/modules/user'
 import { formatDateTime } from '@/utils/format'
 import { confirmAction } from '@/utils/confirm'
 import JsonViewer from '@/components/JsonViewer.vue'
+import EllipsisText from '@/components/EllipsisText.vue'
 
 const props = defineProps<{
   open: boolean
@@ -251,9 +259,9 @@ const detail = ref<EventMessageDetail | null>(null)
 // 投递结果表格列：仅 NORMAL 消息附带操作列
 const deliveryColumns = computed<TableColumnsType<EventDeliveryRecord>>(() => {
   const cols: TableColumnsType<EventDeliveryRecord> = [
-    { title: '订阅名称', dataIndex: 'subscriptionName', key: 'subscriptionName', width: 150 },
-    { title: '订阅应用', dataIndex: 'subscriberApplication', key: 'subscriberApplication', width: 140 },
-    { title: 'Kafka Topic', dataIndex: 'targetTopic', key: 'targetTopic', width: 180 },
+    { title: '订阅名称', dataIndex: 'subscriptionName', key: 'subscriptionName', width: 150, ellipsis: true },
+    { title: '订阅应用', dataIndex: 'subscriberApplication', key: 'subscriberApplication', width: 140, ellipsis: true },
+    { title: 'Kafka Topic', dataIndex: 'targetTopic', key: 'targetTopic', width: 180, ellipsis: true },
     { title: '投递状态', dataIndex: 'deliveryStatus', key: 'deliveryStatus', width: 95 },
     { title: '尝试次数', dataIndex: 'attemptCount', key: 'attemptCount', width: 85 },
     { title: '发布时间', dataIndex: 'publishedAt', key: 'publishedAt', width: 140 },

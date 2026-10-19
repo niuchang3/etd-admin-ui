@@ -16,10 +16,10 @@
 
       <a-table :columns="columns" :data-source="records" :loading="loading" :pagination="pagination" row-key="id" size="small" @change="handleTableChange">
         <template #bodyCell="{ column, record }">
-          <span v-if="column.key === 'roleName'">{{ record.roleName }}</span>
-          <code v-else-if="column.key === 'roleCode'" class="code-value">{{ record.roleCode }}</code>
-          <span v-else-if="column.key === 'permissionType'">{{ getPermissionTypeLabel(record.permissionType) }}</span>
-          <EllipsisText v-else-if="column.key === 'roleDesc'" :text="record.roleDesc" max-width="260px" />
+          <EllipsisText v-if="column.key === 'roleName'" :text="record.roleName" max-width="160px" />
+          <EllipsisText v-else-if="column.key === 'roleCode'" :text="record.roleCode" max-width="170px" class="code-value du-mono" />
+          <EllipsisText v-else-if="column.key === 'permissionType'" :text="getPermissionTypeLabel(record.permissionType)" max-width="160px" />
+          <EllipsisText v-else-if="column.key === 'roleDesc'" :text="record.roleDesc" max-width="200px" />
           <a-switch
             v-else-if="column.key === 'dataStatus'"
             :checked="record.dataStatus === COMMON_STATUS.ENABLED"
@@ -264,9 +264,9 @@ const emptyForm = (): RoleFormState => ({
 const formState = reactive<RoleFormState>(emptyForm())
 
 const columns: TableColumnsType<SystemRole> = [
-  { title: '角色名称', dataIndex: 'roleName', key: 'roleName', width: 180 },
-  { title: '角色编码', dataIndex: 'roleCode', key: 'roleCode', width: 190 },
-  { title: '数据权限', dataIndex: 'permissionType', key: 'permissionType', width: 180 },
+  { title: '角色名称', dataIndex: 'roleName', key: 'roleName', width: 180, ellipsis: true },
+  { title: '角色编码', dataIndex: 'roleCode', key: 'roleCode', width: 190, ellipsis: true },
+  { title: '数据权限', dataIndex: 'permissionType', key: 'permissionType', width: 180, ellipsis: true },
   { title: '角色描述', dataIndex: 'roleDesc', key: 'roleDesc', ellipsis: true },
   { title: '状态', dataIndex: 'dataStatus', key: 'dataStatus', width: 85 },
   { title: '操作', key: 'actions', width: 240, align: 'right' },

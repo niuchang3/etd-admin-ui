@@ -88,9 +88,12 @@
       >
         <template #bodyCell="{ column, record }">
           <!-- 事件 ID（等宽显示） -->
-          <code v-if="column.key === 'eventId'" class="code-value du-mono event-id-cell">
-            {{ record.eventId }}
-          </code>
+          <EllipsisText
+            v-if="column.key === 'eventId'"
+            :text="record.eventId"
+            max-width="180px"
+            class="code-value du-mono"
+          />
 
           <!-- 原始事件类型（直接显示 eventType，不依赖类型主键反查） -->
           <span v-else-if="column.key === 'eventType'" class="event-type-cell">
@@ -99,9 +102,11 @@
           </span>
 
           <!-- 来源应用 -->
-          <span v-else-if="column.key === 'sourceApplication'">
-            {{ record.sourceApplication }}
-          </span>
+          <EllipsisText
+            v-else-if="column.key === 'sourceApplication'"
+            :text="record.sourceApplication || '—'"
+            max-width="120px"
+          />
 
           <!-- 消息版本 -->
           <code v-else-if="column.key === 'version'" class="code-value du-mono">
@@ -170,13 +175,14 @@ import {
 } from '@/constant'
 import { useTablePagination } from '@/composables/useTablePagination'
 import { formatDateTime } from '@/utils/format'
+import EllipsisText from '@/components/EllipsisText.vue'
 import MessageDetailDrawer from './components/MessageDetailDrawer.vue'
 
 // 表格列定义
 const columns = computed<TableColumnsType<EventMessageRecord>>(() => [
-  { title: '事件 ID', dataIndex: 'eventId', key: 'eventId', width: 200 },
+  { title: '事件 ID', dataIndex: 'eventId', key: 'eventId', width: 200, ellipsis: true },
   { title: '原始事件类型', dataIndex: 'eventType', key: 'eventType', width: 180, ellipsis: true },
-  { title: '来源应用', dataIndex: 'sourceApplication', key: 'sourceApplication', width: 140 },
+  { title: '来源应用', dataIndex: 'sourceApplication', key: 'sourceApplication', width: 140, ellipsis: true },
   { title: '协议版本', dataIndex: 'eventVersion', key: 'version', width: 85 },
   { title: '消息状态', dataIndex: 'messageStatus', key: 'messageStatus', width: 95 },
   { title: '失败原因', dataIndex: 'failureReason', key: 'failureReason', width: 200, ellipsis: true },

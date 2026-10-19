@@ -61,19 +61,26 @@
       >
         <template #bodyCell="{ column, record }">
           <!-- 事件名称 -->
-          <span v-if="column.key === 'eventName'" class="entity-name-text">
-            {{ record.eventName }}
-          </span>
+          <EllipsisText
+            v-if="column.key === 'eventName'"
+            :text="record.eventName"
+            max-width="150px"
+          />
 
           <!-- 事件类型编码（点分格式，等宽字体） -->
-          <code v-else-if="column.key === 'eventType'" class="code-value du-mono">
-            {{ record.eventType }}
-          </code>
+          <EllipsisText
+            v-else-if="column.key === 'eventType'"
+            :text="record.eventType"
+            max-width="200px"
+            class="code-value du-mono"
+          />
 
           <!-- 来源应用 -->
-          <span v-else-if="column.key === 'sourceApplication'" class="source-app-text">
-            {{ record.sourceApplication || '—' }}
-          </span>
+          <EllipsisText
+            v-else-if="column.key === 'sourceApplication'"
+            :text="record.sourceApplication || '—'"
+            max-width="140px"
+          />
 
           <!-- 最新协议版本 -->
           <code v-else-if="column.key === 'latestVersion'" class="code-value du-mono">
@@ -168,9 +175,9 @@ const canWrite = computed(() => menusStore().canWritePath(route.path))
 
 // 表格列定义（保证等宽、单行不换行与高度绝对齐平 34px）
 const columns = computed<TableColumnsType<EventTypeRecord>>(() => [
-  { title: '事件名称', dataIndex: 'eventName', key: 'eventName', width: 170 },
-  { title: '事件类型编码', dataIndex: 'eventType', key: 'eventType', width: 220 },
-  { title: '来源应用', dataIndex: 'sourceApplication', key: 'sourceApplication', width: 160 },
+  { title: '事件名称', dataIndex: 'eventName', key: 'eventName', width: 170, ellipsis: true },
+  { title: '事件类型编码', dataIndex: 'eventType', key: 'eventType', width: 220, ellipsis: true },
+  { title: '来源应用', dataIndex: 'sourceApplication', key: 'sourceApplication', width: 160, ellipsis: true },
   { title: '最新协议版本', dataIndex: 'latestVersion', key: 'latestVersion', width: 110 },
   { title: '事件描述', dataIndex: 'description', key: 'description', ellipsis: true },
   { title: '启用状态', dataIndex: 'enabled', key: 'enabled', width: 85 },

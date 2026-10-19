@@ -63,9 +63,9 @@
       >
         <template #bodyCell="{ column, record }">
           <!-- 分类名称 -->
-          <span v-if="column.key === 'folderName'" class="entity-name-text">
-            <FolderOutlined style="margin-right: 6px; color: #2563eb;" />
-            {{ record.folderName }}
+          <span v-if="column.key === 'folderName'" class="folder-name-cell">
+            <FolderOutlined style="margin-right: 6px; color: #2563eb; flex-shrink: 0;" />
+            <EllipsisText :text="record.folderName" max-width="190px" />
           </span>
 
           <!-- 所属部门（通过 orgId 关联展示部门名称） -->
@@ -204,9 +204,9 @@ const statusOptions = computed(() => [
 ])
 
 const columns = computed<TableColumnsType<KnowledgeFolderRecord>>(() => [
-  { title: '分类名称', dataIndex: 'folderName', key: 'folderName', width: 240 },
-  { title: '所属部门', dataIndex: 'orgId', key: 'orgId', width: 140 },
-  { title: '分类描述', dataIndex: 'description', key: 'description', width: 220 },
+  { title: '分类名称', dataIndex: 'folderName', key: 'folderName', width: 240, ellipsis: true },
+  { title: '所属部门', dataIndex: 'orgId', key: 'orgId', width: 140, ellipsis: true },
+  { title: '分类描述', dataIndex: 'description', key: 'description', width: 220, ellipsis: true },
   { title: '排序', dataIndex: 'sortOrder', key: 'sortOrder', width: 70 },
   { title: '状态', dataIndex: 'dataStatus', key: 'dataStatus', width: 80 },
   { title: '更新时间', dataIndex: 'updateTime', key: 'updateTime', width: 140 },
@@ -449,6 +449,12 @@ onMounted(() => {
 
 .status-select {
   width: 110px;
+}
+
+.folder-name-cell {
+  display: inline-flex;
+  align-items: center;
+  max-width: 100%;
 }
 
 .entity-name-text {

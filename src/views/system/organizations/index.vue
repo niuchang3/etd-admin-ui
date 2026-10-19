@@ -32,10 +32,15 @@
       >
         <template #bodyCell="{ column, record }">
           <div v-if="column.key === 'orgName'" class="org-name-cell">
-            <span>{{ record.orgName }}</span>
+            <EllipsisText :text="record.orgName" max-width="200px" />
           </div>
 
-          <code v-else-if="column.key === 'orgCode'" class="code-value">{{ record.orgCode }}</code>
+          <EllipsisText
+            v-else-if="column.key === 'orgCode'"
+            :text="record.orgCode"
+            max-width="160px"
+            class="code-value du-mono"
+          />
 
           <DictTag
             v-else-if="column.key === 'orgType'"
@@ -158,6 +163,7 @@ import { SYSTEM_DICT_TYPE } from '@/utils/SystemDict'
 import { useSystemDict } from '@/composables/useSystemDict'
 import { codeRules } from '@/utils/rules'
 import DictTag from '@/components/DictTag.vue'
+import EllipsisText from '@/components/EllipsisText.vue'
 
 interface TreeSelectOption {
   value: string
@@ -205,8 +211,8 @@ const createEmptyForm = (): OrgFormState => ({
 const formState = reactive<OrgFormState>(createEmptyForm())
 
 const columns: TableColumnsType<Organization> = [
-  { title: '组织名称', dataIndex: 'orgName', key: 'orgName', width: 250 },
-  { title: '组织编码', dataIndex: 'orgCode', key: 'orgCode', width: 180 },
+  { title: '组织名称', dataIndex: 'orgName', key: 'orgName', width: 250, ellipsis: true },
+  { title: '组织编码', dataIndex: 'orgCode', key: 'orgCode', width: 180, ellipsis: true },
   { title: '组织类型', dataIndex: 'orgType', key: 'orgType', width: 120 },
   { title: '排序', dataIndex: 'sort', key: 'sort', width: 80, align: 'center' },
   { title: '状态', dataIndex: 'enabled', key: 'enabled', width: 100 },

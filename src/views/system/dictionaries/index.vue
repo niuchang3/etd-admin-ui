@@ -309,9 +309,9 @@ const typeColumns: TableColumnsType<SystemDictType> = [
   { title: '', key: 'actions', width: 64, align: 'center' },
 ]
 const dataColumns: TableColumnsType<SystemDictData> = [
-  { title: '字典编码', dataIndex: 'dictCode', key: 'dictCode', width: 150 },
-  { title: '字典标签', dataIndex: 'dictLabel', key: 'dictLabel', width: 140 },
-  { title: '字典值', dataIndex: 'dictValue', key: 'dictValue' },
+  { title: '字典编码', dataIndex: 'dictCode', key: 'dictCode', width: 150, ellipsis: true },
+  { title: '字典标签', dataIndex: 'dictLabel', key: 'dictLabel', width: 140, ellipsis: true },
+  { title: '字典值', dataIndex: 'dictValue', key: 'dictValue', ellipsis: true },
   { title: '排序', dataIndex: 'sort', key: 'sort', width: 65, align: 'center' },
   { title: '状态', dataIndex: 'enabled', key: 'enabled', width: 85 },
   { title: '操作', key: 'actions', width: 140, align: 'right' },

@@ -138,6 +138,7 @@ button {
   font-size: var(--du-font-size-sm, 12px);
   font-weight: var(--du-font-weight-normal, 400);
   box-sizing: border-box;
+  white-space: nowrap;
 }
 
 /* 无论是否有横滚与固定列，固定列单元格与主表单元格高度绝对齐平 */

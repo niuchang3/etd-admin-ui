@@ -32,9 +32,10 @@
         @change="handleTableChange"
       >
         <template #bodyCell="{ column, record }">
-          <code v-if="column.key === 'parameterKey'" class="code-value">{{ record.parameterKey }}</code>
+          <EllipsisText v-if="column.key === 'parameterKey'" :text="record.parameterKey" max-width="190px" class="code-value du-mono" />
+          <EllipsisText v-else-if="column.key === 'parameterName'" :text="record.parameterName" max-width="140px" />
           <DictTag v-else-if="column.key === 'valueType'" :type-code="SYSTEM_DICT_TYPE.configValueType" :value="record.valueType" color="blue" />
-          <EllipsisText v-else-if="column.key === 'parameterValue'" :text="record.parameterValue" max-width="260px" />
+          <EllipsisText v-else-if="column.key === 'parameterValue'" :text="record.parameterValue" max-width="220px" class="du-mono" />
           <DictTag
             v-else-if="column.key === 'builtIn'"
             :type-code="SYSTEM_DICT_TYPE.commonBuiltIn"
@@ -206,9 +207,9 @@ const createEmptyForm = (): ConfigFormState => ({
 const formState = reactive<ConfigFormState>(createEmptyForm())
 
 const columns: TableColumnsType<SystemConfig> = [
-  { title: '参数键', dataIndex: 'parameterKey', key: 'parameterKey', width: 210 },
-  { title: '参数名称', dataIndex: 'parameterName', key: 'parameterName', width: 160 },
-  { title: '参数值', dataIndex: 'parameterValue', key: 'parameterValue' },
+  { title: '参数键', dataIndex: 'parameterKey', key: 'parameterKey', width: 210, ellipsis: true },
+  { title: '参数名称', dataIndex: 'parameterName', key: 'parameterName', width: 160, ellipsis: true },
+  { title: '参数值', dataIndex: 'parameterValue', key: 'parameterValue', ellipsis: true },
   { title: '类型', dataIndex: 'valueType', key: 'valueType', width: 90 },
   { title: '来源', dataIndex: 'builtIn', key: 'builtIn', width: 80 },
   { title: '状态', dataIndex: 'enabled', key: 'enabled', width: 85 },

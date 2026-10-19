@@ -30,20 +30,33 @@
         <template #bodyCell="{ column, record }">
           <div v-if="column.key === 'menuName'" class="menu-name-cell">
             <component :is="resolveMenuIcon(record.menuIcon)" />
-            <span>{{ record.menuName || '未命名菜单' }}</span>
+            <EllipsisText :text="record.menuName || '未命名菜单'" max-width="170px" />
           </div>
 
           <span v-else-if="column.key === 'menuType'" class="type-label">
             {{ getMenuTypeLabel(record) }}
           </span>
 
-          <code v-else-if="column.key === 'menuPath'" class="route-value">
-            {{ record.menuPath || '—' }}
-          </code>
+          <EllipsisText
+            v-else-if="column.key === 'menuPath'"
+            :text="record.menuPath || '—'"
+            max-width="160px"
+            class="route-value du-mono"
+          />
 
-          <code v-else-if="column.key === 'menuRouter'" class="route-value">{{ record.menuRouter || '—' }}</code>
+          <EllipsisText
+            v-else-if="column.key === 'menuRouter'"
+            :text="record.menuRouter || '—'"
+            max-width="200px"
+            class="route-value du-mono"
+          />
 
-          <code v-else-if="column.key === 'permissionCode'" class="route-value">{{ record.permissionCode || '—' }}</code>
+          <EllipsisText
+            v-else-if="column.key === 'permissionCode'"
+            :text="record.permissionCode || '—'"
+            max-width="120px"
+            class="route-value du-mono"
+          />
 
           <a-switch
             v-else-if="column.key === 'dataStatus'"
@@ -174,6 +187,7 @@ import { SYSTEM_DICT_TYPE } from '@/utils/SystemDict'
 import { DEFAULT_MENU_ICON, MENU_TYPE } from '@/constant'
 import { useSystemDict } from '@/composables/useSystemDict'
 import { requiredRule } from '@/utils/rules'
+import EllipsisText from '@/components/EllipsisText.vue'
 
 interface TreeSelectOption {
   value: string
@@ -237,11 +251,11 @@ watch(() => formState.menuType, (newType) => {
 })
 
 const columns: TableColumnsType<MenuDetail> = [
-  { title: '菜单名称', dataIndex: 'menuName', key: 'menuName', width: 230 },
+  { title: '菜单名称', dataIndex: 'menuName', key: 'menuName', width: 230, ellipsis: true },
   { title: '类型', dataIndex: 'menuType', key: 'menuType', width: 80 },
-  { title: '访问路径', dataIndex: 'menuPath', key: 'menuPath', width: 180 },
-  { title: '组件地址', dataIndex: 'menuRouter', key: 'menuRouter', width: 220 },
-  { title: '资源权限码', dataIndex: 'permissionCode', key: 'permissionCode', width: 140 },
+  { title: '访问路径', dataIndex: 'menuPath', key: 'menuPath', width: 180, ellipsis: true },
+  { title: '组件地址', dataIndex: 'menuRouter', key: 'menuRouter', width: 220, ellipsis: true },
+  { title: '资源权限码', dataIndex: 'permissionCode', key: 'permissionCode', width: 140, ellipsis: true },
   { title: '排序', dataIndex: 'sort', key: 'sort', width: 70, align: 'center' },
   { title: '状态', dataIndex: 'dataStatus', key: 'dataStatus', width: 80 },
   { title: '操作', key: 'actions', width: 250, align: 'center' },

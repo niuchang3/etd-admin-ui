@@ -55,19 +55,23 @@
         :pagination="pagination"
         row-key="id"
         size="small"
-        :scroll="{ x: 1140 }"
+        :scroll="{ x: 1200 }"
         @change="handleTableChange"
       >
         <template #bodyCell="{ column, record }">
           <!-- 模型名称 -->
-          <span v-if="column.key === 'modelName'" class="entity-name-text">
-            {{ record.modelName }}
-          </span>
+          <EllipsisText
+            v-if="column.key === 'modelName'"
+            :text="record.modelName"
+            max-width="150px"
+          />
 
           <!-- 所属连接 -->
-          <span v-else-if="column.key === 'connectionName'" class="connection-text">
-            {{ record.connectionName || record.connectionId || '—' }}
-          </span>
+          <EllipsisText
+            v-else-if="column.key === 'connectionName'"
+            :text="record.connectionName || record.connectionId || '—'"
+            max-width="120px"
+          />
 
           <!-- 模型类型 -->
           <DictTag
@@ -77,9 +81,12 @@
           />
 
           <!-- 模型标识 -->
-          <code v-else-if="column.key === 'modelCode'" class="code-value du-mono">
-            {{ record.modelCode }}
-          </code>
+          <EllipsisText
+            v-else-if="column.key === 'modelCode'"
+            :text="record.modelCode"
+            max-width="160px"
+            class="code-value du-mono"
+          />
 
           <!-- 向量维度（只读展示，当前为空，实测后填写） -->
           <span v-else-if="column.key === 'embeddingDimensions'" class="du-mono">
@@ -188,10 +195,10 @@ const statusOptions = computed(() => [
 ])
 
 const columns = computed<TableColumnsType<ModelConfigRecord>>(() => [
-  { title: '模型名称', dataIndex: 'modelName', key: 'modelName', width: 160 },
-  { title: '所属连接', dataIndex: 'connectionName', key: 'connectionName', width: 140 },
+  { title: '模型名称', dataIndex: 'modelName', key: 'modelName', width: 170, ellipsis: true },
+  { title: '所属连接', dataIndex: 'connectionName', key: 'connectionName', width: 140, ellipsis: true },
   { title: '模型类型', dataIndex: 'modelType', key: 'modelType', width: 120 },
-  { title: '模型标识', dataIndex: 'modelCode', key: 'modelCode', width: 180 },
+  { title: '模型标识', dataIndex: 'modelCode', key: 'modelCode', width: 180, ellipsis: true },
   { title: '向量维度', dataIndex: 'embeddingDimensions', key: 'embeddingDimensions', width: 90 },
   { title: '验证状态', dataIndex: 'verified', key: 'verified', width: 110 },
   { title: '状态', dataIndex: 'dataStatus', key: 'dataStatus', width: 85 },

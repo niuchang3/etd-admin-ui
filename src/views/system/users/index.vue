@@ -71,22 +71,36 @@
       >
         <template #bodyCell="{ column, record }">
           <!-- 账号 -->
-          <code v-if="column.key === 'account'" class="code-value du-mono">{{ record.account }}</code>
+          <EllipsisText
+            v-if="column.key === 'account'"
+            :text="record.account"
+            max-width="100px"
+            class="code-value du-mono"
+          />
 
           <!-- 姓名 -->
-          <span v-else-if="column.key === 'userName'" class="user-name-cell">
-            {{ record.userName || '—' }}
-          </span>
+          <EllipsisText
+            v-else-if="column.key === 'userName'"
+            :text="record.userName || '—'"
+            max-width="80px"
+            class="user-name-cell"
+          />
 
           <!-- 昵称 -->
-          <span v-else-if="column.key === 'nickName'" class="text-secondary">
-            {{ record.nickName || '—' }}
-          </span>
+          <EllipsisText
+            v-else-if="column.key === 'nickName'"
+            :text="record.nickName || '—'"
+            max-width="85px"
+            class="text-secondary"
+          />
 
           <!-- 手机号 -->
-          <span v-else-if="column.key === 'mobile'" class="code-value du-mono">
-            {{ record.mobile || '—' }}
-          </span>
+          <EllipsisText
+            v-else-if="column.key === 'mobile'"
+            :text="record.mobile || '—'"
+            max-width="100px"
+            class="code-value du-mono"
+          />
 
           <!-- 分配角色（通用 EllipsisText 组件） -->
           <EllipsisText
@@ -279,10 +293,10 @@ const getAdminStatus = getUserProtection
 
 // 表格列定义（完全对齐标准单行流式规范与操作列宽度）
 const columns = computed<TableColumnsType<UserRecord>>(() => [
-  { title: '登录账号', dataIndex: 'account', key: 'account', width: 110 },
-  { title: '用户姓名', dataIndex: 'userName', key: 'userName', width: 85 },
+  { title: '登录账号', dataIndex: 'account', key: 'account', width: 110, ellipsis: true },
+  { title: '用户姓名', dataIndex: 'userName', key: 'userName', width: 90, ellipsis: true },
   { title: '昵称', dataIndex: 'nickName', key: 'nickName', width: 90, ellipsis: true },
-  { title: '手机号码', dataIndex: 'mobile', key: 'mobile', width: 110 },
+  { title: '手机号码', dataIndex: 'mobile', key: 'mobile', width: 110, ellipsis: true },
   { title: '分配角色', dataIndex: 'roleNames', key: 'roleNames', ellipsis: true },
   { title: '所属组织', dataIndex: 'organizationNames', key: 'organizationNames', ellipsis: true },
   { title: '启用状态', dataIndex: 'enabled', key: 'enabled', width: 80 },

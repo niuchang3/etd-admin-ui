@@ -72,9 +72,11 @@
       >
         <template #bodyCell="{ column, record }">
           <!-- 订阅名称 -->
-          <span v-if="column.key === 'subscriptionName'" class="entity-name-text">
-            {{ record.subscriptionName }}
-          </span>
+          <EllipsisText
+            v-if="column.key === 'subscriptionName'"
+            :text="record.subscriptionName"
+            max-width="160px"
+          />
 
           <!-- 所属事件类型 -->
           <span v-else-if="column.key === 'eventType'" class="event-type-text">
@@ -82,14 +84,19 @@
           </span>
 
           <!-- 订阅应用 -->
-          <span v-else-if="column.key === 'subscriberApplication'">
-            {{ record.subscriberApplication || '—' }}
-          </span>
+          <EllipsisText
+            v-else-if="column.key === 'subscriberApplication'"
+            :text="record.subscriberApplication || '—'"
+            max-width="140px"
+          />
 
           <!-- Kafka Topic -->
-          <code v-else-if="column.key === 'targetTopic'" class="code-value du-mono">
-            {{ record.targetTopic || '—' }}
-          </code>
+          <EllipsisText
+            v-else-if="column.key === 'targetTopic'"
+            :text="record.targetTopic || '—'"
+            max-width="180px"
+            class="code-value du-mono"
+          />
 
           <!-- 启用状态（标准 Switch 开关） -->
           <a-switch
@@ -169,6 +176,7 @@ import { menusStore } from '@/stores/modules/user'
 import { useTablePagination } from '@/composables/useTablePagination'
 import { formatDateTime } from '@/utils/format'
 import { confirmAction } from '@/utils/confirm'
+import EllipsisText from '@/components/EllipsisText.vue'
 import SubscriptionModal from './components/SubscriptionModal.vue'
 
 const route = useRoute()
@@ -176,10 +184,10 @@ const canWrite = computed(() => menusStore().canWritePath(route.path))
 
 // 表格列定义
 const columns = computed<TableColumnsType<EventSubscriptionRecord>>(() => [
-  { title: '订阅名称', dataIndex: 'subscriptionName', key: 'subscriptionName', width: 180 },
+  { title: '订阅名称', dataIndex: 'subscriptionName', key: 'subscriptionName', width: 180, ellipsis: true },
   { title: '事件类型', dataIndex: 'eventType', key: 'eventType', width: 220, ellipsis: true },
-  { title: '订阅应用', dataIndex: 'subscriberApplication', key: 'subscriberApplication', width: 160 },
-  { title: 'Kafka Topic', dataIndex: 'targetTopic', key: 'targetTopic', width: 220 },
+  { title: '订阅应用', dataIndex: 'subscriberApplication', key: 'subscriberApplication', width: 160, ellipsis: true },
+  { title: 'Kafka Topic', dataIndex: 'targetTopic', key: 'targetTopic', width: 220, ellipsis: true },
   { title: '状态', dataIndex: 'enabled', key: 'enabled', width: 85 },
   { title: '更新时间', dataIndex: 'updateTime', key: 'updateTime', width: 145 },
   { title: '操作', key: 'actions', width: 120, fixed: 'right', align: 'right' },
