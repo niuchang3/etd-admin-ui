@@ -15,8 +15,14 @@ const router = createRouter({
       path: '/',
       name: 'admin',
       component: AdminView,
-      redirect: '/no-permission',
+      redirect: '/dashboard',
       children: [
+        {
+          path: 'dashboard',
+          name: 'dashboard',
+          component: () => import('@/views/dashboard/index.vue'),
+          meta: { title: '首页', menuCode: 'ai:model-square' },
+        },
         {
           path: 'no-permission',
           name: 'no-permission',
@@ -84,7 +90,7 @@ export const syncDynamicRoutes = (menus: UserMenu[]) => {
 router.beforeEach(async (to) => {
   const hasSession = Boolean(getAccessToken() || getRefreshToken())
   if (!to.meta.public && !hasSession) return { name: 'login', query: { redirect: to.fullPath } }
-  if (to.name === 'login') return hasSession ? { path: '/' } : true
+  if (to.name === 'login') return hasSession ? { path: '/dashboard' } : true
   if (!hasSession) return true
 
   if (!dynamicRoutesReady) {
@@ -97,9 +103,9 @@ router.beforeEach(async (to) => {
         userStore().getUserInfo(),
         userStore().getUserRoles(),
       ])
-      const firstPath = menusStore().firstReadablePath()
-      if (!menus.length || !firstPath) return { name: 'no-permission', replace: true }
-      if (to.name === 'no-permission' || to.name === 'not-found') {
+      const firstPath = menusStore().firstReadablePath() || '/dashboard'
+      if (!menus.length && !firstPath) return { name: 'no-permission', replace: true }
+      if (to.name === 'no-permission' || to.name === 'not-found' || to.path === '/' || to.name === 'admin') {
         const target = firstPath.startsWith('/') ? firstPath : `/${firstPath}`
         return { path: target, replace: true }
       }
@@ -108,6 +114,15 @@ router.beforeEach(async (to) => {
       return true
     }
   }
+
+  // 动态路由就绪后，访问根路径 / 或 admin 时，默认进入首页 /dashboard
+  if (to.path === '/' || to.name === 'admin') {
+    const { menusStore } = await import('@/stores/modules/user')
+    const firstPath = menusStore().firstReadablePath() || '/dashboard'
+    const target = firstPath.startsWith('/') ? firstPath : `/${firstPath}`
+    return { path: target, replace: true }
+  }
+
   return true
 })
 

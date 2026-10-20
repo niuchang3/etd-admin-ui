@@ -152,7 +152,27 @@ export const menusStore = defineStore('menus', () => {
     const menu = findByPath(path)
     return Boolean(menu && canWriteMenu(menu))
   }
-  const firstReadablePath = () => rawMenus.value.find((menu) => canReadMenu(menu) && menu.menuPath)?.menuPath || null
+  const firstReadablePath = () => {
+    const dashboard = rawMenus.value.find(
+      (menu) =>
+        canReadMenu(menu) &&
+        ((menu.menuPath &&
+          (menu.menuPath.trim() === '/dashboard' ||
+            menu.menuPath.trim() === 'dashboard' ||
+            menu.menuRouter?.includes('dashboard'))) ||
+          menu.permissionCode === 'ai:model-square')
+    )
+    if (dashboard?.menuPath) {
+      const p = dashboard.menuPath.trim()
+      return p.startsWith('/') ? p : `/${p}`
+    }
+    const first = rawMenus.value.find((menu) => canReadMenu(menu) && menu.menuPath)?.menuPath
+    if (first) {
+      const p = first.trim()
+      return p.startsWith('/') ? p : `/${p}`
+    }
+    return '/dashboard'
+  }
   const $reset = () => {
     rawMenus.value = []
     menus.value = []

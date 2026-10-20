@@ -211,22 +211,22 @@ export const EVENT_MESSAGE_STATUS_OPTIONS = [
  * AI 智能助手权限资源码
  */
 export const AI_PERMISSION_CODE = {
-  MODEL_CONNECTION: 'ai:model-connection',
-  MODEL_CONFIG: 'ai:model-config',
+  MODEL: 'ai:model',
+  MODEL_SQUARE: 'ai:model-square',
   KNOWLEDGE_FOLDER: 'ai:knowledge-folder',
 } as const
 
 export type AiPermissionCodeValue = typeof AI_PERMISSION_CODE[keyof typeof AI_PERMISSION_CODE]
 
 /**
- * AI 模块系统字典类型编码（仅保留模型类型、接入协议、认证方式）
+ * AI 模块系统字典类型编码（服务商、模型类型、接入协议、认证方式、向量维度）
  */
 export const AI_DICT_TYPE = {
-  MODEL_TYPE: 'ai_model_type',
   MODEL_PROVIDER: 'ai_model_provider',
+  MODEL_TYPE: 'ai_model_type',
+  MODEL_PROTOCOL: 'ai_model_protocol',
   MODEL_AUTH_TYPE: 'ai_model_auth_type',
+  EMBEDDING_DIMENSION: 'ai_embedding_dimension',
 } as const
 
 export type AiDictTypeValue = typeof AI_DICT_TYPE[keyof typeof AI_DICT_TYPE]
-
-

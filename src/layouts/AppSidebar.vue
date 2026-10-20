@@ -1,7 +1,7 @@
 <template>
   <!-- 应用侧栏从当前租户的菜单接口读取树形导航。 -->
   <aside class="sidebar" :class="{ 'is-collapsed': collapsed }">
-    <div class="brand">
+    <div class="brand brand-clickable" @click="handleBrandClick">
       <img
         v-if="configStore.branding.logo && !logoError"
         :src="configStore.branding.logo"
@@ -141,6 +141,11 @@ const handleMenuClick: MenuProps['onClick'] = ({ key }) => {
   if (targetPath) void router.push(targetPath)
 }
 
+const handleBrandClick = () => {
+  const home = currentMenus.firstReadablePath() || '/dashboard'
+  void router.push(home.startsWith('/') ? home : `/${home}`)
+}
+
 // 登录流程通常已经获取菜单；刷新页面且本地没有菜单时在此补充请求。
 onMounted(() => {
   if (!currentMenus.menus.length) void loadMenus()
@@ -172,6 +177,11 @@ onMounted(() => {
   gap: var(--du-space-2);
   padding: 0 var(--du-space-3);
   border-bottom: 1px solid var(--du-sidebar-border);
+}
+
+.brand-clickable {
+  cursor: pointer;
+  user-select: none;
 }
 
 .brand-logo-img {
