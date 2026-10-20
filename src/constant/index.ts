@@ -214,6 +214,7 @@ export const AI_PERMISSION_CODE = {
   MODEL: 'ai:model',
   MODEL_SQUARE: 'ai:model-square',
   KNOWLEDGE_FOLDER: 'ai:knowledge-folder',
+  KNOWLEDGE_DOCUMENT: 'ai:knowledge-document',
 } as const
 
 export type AiPermissionCodeValue = typeof AI_PERMISSION_CODE[keyof typeof AI_PERMISSION_CODE]
@@ -230,3 +231,22 @@ export const AI_DICT_TYPE = {
 } as const
 
 export type AiDictTypeValue = typeof AI_DICT_TYPE[keyof typeof AI_DICT_TYPE]
+
+/** 知识资料协议状态；展示标签统一来自 UPMS 字典。 */
+export const KNOWLEDGE_UPLOAD_STATUS = {
+  INITIALIZING: 'initializing', UPLOADING: 'uploading', COMPLETING: 'completing',
+  COMPLETED: 'completed', FAILED: 'failed', CANCELLED: 'cancelled',
+} as const
+export const KNOWLEDGE_PROCESSING_STATUS = {
+  UPLOADED: 'uploaded', PENDING: 'pending', PARSING: 'parsing', PREVIEW: 'preview',
+  EMBEDDING: 'embedding', READY: 'ready', FAILED: 'failed',
+} as const
+export const KNOWLEDGE_RETRIEVAL_MODE = {
+  KEYWORD: 'keyword', VECTOR: 'vector', HYBRID: 'hybrid',
+} as const
+export const KNOWLEDGE_DICT_TYPE = {
+  UPLOAD_STATUS: 'ai_knowledge_upload_status',
+  PROCESSING_STATUS: 'ai_knowledge_processing_status',
+  RETRIEVAL_MODE: 'ai_knowledge_retrieval_mode',
+} as const
+export const KNOWLEDGE_UPLOAD_CONFIG_KEY = 'ai.knowledge.upload'

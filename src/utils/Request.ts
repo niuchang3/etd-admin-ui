@@ -43,10 +43,10 @@ instance.interceptors.request.use((config: InternalAxiosRequestConfig) => {
     config.headers[HTTP_HEADER.DEVICE_ID] = getDeviceId();
     config.headers[HTTP_HEADER.DEVICE_FINGERPRINT] = getDeviceFingerprint();
 
-    // 动态应用全局网络策略中的请求超时配置（未配置或异常时保持默认 5000ms）
+    // 默认请求应用全局网络策略；显式长超时（如资料合并、解析、索引）优先。
     try {
         const timeoutMs = useSystemConfigStore().network?.request?.timeoutMs;
-        if (typeof timeoutMs === 'number' && timeoutMs > 0) {
+        if (typeof timeoutMs === 'number' && timeoutMs > 0 && config.timeout === instance.defaults.timeout) {
             config.timeout = timeoutMs;
         }
     } catch {
