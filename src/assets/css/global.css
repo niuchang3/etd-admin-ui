@@ -87,6 +87,48 @@ button {
   font-size: var(--du-font-size-base, 12px) !important;
 }
 
+/* 覆盖全局树形控件字号，对齐方案 C 12px 微型字规范 */
+.ant-tree,
+.ant-tree .ant-tree-node-content-wrapper,
+.ant-tree .ant-tree-title {
+  font-size: var(--du-font-size-sm, 12px) !important;
+}
+
+/* 覆盖下拉树弹层字号 */
+.ant-tree-select-dropdown,
+.ant-tree-select-dropdown .ant-select-tree {
+  font-size: var(--du-font-size-sm, 12px) !important;
+}
+
+/* 覆盖描述列表与表单标签字号 */
+.ant-descriptions-item-label,
+.ant-descriptions-item-content {
+  font-size: var(--du-font-size-sm, 12px) !important;
+}
+
+.ant-form-item-label > label {
+  font-size: var(--du-font-size-sm, 12px) !important;
+}
+
+/* 覆盖空状态描述文字与分页器字号 */
+.ant-empty-description {
+  font-size: var(--du-font-size-sm, 12px) !important;
+}
+
+.ant-pagination,
+.ant-pagination-total-text,
+.ant-pagination-item,
+.ant-pagination-item-link {
+  font-size: var(--du-font-size-sm, 12px) !important;
+}
+
+/* 覆盖 Modal / Drawer 标题字号对齐 --du-font-size-md (13px) */
+.ant-modal-header .ant-modal-title,
+.ant-drawer-header .ant-drawer-title {
+  font-size: var(--du-font-size-md, 13px) !important;
+  font-weight: var(--du-font-weight-semibold, 600) !important;
+}
+
 /* 全局按钮样式：统一图标与文字垂直水平严格居中，清除行高和垂直对齐偏移 */
 .ant-btn {
   display: inline-flex !important;
