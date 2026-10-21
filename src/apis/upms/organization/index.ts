@@ -8,9 +8,13 @@ const ORG_API = '/upms/api/v1/organization'
 export const getOrganizationTree = (params?: { keyword?: string; enabled?: boolean }) =>
   request.get<ResultModel<Organization[]>>({ url: `${ORG_API}/tree`, params })
 
-/** 查询组织详情 */
+/** 查询组织详情（组织管理菜单专用） */
 export const getOrganizationDetail = (id: string) =>
   request.get<ResultModel<Organization | null>>({ url: `${ORG_API}/${id}` })
+
+/** 跨菜单查询组织部门回显信息（GET /v1/organization/lookup/{id}，无需组织管理菜单权限） */
+export const getOrganizationLookup = (id: string) =>
+  request.get<ResultModel<Organization | null>>({ url: `${ORG_API}/lookup/${encodeURIComponent(id)}` })
 
 /** 新增组织 */
 export const createOrganization = (data: OrganizationSaveRequest) =>

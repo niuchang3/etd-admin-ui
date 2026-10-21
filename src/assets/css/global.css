@@ -110,6 +110,18 @@ button {
   font-size: var(--du-font-size-sm, 12px) !important;
 }
 
+/* 紧凑表单项间距与辅助提示文本规范 */
+.ant-form-item {
+  margin-bottom: 16px !important;
+}
+
+.ant-form-item-explain,
+.ant-form-item-extra {
+  font-size: var(--du-font-size-xs, 11px) !important;
+  min-height: 18px !important;
+  line-height: 18px !important;
+}
+
 /* 覆盖空状态描述文字与分页器字号 */
 .ant-empty-description {
   font-size: var(--du-font-size-sm, 12px) !important;
@@ -122,11 +134,115 @@ button {
   font-size: var(--du-font-size-sm, 12px) !important;
 }
 
-/* 覆盖 Modal / Drawer 标题字号对齐 --du-font-size-md (13px) */
+/* 覆盖 Modal / Drawer 标题字号与内容区紧凑内边距 */
 .ant-modal-header .ant-modal-title,
 .ant-drawer-header .ant-drawer-title {
   font-size: var(--du-font-size-md, 13px) !important;
   font-weight: var(--du-font-weight-semibold, 600) !important;
+}
+
+.ant-modal-body,
+.ant-drawer-body {
+  padding: var(--du-space-4, 16px) !important;
+}
+
+/* 覆盖 Popconfirm 与 Popover 气泡弹层字号与按钮尺寸 */
+.ant-popover-inner {
+  padding: var(--du-space-2, 8px) var(--du-space-3, 12px) !important;
+  font-size: var(--du-font-size-sm, 12px) !important;
+}
+
+.ant-popconfirm-message-text {
+  font-size: var(--du-font-size-sm, 12px) !important;
+}
+
+.ant-popconfirm-buttons .ant-btn {
+  height: 24px !important;
+  font-size: var(--du-font-size-sm, 12px) !important;
+  padding: 0 var(--du-space-2, 8px) !important;
+}
+
+/* 覆盖 Dropdown 与 Menu 下拉菜单字号与紧凑菜单项高度 */
+.ant-dropdown-menu {
+  padding: 4px !important;
+  font-size: var(--du-font-size-sm, 12px) !important;
+}
+
+.ant-dropdown-menu-item,
+.ant-dropdown-menu-submenu-title {
+  padding: 4px 8px !important;
+  min-height: 28px !important;
+  font-size: var(--du-font-size-sm, 12px) !important;
+  line-height: 20px !important;
+  border-radius: var(--du-radius-sm, 3px) !important;
+}
+
+/* 覆盖 Alert 警告提示框字号与内边距 */
+.ant-alert {
+  padding: 6px 10px !important;
+  font-size: var(--du-font-size-sm, 12px) !important;
+  border-radius: var(--du-radius-sm, 3px) !important;
+}
+
+.ant-alert-message,
+.ant-alert-description {
+  font-size: var(--du-font-size-sm, 12px) !important;
+  line-height: 1.45 !important;
+}
+
+/* 覆盖 Checkbox 与 Radio 单选/多选字号与精致紧凑尺寸 */
+.ant-checkbox-wrapper,
+.ant-radio-wrapper {
+  font-size: var(--du-font-size-sm, 12px) !important;
+  align-items: center;
+}
+
+.ant-checkbox-inner,
+.ant-radio-inner {
+  width: 14px !important;
+  height: 14px !important;
+}
+
+/* 覆盖 Tabs 选项卡字号与紧凑导航栏 */
+.ant-tabs-nav .ant-tabs-tab {
+  padding: 6px 12px !important;
+  font-size: var(--du-font-size-sm, 12px) !important;
+}
+
+.ant-tabs-nav .ant-tabs-tab-btn {
+  font-size: var(--du-font-size-sm, 12px) !important;
+}
+
+/* 全局 Tag 标签紧凑标准：高度 20px、文字 11.5px、微小圆角，消除外边距侵占 */
+.ant-tag {
+  height: 20px !important;
+  line-height: 18px !important;
+  font-size: var(--du-font-size-xs, 11px) !important;
+  border-radius: var(--du-radius-sm, 3px) !important;
+  padding: 0 6px !important;
+  margin-inline-end: var(--du-space-1, 4px) !important;
+}
+
+/* 覆盖 Card 面板头部与内边距 */
+.ant-card-head {
+  min-height: 36px !important;
+  padding: 0 var(--du-space-3, 12px) !important;
+}
+
+.ant-card-head-title {
+  font-size: var(--du-font-size-md, 13px) !important;
+  font-weight: var(--du-font-weight-semibold, 600) !important;
+}
+
+.ant-card-body {
+  padding: var(--du-space-3, 12px) !important;
+}
+
+/* 覆盖 DatePicker 日历弹层字号 */
+.ant-picker-panel,
+.ant-picker-content th,
+.ant-picker-content td {
+  font-size: var(--du-font-size-sm, 12px) !important;
 }
 
 /* 全局按钮样式：统一图标与文字垂直水平严格居中，清除行高和垂直对齐偏移 */

@@ -7,6 +7,7 @@ export type ProcessingStatus = 'uploaded' | 'pending' | 'parsing' | 'preview' | 
 export type RetrievalMode = 'keyword' | 'vector' | 'hybrid'
 export interface KnowledgeDocumentQuery extends PageRequest {
   folderId?: string
+  folderIds?: string[]
   keyword?: string
   uploadStatus?: UploadStatus
   processingStatus?: ProcessingStatus

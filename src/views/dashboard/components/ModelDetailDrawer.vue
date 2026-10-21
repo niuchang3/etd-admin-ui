@@ -115,9 +115,6 @@
                 密钥已配置，不回显明文；留空保留原密钥。
               </template>
             </a-form-item>
-            <a-form-item label="备注" name="remark">
-              <a-textarea v-model:value="formData.remark" placeholder="请输入备注（可选）" :rows="2" :maxlength="200" show-count />
-            </a-form-item>
           </a-form>
         </section>
       </div>
@@ -157,7 +154,7 @@
 
 <script setup lang="ts">
 import { computed, nextTick, reactive, ref, watch } from 'vue'
-import { message } from 'ant-design-vue'
+import { message, Modal } from 'ant-design-vue'
 import type { FormInstance, Rule } from 'ant-design-vue/es/form'
 import {
   createSquareConnection,
@@ -168,7 +165,12 @@ import {
   updateSquareConnection,
   updateSquareConnectionStatus,
 } from '@/apis/ai/square'
-import type { SquareConnectionRecord, SquareModelRecord } from '@/apis/ai/square/type'
+import type {
+  SquareConnectionCreateDTO,
+  SquareConnectionRecord,
+  SquareConnectionUpdateDTO,
+  SquareModelRecord,
+} from '@/apis/ai/square/type'
 import DictSelect from '@/components/DictSelect.vue'
 import DictTag from '@/components/DictTag.vue'
 import { useSystemDict } from '@/composables/useSystemDict'
@@ -206,7 +208,6 @@ const formData = reactive({
   authType: undefined as string | undefined,
   baseUrl: '',
   apiKey: '',
-  remark: '',
 })
 const formRules: Record<string, Rule[]> = {
   protocol: [{ required: true, message: '请选择接入协议', trigger: 'change' }],
@@ -226,26 +227,45 @@ const formRules: Record<string, Rule[]> = {
       trigger: 'blur',
     },
   ],
-  remark: [{ max: 200, message: '备注不能超过 200 个字符', trigger: 'blur' }],
 }
 const embeddingDimensions = computed(() => {
   const values = new Set(getDict(AI_DICT_TYPE.EMBEDDING_DIMENSION).map((item) => item.dictValue))
   return (modelData.value?.embedding || []).filter((dim) => values.has(String(dim)))
 })
 
+const isVersionConflict = (err: any): boolean => {
+  const status = err?.status || err?.response?.status || err?.code
+  if (status === 409) return true
+  const msg = String(
+    err?.message ||
+    err?.msg ||
+    err?.response?.data?.message ||
+    err?.response?.data?.devMessage ||
+    err?.devMessage ||
+    ''
+  )
+  return (
+    msg.includes('版本') ||
+    msg.includes('冲突') ||
+    msg.includes('已被修改') ||
+    msg.includes('并发') ||
+    msg.toLowerCase().includes('version') ||
+    msg.toLowerCase().includes('optimistic')
+  )
+}
+
 const resetForm = () => {
   formData.protocol = connection.value?.protocol || undefined
   formData.authType = connection.value?.authType || undefined
   formData.baseUrl = connection.value?.baseUrl || ''
   formData.apiKey = ''
-  formData.remark = connection.value?.remark || ''
   void nextTick(() => formRef.value?.clearValidate())
 }
 
 const loadData = async (reset = true) => {
   if (!props.open || !props.model?.id) return
   const currentRequest = ++requestId
-  const modelId = props.model.id
+  const modelId = String(props.model.id)
   loading.value = true
   loadError.value = ''
   try {
@@ -256,18 +276,33 @@ const loadData = async (reset = true) => {
     if (currentRequest !== requestId) return
     if (!modelResponse.data) throw new Error('模型详情为空')
     modelDetail.value = modelResponse.data
-    // 接口仍返回数组；不任意选取一条，以免误改历史的多连接数据。
-    const dataList = connectionResponse.data || []
-    if (dataList.length > 1) {
+
+    // 兼容后端返回数组或 PageResult 分页对象（如 { records: [...] }）
+    const rawConnectionData = connectionResponse.data as any
+    const dataList: SquareConnectionRecord[] = Array.isArray(rawConnectionData)
+      ? rawConnectionData
+      : (Array.isArray(rawConnectionData?.records)
+          ? rawConnectionData.records
+          : (Array.isArray(rawConnectionData?.list) ? rawConnectionData.list : []))
+
+    // 优先选取已启用的连接或首条有效连接进行回显
+    const record = dataList.find((c) => c.dataStatus === COMMON_STATUS.ENABLED) || dataList[0] || null
+
+    if (record) {
+      // 1. 编辑时先调用 GET /ai/api/v1/model-square/connections/{id} 获取详情
+      const detailRes = await getSquareConnectionDetail(String(record.id))
+      if (currentRequest !== requestId) return
+      if (!detailRes.data) throw new Error('连接器详情为空')
+      // 2. 保存详情返回的 modelId 和 version（ID 统一按字符串处理）
+      connection.value = {
+        ...detailRes.data,
+        id: String(detailRes.data.id),
+        modelId: String(detailRes.data.modelId),
+      }
+    } else {
       connection.value = null
-      loadError.value = '当前模型存在多条连接数据，请联系管理员确认唯一连接器后重新加载。'
-      return
     }
-    const record = dataList[0]
-    const response = record ? await getSquareConnectionDetail(record.id) : null
-    if (currentRequest !== requestId) return
-    if (record && !response?.data) throw new Error('连接器详情为空')
-    connection.value = response?.data || null
+
     if (reset) resetForm()
   } catch {
     if (currentRequest === requestId) loadError.value = '配置加载失败，请重新加载后再操作。'
@@ -300,7 +335,6 @@ const handleSubmit = async () => {
   if (!connection.value && modelData.value.dataStatus === COMMON_STATUS.DISABLED) return
   formData.baseUrl = formData.baseUrl.trim()
   formData.apiKey = formData.apiKey.trim()
-  formData.remark = formData.remark.trim()
   try {
     await formRef.value.validate()
   } catch {
@@ -309,26 +343,57 @@ const handleSubmit = async () => {
   if (!props.canWrite || actionLoading.value || !formData.protocol || !formData.authType) return
   submitLoading.value = true
   try {
-    const data = {
-      protocol: formData.protocol,
-      authType: formData.authType,
-      baseUrl: formData.baseUrl,
-      apiKey: formData.apiKey || undefined,
-      remark: formData.remark || null,
-    }
     if (connection.value) {
-      await updateSquareConnection(connection.value.id, { ...data, version: connection.value.version })
+      // 3. modelId 必须保持原值，不允许在编辑表单中切换模型
+      // 4. 提交字段为：modelId、protocol、baseUrl、authType、version；apiKey 按需提交
+      // 6. 删除 remark 提交逻辑（当前接口不支持保存备注）
+      // 7. ID 按字符串处理，避免 JavaScript 大整数精度丢失
+      const connectionId = String(connection.value.id)
+      const updatePayload: SquareConnectionUpdateDTO = {
+        modelId: String(connection.value.modelId || modelData.value.id),
+        protocol: formData.protocol,
+        baseUrl: formData.baseUrl,
+        authType: formData.authType,
+        version: connection.value.version,
+      }
+      // 5. apiKey 未填写时省略该字段，后端会保留原密钥；不要提交脱敏占位符
+      if (formData.apiKey) {
+        updatePayload.apiKey = formData.apiKey
+      }
+
+      await updateSquareConnection(connectionId, updatePayload)
       message.success('保存连接器配置成功')
     } else {
-      await createSquareConnection({ ...data, modelId: modelData.value.id })
+      const createPayload: SquareConnectionCreateDTO = {
+        modelId: String(modelData.value.id),
+        protocol: formData.protocol,
+        baseUrl: formData.baseUrl,
+        authType: formData.authType,
+      }
+      if (formData.apiKey) {
+        createPayload.apiKey = formData.apiKey
+      }
+
+      await createSquareConnection(createPayload)
       message.success('接入模型成功')
     }
     // 保存成功即清除输入的密钥，即使后续刷新失败也不在界面保留。
     formData.apiKey = ''
+    // 8. 保存成功后重新获取详情或刷新列表，更新 version
     await loadData()
     emit('success')
-  } catch {
-    // 通用错误由请求拦截器提示。
+  } catch (err: any) {
+    // 8. 版本冲突时提示用户刷新，不要自动覆盖
+    if (isVersionConflict(err)) {
+      Modal.warning({
+        title: '数据版本冲突',
+        content: '当前连接器配置已被其他人修改，版本不一致。请刷新获取最新配置后重新编辑，已停止自动覆盖。',
+        okText: '刷新最新配置',
+        onOk: () => {
+          void loadData()
+        },
+      })
+    }
   } finally {
     submitLoading.value = false
   }
@@ -338,17 +403,26 @@ const handleToggleStatus = async (checked: boolean) => {
   if (!props.canWrite) return
   if (!connection.value || loading.value || loadError.value || actionLoading.value) return
   if (modelData.value?.dataStatus === COMMON_STATUS.DISABLED) return
-  statusChangingId.value = connection.value.id
+  statusChangingId.value = String(connection.value.id)
   try {
-    await updateSquareConnectionStatus(connection.value.id, {
+    await updateSquareConnectionStatus(String(connection.value.id), {
       dataStatus: checked ? COMMON_STATUS.ENABLED : COMMON_STATUS.DISABLED,
       version: connection.value.version,
     })
     message.success(checked ? '启用连接器成功' : '停用连接器成功')
     await loadData(false)
     emit('success')
-  } catch {
-    // 通用错误由请求拦截器提示。
+  } catch (err: any) {
+    if (isVersionConflict(err)) {
+      Modal.warning({
+        title: '数据版本冲突',
+        content: '连接器状态已被其他人修改，版本不一致。请刷新获取最新状态后再试，已停止自动覆盖。',
+        okText: '刷新最新配置',
+        onOk: () => {
+          void loadData(false)
+        },
+      })
+    }
   } finally {
     statusChangingId.value = null
   }
@@ -357,9 +431,9 @@ const handleToggleStatus = async (checked: boolean) => {
 const handleDelete = async () => {
   if (!props.canWrite) return
   if (!connection.value || loading.value || loadError.value || actionLoading.value) return
-  deletingId.value = connection.value.id
+  deletingId.value = String(connection.value.id)
   try {
-    await deleteSquareConnection(connection.value.id)
+    await deleteSquareConnection(String(connection.value.id))
     connection.value = null
     resetForm()
     message.success('删除连接器成功')

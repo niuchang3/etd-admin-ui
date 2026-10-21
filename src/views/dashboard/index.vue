@@ -46,9 +46,6 @@
               @click="handleTabChange(true)"
             >
               已接入
-              <span v-if="connectedTotalCount > 0" class="connected-pill-badge">
-                {{ connectedTotalCount }}
-              </span>
             </button>
           </div>
 
@@ -269,7 +266,6 @@ const { getDict: getDictItems, getLabel: getDictLabel } = useSystemDict([
 const loading = ref(false)
 const modelList = ref<SquareModelRecord[]>([])
 const total = ref(0)
-const connectedTotalCount = ref(0)
 
 // 广场查询参数（默认每页 12 条）
 const queryParams = reactive<SquareModelQuery>({
@@ -333,13 +329,6 @@ const loadModelList = async () => {
 
     modelList.value = res.data?.records || []
     total.value = res.data?.total || 0
-
-    // 更新已接入连接模型数量统计（若当前不是仅筛选已接入时，可简单根据当前列表或单独查询统计）
-    if (queryParams.connected === undefined) {
-      connectedTotalCount.value = modelList.value.filter((m) => m.connectionCount > 0).length
-    } else if (queryParams.connected === true) {
-      connectedTotalCount.value = total.value
-    }
 
     // 若当前抽屉正在展示某个模型，同步更新引用
     if (selectedModel.value) {

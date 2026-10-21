@@ -240,7 +240,7 @@ import DictTag from '@/components/DictTag.vue'
 import KnowledgeDocumentFormModal from './components/KnowledgeDocumentFormModal.vue'
 import KnowledgeUploadModal from './components/KnowledgeUploadModal.vue'
 import KnowledgeDocumentPreviewDrawer from './components/KnowledgeDocumentPreviewDrawer.vue'
-import { canResumeUpload, canUseFolder, getFolderTree, processingBusy } from './helper'
+import { canResumeUpload, canUseFolder, getFolderAndDescendantIds, getFolderTree, processingBusy } from './helper'
 
 const route = useRoute()
 const canWrite = computed(() => menusStore().canWritePath(route.path))
@@ -313,7 +313,13 @@ const getList = async () => {
   if (!selectedFolderId.value) { tableData.value = []; total.value = 0; loading.value = false; return }
   loading.value = true
   try {
-    const response = await getKnowledgeDocumentPage({ ...query, folderId: selectedFolderId.value, keyword: query.keyword?.trim() || undefined })
+    const targetFolderIds = getFolderAndDescendantIds(selectedFolderId.value, folders.value)
+    const response = await getKnowledgeDocumentPage({
+      ...query,
+      folderId: selectedFolderId.value,
+      folderIds: targetFolderIds.length > 0 ? targetFolderIds : [selectedFolderId.value],
+      keyword: query.keyword?.trim() || undefined,
+    })
     if (token !== listToken) return
     tableData.value = response.data.records || []; total.value = response.data.total
     if (tableData.value.some((record) => processingBusy(record) || record.uploadStatus === UPLOAD.COMPLETING || record.uploadStatus === UPLOAD.INITIALIZING)) {

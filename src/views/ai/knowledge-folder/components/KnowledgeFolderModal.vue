@@ -91,6 +91,7 @@ import type {
   KnowledgeFolderRecord,
   KnowledgeFolderSaveDTO,
 } from '@/apis/ai/folder/type'
+import { getOrganizationLookup } from '@/apis/upms/organization'
 import type { Organization } from '@/apis/upms/organization/type'
 
 interface Props {
@@ -158,6 +159,26 @@ const findOrgName = (items: Organization[], id: string): string => {
   return ''
 }
 
+const fallbackOrgName = ref('')
+
+const lookupOrgName = async (id: string) => {
+  if (!id) {
+    fallbackOrgName.value = ''
+    return
+  }
+  try {
+    const res = await getOrganizationLookup(id)
+    if (res.data) {
+      fallbackOrgName.value = res.data.orgName || id
+    } else {
+      // 接口说明：data 为 null 时按部门不存在处理，避免页面报错
+      fallbackOrgName.value = '部门不存在'
+    }
+  } catch {
+    fallbackOrgName.value = `部门 (${id})`
+  }
+}
+
 const displayOrgName = computed(() => {
   if (formData.orgId) {
     const name = findOrgName(props.orgTree, formData.orgId)
@@ -165,7 +186,7 @@ const displayOrgName = computed(() => {
     if (props.orgId && formData.orgId === props.orgId && props.orgName) {
       return props.orgName
     }
-    return `部门 (${formData.orgId})`
+    return fallbackOrgName.value || `部门 (${formData.orgId})`
   }
   return props.orgName || '请选择部门'
 })
@@ -278,6 +299,21 @@ watch(() => formData.parentId, () => {
     formRef.value?.validateFields(['folderName']).catch(() => {})
   }
 })
+
+// 当部门变更且在 orgTree 中找不到时，通过 lookup 接口回显部门信息
+watch(
+  () => [props.open, formData.orgId],
+  ([isOpen, currentOrgId]) => {
+    if (isOpen && currentOrgId) {
+      const existsInTree = Boolean(findOrgName(props.orgTree, String(currentOrgId)))
+      if (!existsInTree) {
+        lookupOrgName(String(currentOrgId))
+      }
+    } else if (!isOpen) {
+      fallbackOrgName.value = ''
+    }
+  }
+)
 
 watch(
   () => props.open,

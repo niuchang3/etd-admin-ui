@@ -92,17 +92,6 @@
           </a>
         </div>
       </a-form-item>
-
-      <!-- 备注说明 -->
-      <a-form-item label="备注说明" name="remark">
-        <a-textarea
-          v-model:value="formData.remark"
-          placeholder="可填写该连接的环境说明或调用特点（可选）"
-          :rows="2"
-          :maxlength="200"
-          show-count
-        />
-      </a-form-item>
     </a-form>
   </a-modal>
 </template>
@@ -112,7 +101,12 @@ import { computed, reactive, ref, watch } from 'vue'
 import { message } from 'ant-design-vue'
 import type { FormInstance, Rule } from 'ant-design-vue/es/form'
 import { createSquareConnection, updateSquareConnection } from '@/apis/ai/square'
-import type { SquareConnectionRecord, SquareModelRecord } from '@/apis/ai/square/type'
+import type {
+  SquareConnectionCreateDTO,
+  SquareConnectionRecord,
+  SquareConnectionUpdateDTO,
+  SquareModelRecord,
+} from '@/apis/ai/square/type'
 import DictSelect from '@/components/DictSelect.vue'
 import DictTag from '@/components/DictTag.vue'
 import { useSystemDict } from '@/composables/useSystemDict'
@@ -152,7 +146,6 @@ interface FormState {
   baseUrl: string
   authType: string
   apiKey: string
-  remark: string
 }
 
 const formData = reactive<FormState>({
@@ -160,7 +153,6 @@ const formData = reactive<FormState>({
   baseUrl: '',
   authType: '',
   apiKey: '',
-  remark: '',
 })
 
 const formRules: Record<string, Rule[]> = {
@@ -191,14 +183,12 @@ watch(
         formData.baseUrl = props.connection.baseUrl || ''
         formData.authType = props.connection.authType || ''
         formData.apiKey = '' // 编辑不回显
-        formData.remark = props.connection.remark || ''
       } else {
         // 新增接入模式
         formData.protocol = 'openai'
         formData.baseUrl = props.model?.baseUrlHelp || ''
         formData.authType = 'bearer'
         formData.apiKey = ''
-        formData.remark = ''
       }
     } else {
       formRef.value?.resetFields()
@@ -221,26 +211,29 @@ const handleSubmit = async () => {
   submitLoading.value = true
   try {
     if (isEdit.value && props.connection) {
-      // 修改连接：携带当前 version，留空保留原密钥
-      await updateSquareConnection(String(props.connection.id), {
+      const updatePayload: SquareConnectionUpdateDTO = {
+        modelId: String(props.connection.modelId || props.model.id),
         protocol: formData.protocol,
         baseUrl: formData.baseUrl.trim(),
         authType: formData.authType,
-        apiKey: formData.apiKey.trim() || undefined,
-        remark: formData.remark.trim() || null,
         version: props.connection.version,
-      })
+      }
+      if (formData.apiKey.trim()) {
+        updatePayload.apiKey = formData.apiKey.trim()
+      }
+      await updateSquareConnection(String(props.connection.id), updatePayload)
       message.success('修改模型连接成功')
     } else {
-      // 新增接入：锁定当前 modelId
-      await createSquareConnection({
+      const createPayload: SquareConnectionCreateDTO = {
         modelId: String(props.model.id),
         protocol: formData.protocol,
         baseUrl: formData.baseUrl.trim(),
         authType: formData.authType,
-        apiKey: formData.apiKey.trim() || undefined,
-        remark: formData.remark.trim() || null,
-      })
+      }
+      if (formData.apiKey.trim()) {
+        createPayload.apiKey = formData.apiKey.trim()
+      }
+      await createSquareConnection(createPayload)
       message.success('接入模型连接成功')
     }
 

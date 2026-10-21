@@ -54,7 +54,7 @@ export const getSquareConnectionDetail = async (id: string) => {
 
 /**
  * 新增模型连接
- * 锁定当前 modelId，提交 modelId, protocol, baseUrl, authType, apiKey, remark
+ * 锁定当前 modelId，提交 modelId, protocol, baseUrl, authType, apiKey
  */
 export const createSquareConnection = async (data: SquareConnectionCreateDTO) => {
   return await request.post<ResultModel<string>>({
@@ -65,7 +65,8 @@ export const createSquareConnection = async (data: SquareConnectionCreateDTO) =>
 
 /**
  * 修改模型连接
- * 携带完整配置和当前 version，API Key 留空保留原密钥
+ * PUT /ai/api/v1/model-square/connections/{id}
+ * 路径中的 id 是连接器 ID，提交字段：modelId、protocol、baseUrl、authType、version；apiKey 按需提交
  */
 export const updateSquareConnection = async (id: string, data: SquareConnectionUpdateDTO) => {
   return await request.put<ResultModel<boolean>>({

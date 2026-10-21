@@ -81,18 +81,18 @@ export interface SquareConnectionCreateDTO {
   baseUrl: string
   authType: string
   apiKey?: string
-  remark?: string | null
 }
 
 /**
  * 修改连接 DTO（携带完整配置与当前 version，编辑留空保留原密钥）
+ * 提交字段为：modelId、protocol、baseUrl、authType、version；apiKey 按需提交
  */
 export interface SquareConnectionUpdateDTO {
+  modelId: string
   protocol: string
   baseUrl: string
   authType: string
   apiKey?: string
-  remark?: string | null
   version: string | number
 }
 

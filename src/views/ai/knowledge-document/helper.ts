@@ -42,3 +42,27 @@ export function getDocumentSaveDTO(detail: KnowledgeDocumentDetail): KnowledgeDo
     retrievalTopK: detail.retrievalTopK, similarityThreshold: detail.similarityThreshold,
   }
 }
+
+/**
+ * 递归获取指定根目录/父目录及其所有下级子孙目录的 ID 列表
+ * @param rootFolderId 当前选中的根目录或父目录 ID
+ * @param folders 所有分类目录平铺列表
+ */
+export function getFolderAndDescendantIds(rootFolderId: string, folders: KnowledgeDocumentFolder[]): string[] {
+  if (!rootFolderId) return []
+  const result = new Set<string>([rootFolderId])
+  let added = true
+  while (added) {
+    added = false
+    for (const folder of folders) {
+      const parentId = folder.parentId ? String(folder.parentId) : null
+      const selfId = String(folder.id)
+      if (parentId && result.has(parentId) && !result.has(selfId)) {
+        result.add(selfId)
+        added = true
+      }
+    }
+  }
+  return Array.from(result)
+}
+

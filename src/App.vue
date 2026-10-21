@@ -65,7 +65,7 @@ onMounted(async () => {
   }
 })
 
-// Ant Design Vue 全局主题：使用紧凑算法并对齐项目设计变量。
+// Ant Design Vue 全局主题：使用紧凑算法并深度对齐 Dense Utility 紧凑设计体系。
 const themeConfig = {
   algorithm: theme.compactAlgorithm,
   token: {
@@ -79,9 +79,59 @@ const themeConfig = {
     colorBorder: '#d9dee8',
     colorBgLayout: '#eef1f5',
     borderRadius: 4,
+    borderRadiusSM: 3,
     controlHeight: 32,
+    controlHeightSM: 24,
     fontSize: 12,
+    fontSizeSM: 11,
+    fontSizeLG: 13,
+    fontSizeHeading5: 13,
+    fontSizeHeading4: 14,
     fontFamily: "Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif",
+  },
+  components: {
+    Modal: {
+      titleFontSize: 13,
+    },
+    Drawer: {
+      titleFontSize: 13,
+    },
+    Card: {
+      headerFontSize: 13,
+      headerHeight: 36,
+    },
+    Tabs: {
+      titleFontSize: 12,
+    },
+    Popconfirm: {
+      fontSize: 12,
+    },
+    Popover: {
+      fontSize: 12,
+    },
+    Dropdown: {
+      fontSize: 12,
+    },
+    Menu: {
+      fontSize: 12,
+      itemHeight: 28,
+    },
+    Tag: {
+      fontSize: 11.5,
+    },
+    Alert: {
+      fontSize: 12,
+    },
+    Badge: {
+      fontSize: 11,
+    },
+    Form: {
+      itemMarginBottom: 16,
+      labelFontSize: 12,
+    },
+    Tree: {
+      fontSize: 12,
+    },
   },
 }
 </script>
