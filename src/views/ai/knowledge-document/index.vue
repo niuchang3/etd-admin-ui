@@ -104,7 +104,7 @@
         :pagination="pagination"
         row-key="id"
         size="small"
-        :scroll="{ x: 1280 }"
+        :scroll="{ x: 980 }"
         @change="handleTableChange"
       >
         <template #bodyCell="{ column, record }">
@@ -356,15 +356,15 @@ const downloadingId = ref('')
 const deletingId = ref('')
 
 const columns: TableColumnsType<KnowledgeDocumentRecord> = [
-  { title: '资料名称', key: 'documentName', width: 220, ellipsis: true },
-  { title: '原始文件名', key: 'originalFilename', width: 170, ellipsis: true },
-  { title: '大小', key: 'fileSize', width: 85 },
-  { title: '共享状态', key: 'isPublic', width: 85, align: 'center' },
-  { title: '上传状态', key: 'uploadStatus', width: 110, ellipsis: true },
-  { title: '分片状态', key: 'chunkStatus', width: 110, ellipsis: true },
-  { title: '分片数', key: 'chunkCount', width: 75, align: 'right' },
-  { title: '创建时间', key: 'createTime', width: 155, ellipsis: true },
-  { title: '操作', key: 'actions', width: 270, fixed: 'right', align: 'right' },
+  { title: '资料名称', dataIndex: 'documentName', key: 'documentName', ellipsis: true },
+  { title: '原始文件名', dataIndex: 'originalFilename', key: 'originalFilename', width: 140, ellipsis: true },
+  { title: '大小', dataIndex: 'fileSize', key: 'fileSize', width: 70, align: 'right' },
+  { title: '共享状态', dataIndex: 'isPublic', key: 'isPublic', width: 60, align: 'center' },
+  { title: '上传状态', dataIndex: 'uploadStatus', key: 'uploadStatus', width: 72, align: 'center' },
+  { title: '分片状态', dataIndex: 'chunkStatus', key: 'chunkStatus', width: 72, align: 'center' },
+  { title: '分片数', dataIndex: 'chunkCount', key: 'chunkCount', width: 60, align: 'right' },
+  { title: '创建时间', dataIndex: 'createTime', key: 'createTime', width: 140, align: 'center' },
+  { title: '操作', key: 'actions', width: 215, fixed: 'right', align: 'right' },
 ]
 
 const handleManageChunks = (record: KnowledgeDocumentRecord) => {
