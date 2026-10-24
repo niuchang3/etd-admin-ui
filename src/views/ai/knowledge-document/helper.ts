@@ -1,10 +1,8 @@
 import type { KnowledgeDocumentDetail, KnowledgeDocumentFolder, KnowledgeDocumentSaveDTO } from '@/apis/ai/document/type'
-import { COMMON_STATUS, KNOWLEDGE_PROCESSING_STATUS as PROCESSING, KNOWLEDGE_UPLOAD_STATUS as UPLOAD } from '@/constant'
+import { COMMON_STATUS, KNOWLEDGE_UPLOAD_STATUS as UPLOAD } from '@/constant'
 import { buildTreeStructure, type TreeNodeItem } from '@/composables/useTreeHelper'
 
 export const canUseFolder = (folder?: KnowledgeDocumentFolder) => Boolean(folder && folder.writable && !folder.navigationOnly && folder.dataStatus !== COMMON_STATUS.DISABLED)
-export const processingBusy = (detail: { processingStatus: string }) =>
-  detail.processingStatus === PROCESSING.PARSING || detail.processingStatus === PROCESSING.EMBEDDING
 export const canResumeUpload = (detail: { uploadStatus: string }) =>
   detail.uploadStatus === UPLOAD.UPLOADING || detail.uploadStatus === UPLOAD.FAILED
 
@@ -31,15 +29,14 @@ export function getFolderTree(folders: KnowledgeDocumentFolder[], select = false
   })
 }
 
-/** 移动必须保留详情中的全部配置，不能提交列表摘要或改变 orgId。 */
+/** 移动与编辑仅保留基础信息与分类目录。 */
 export function getDocumentSaveDTO(detail: KnowledgeDocumentDetail): KnowledgeDocumentSaveDTO {
   return {
-    version: detail.version, folderId: detail.folderId, documentName: detail.documentName,
-    description: detail.description, isPublic: detail.isPublic, retrievalMode: detail.retrievalMode,
-    embeddingModelConnectionId: detail.embeddingModelConnectionId, embedding: detail.embedding,
-    chunkMaxTokens: detail.chunkMaxTokens, chunkOverlapTokens: detail.chunkOverlapTokens,
-    keywordTopK: detail.keywordTopK, vectorTopK: detail.vectorTopK,
-    retrievalTopK: detail.retrievalTopK, similarityThreshold: detail.similarityThreshold,
+    version: detail.version,
+    folderId: detail.folderId,
+    documentName: detail.documentName,
+    description: detail.description ?? null,
+    isPublic: Boolean(detail.isPublic),
   }
 }
 
@@ -64,5 +61,117 @@ export function getFolderAndDescendantIds(rootFolderId: string, folders: Knowled
     }
   }
   return Array.from(result)
+}
+
+/**
+ * 解析并校验知识库上传系统参数 (ai.knowledge.upload)
+ * 参数格式需为 JSON: { allowedExtensions: [".pdf", ".docx", ...] }
+ */
+export function parseKnowledgeUploadConfig(raw: string | undefined | null): {
+  valid: boolean
+  allowedExtensions: string[]
+  accept: string
+  error?: string
+} {
+  if (!raw || !raw.trim()) {
+    return {
+      valid: false,
+      allowedExtensions: [],
+      accept: '',
+      error: '文件上传格式系统参数缺失',
+    }
+  }
+
+  let parsed: unknown
+  try {
+    parsed = JSON.parse(raw)
+  } catch {
+    return {
+      valid: false,
+      allowedExtensions: [],
+      accept: '',
+      error: '文件上传格式系统参数 JSON 无效',
+    }
+  }
+
+  if (
+    !parsed ||
+    typeof parsed !== 'object' ||
+    !('allowedExtensions' in parsed) ||
+    !Array.isArray((parsed as Record<string, unknown>).allowedExtensions)
+  ) {
+    return {
+      valid: false,
+      allowedExtensions: [],
+      accept: '',
+      error: '系统参数未配置有效的文件扩展名列表',
+    }
+  }
+
+  const rawList = (parsed as Record<string, unknown>).allowedExtensions as unknown[]
+  if (rawList.length === 0) {
+    return {
+      valid: false,
+      allowedExtensions: [],
+      accept: '',
+      error: '系统参数允许的文件扩展名列表为空',
+    }
+  }
+
+  const extensions: string[] = []
+  for (const item of rawList) {
+    if (typeof item !== 'string' || !item.trim()) {
+      return {
+        valid: false,
+        allowedExtensions: [],
+        accept: '',
+        error: '系统参数包含无效的扩展名格式',
+      }
+    }
+    let ext = item.trim().toLowerCase()
+    if (!ext.startsWith('.')) {
+      ext = `.${ext}`
+    }
+    if (ext === '.' || ext.includes(',')) {
+      return {
+        valid: false,
+        allowedExtensions: [],
+        accept: '',
+        error: '系统参数包含无效的扩展名格式',
+      }
+    }
+    if (!extensions.includes(ext)) {
+      extensions.push(ext)
+    }
+  }
+
+  if (extensions.length === 0) {
+    return {
+      valid: false,
+      allowedExtensions: [],
+      accept: '',
+      error: '系统参数允许的文件扩展名列表为空',
+    }
+  }
+
+  return {
+    valid: true,
+    allowedExtensions: extensions,
+    accept: extensions.join(','),
+  }
+}
+
+/**
+ * 校验文件是否符合知识库允许的扩展名列表（按最后一个扩展名校验，忽略大小写）
+ */
+export function isAllowedKnowledgeUploadFile(
+  filename: string,
+  allowedExtensions: string[]
+): boolean {
+  if (!filename || !allowedExtensions || allowedExtensions.length === 0) return false
+  const lastDot = filename.lastIndexOf('.')
+  if (lastDot === -1) return false
+  const ext = filename.slice(lastDot).toLowerCase()
+  return allowedExtensions.includes(ext)
 }
 

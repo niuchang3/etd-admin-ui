@@ -379,3 +379,9 @@ button {
   user-select: text !important;
   cursor: text;
 }
+
+/* md-editor-v3 预览区代码块粘性吸顶头部层级修复（原默认 z-index: 10000 会穿透 Ant Design Drawer 与 Modal） */
+.md-editor-preview .md-editor-code .md-editor-code-head {
+  z-index: 2 !important;
+}
+

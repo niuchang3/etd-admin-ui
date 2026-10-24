@@ -11,7 +11,7 @@
     <a-spin :spinning="loading">
       <a-alert
         type="info"
-        message="上传完成后还需配置、解析并确认分片，才能用于检索。文件筛选不表示解析器支持该格式。"
+        message="支持单个文件上传，上传完成后可在列表查看上传状态与管理资料。"
         show-icon
         class="modal-top-alert"
       />
@@ -41,13 +41,27 @@
           </a-input>
         </a-form-item>
 
+        <a-form-item v-if="!detail" label="租户内共享" extra="开启后租户内其他部门成员可跨部门读取、预览与下载该资料（默认关闭）。">
+          <div class="switch-row">
+            <a-switch
+              v-model:checked="isPublic"
+              checked-children="共享"
+              un-checked-children="私有"
+              :disabled="busy || loading || !canWrite || terminal"
+            />
+            <span class="switch-desc">
+              {{ isPublic ? '已开启跨部门共享，租户内其他成员可查看与下载' : '仅资料所属部门及有权限人员可见' }}
+            </span>
+          </div>
+        </a-form-item>
+
         <a-form-item label="本地文件">
           <!-- Ant Design Vue 规范拖拽上传区域 -->
           <a-upload-dragger
             :before-upload="handleBeforeUpload"
             :show-upload-list="false"
             :accept="accept"
-            :disabled="busy || loading || !canWrite || terminal"
+            :disabled="busy || loading || !canWrite || terminal || !configValid"
             class="standard-file-dragger"
           >
             <div v-if="!file" class="dragger-placeholder">
@@ -57,6 +71,12 @@
               <p class="dragger-title">点击或将本地文件拖拽到此区域上传</p>
               <p class="dragger-tip">
                 支持单个文件上传，系统将根据服务端策略切片并自动校验 SHA-256
+              </p>
+              <p v-if="configValid && supportedFormatsText" class="dragger-formats">
+                支持格式：{{ supportedFormatsText }}
+              </p>
+              <p v-else-if="!loading && !configValid" class="dragger-formats-error">
+                上传配置异常，已禁用格式筛选与文件上传
               </p>
             </div>
             <div v-else class="file-selected-box">
@@ -95,6 +115,10 @@
         <div class="info-item">
           <span class="info-label">会话截止：</span>
           <span class="info-value du-mono">{{ detail.uploadExpiresAt || '—' }}</span>
+        </div>
+        <div class="info-item">
+          <span class="info-label">共享状态：</span>
+          <span class="info-value">{{ detail.isPublic ? '租户内共享' : '私有' }}</span>
         </div>
         <div class="info-item">
           <span class="info-label">分片进度：</span>
@@ -152,7 +176,7 @@
             v-if="canWrite && !terminal"
             type="primary"
             :loading="busy"
-            :disabled="!file || loading || !policy || !orgId || busy || cancelLoading"
+            :disabled="!file || loading || !policy || !orgId || busy || cancelLoading || !configValid"
             @click="handleSubmit"
           >
             <UploadOutlined />{{ detail ? '继续 / 重试失败分片' : '开始上传' }}
@@ -199,7 +223,12 @@ import {
 import { useSystemDict } from '@/composables/useSystemDict'
 import { formatFileSize } from '@/utils/format'
 import { calculateFileHash, uploadMissingParts } from '../upload/transfer'
-import { canResumeUpload, canUseFolder } from '../helper'
+import {
+  canResumeUpload,
+  canUseFolder,
+  isAllowedKnowledgeUploadFile,
+  parseKnowledgeUploadConfig,
+} from '../helper'
 
 const props = defineProps<{
   open: boolean
@@ -220,6 +249,10 @@ const { getLabel } = useSystemDict([KNOWLEDGE_DICT_TYPE.UPLOAD_STATUS])
 const detail = ref<KnowledgeDocumentDetail | null>(null)
 const policy = ref<KnowledgeUploadPolicy | null>(null)
 const accept = ref('')
+const allowedExtensions = ref<string[]>([])
+const configValid = ref(false)
+const configError = ref('')
+const supportedFormatsText = computed(() => allowedExtensions.value.join('、'))
 const orgId = ref('')
 
 // 部门信息回显缓存与状态（使用跨菜单 GET /v1/organization/lookup/{id}）
@@ -270,6 +303,7 @@ const orgOptions = computed(() =>
 )
 
 const file = ref<File | null>(null)
+const isPublic = ref(false)
 const loading = ref(false)
 const busy = ref(false)
 const cancelLoading = ref(false)
@@ -301,9 +335,13 @@ watch(
     if (!open) return
     detail.value = null
     file.value = null
+    isPublic.value = false
     policy.value = null
     notice.value = ''
     accept.value = ''
+    allowedExtensions.value = []
+    configValid.value = false
+    configError.value = ''
     initializationUncertain = false
     orgId.value = props.folder?.orgId || ''
     if (orgId.value) {
@@ -334,6 +372,27 @@ watch(
       if (token !== requestToken) return
 
       const [policyResult, configResult, detailResult] = results
+
+      if (configResult.status === 'fulfilled') {
+        const rawConfig = configResult.value.data?.[KNOWLEDGE_UPLOAD_CONFIG_KEY]
+        const parseRes = parseKnowledgeUploadConfig(rawConfig)
+        if (parseRes.valid) {
+          configValid.value = true
+          allowedExtensions.value = parseRes.allowedExtensions
+          accept.value = parseRes.accept
+        } else {
+          configValid.value = false
+          allowedExtensions.value = []
+          accept.value = ''
+          configError.value = parseRes.error || '上传格式系统参数异常'
+        }
+      } else {
+        configValid.value = false
+        allowedExtensions.value = []
+        accept.value = ''
+        configError.value = '上传格式系统参数加载失败'
+      }
+
       if (policyResult.status === 'fulfilled') {
         const data = policyResult.value.data
         if (
@@ -348,7 +407,9 @@ watch(
         }
       }
 
-      if (detailResult.status === 'fulfilled' && detailResult.value) {
+      if (!configValid.value) {
+        notice.value = `上传配置异常（${configError.value}），已禁用文件上传。`
+      } else if (detailResult.status === 'fulfilled' && detailResult.value) {
         detail.value = detailResult.value.data
         orgId.value = detail.value.orgId
         if (orgId.value) {
@@ -359,27 +420,6 @@ watch(
         initializationUncertain = true
         notice.value = '资料详情加载失败，请关闭后重试。'
       }
-
-      if (configResult.status === 'fulfilled') {
-        try {
-          const config: unknown = JSON.parse(configResult.value.data[KNOWLEDGE_UPLOAD_CONFIG_KEY] || '')
-          if (
-            !config ||
-            typeof config !== 'object' ||
-            !('allowedExtensions' in config) ||
-            !Array.isArray(config.allowedExtensions) ||
-            !config.allowedExtensions.every(
-              (extension: unknown) =>
-                typeof extension === 'string' && extension.startsWith('.') && !extension.includes(',')
-            )
-          ) {
-            throw new Error()
-          }
-          accept.value = config.allowedExtensions.join(',')
-        } catch {
-          notice.value = '文件筛选系统参数缺失或格式错误；当前可选择所有文件，服务端仍负责校验。'
-        }
-      }
     } finally {
       if (token === requestToken) loading.value = false
     }
@@ -388,6 +428,14 @@ watch(
 
 /** 拦截 Ant Design 原生上传，接收原始文件对象由自主逻辑进行分片上传 */
 const handleBeforeUpload = (rawFile: File) => {
+  if (!configValid.value || allowedExtensions.value.length === 0) {
+    message.error('上传配置异常，已禁用文件上传')
+    return false
+  }
+  if (!isAllowedKnowledgeUploadFile(rawFile.name, allowedExtensions.value)) {
+    message.error(`不支持该文件格式，仅支持：${supportedFormatsText.value}`)
+    return false
+  }
   file.value = rawFile
   return false
 }
@@ -411,6 +459,10 @@ const handleRefresh = async () => {
 
 const handleSubmit = async () => {
   if (!canWrite.value) return
+  if (!configValid.value) {
+    message.error('上传配置异常，已禁用文件上传')
+    return
+  }
   if (!file.value || !policy.value || busy.value || terminal.value || initializationUncertain || !orgId.value)
     return
   if (detail.value?.builtIn) return
@@ -421,6 +473,10 @@ const handleSubmit = async () => {
   }
 
   const localFile = file.value
+  if (!isAllowedKnowledgeUploadFile(localFile.name, allowedExtensions.value)) {
+    notice.value = `不支持该文件格式，仅支持：${supportedFormatsText.value}`
+    return
+  }
   if (localFile.size <= 0 || localFile.size > Number(policy.value.maxFileBytes)) {
     notice.value = '文件为空或超过服务端上传大小上限。'
     return
@@ -460,6 +516,7 @@ const handleSubmit = async () => {
             contentType: localFile.type || 'application/octet-stream',
             fileSize: localFile.size,
             fileSha256: digest,
+            isPublic: isPublic.value,
           })
         ).data
         emit('success')
@@ -498,7 +555,7 @@ const handleSubmit = async () => {
 
     merging.value = true
     detail.value = (await completeKnowledgeUpload(current.id)).data
-    message.success('资料上传完成，请配置并解析正文分片')
+    message.success('资料上传完成')
     emit('success')
   } catch (error) {
     if (signal.aborted) {
@@ -511,7 +568,7 @@ const handleSubmit = async () => {
       try {
         detail.value = (await getKnowledgeDocument(detail.value.id)).data
         if (detail.value.uploadStatus === UPLOAD.COMPLETED) {
-          notice.value = '服务端已完成上传，请关闭后配置并解析。'
+          notice.value = '服务端已完成上传。'
         } else if (merging.value) {
           notice.value = `合并结果已查询，请按当前上传状态处理：${getLabel(KNOWLEDGE_DICT_TYPE.UPLOAD_STATUS, detail.value.uploadStatus)}`
         }
@@ -608,6 +665,21 @@ onBeforeUnmount(() => controller?.abort())
   font-size: var(--du-font-size-xs, 11px);
   color: var(--du-text-muted);
   margin: 0;
+}
+
+.dragger-formats {
+  font-size: var(--du-font-size-xs, 11px);
+  color: var(--du-text-secondary);
+  margin: 6px 0 0;
+  word-break: break-all;
+  line-height: 1.5;
+}
+
+.dragger-formats-error {
+  font-size: var(--du-font-size-xs, 11px);
+  color: var(--du-danger, #ef4444);
+  margin: 6px 0 0;
+  line-height: 1.5;
 }
 
 .file-selected-box {

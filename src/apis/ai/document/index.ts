@@ -3,23 +3,25 @@ import type { PageResult, ResultModel } from '@/apis/types'
 import type { KnowledgeFolderQuery } from '@/apis/ai/folder/type'
 import type {
   KnowledgeDocumentFolder, KnowledgeDocumentQuery, KnowledgeDocumentRecord,
-  KnowledgeDocumentDetail, KnowledgeDocumentSaveDTO, KnowledgeModelOption,
-  KnowledgeChunk, KnowledgeUploadPolicy, KnowledgeUploadInitDTO,
+  KnowledgeDocumentDetail, KnowledgeDocumentSaveDTO,
+  KnowledgeUploadPolicy, KnowledgeUploadInitDTO,
+  KnowledgeChunkState, KnowledgeChunkItem, KnowledgeChunkQuery,
+  KnowledgeChunkGenerateDTO, KnowledgeChunkSaveDTO,
+  KnowledgeChunkMergeDTO, KnowledgeChunkConfirmDTO, KnowledgeChunkSplitDTO,
 } from './type'
 
 const DOCUMENT_API = '/ai/api/v1/knowledge-documents'
-// 合并、解析、模型索引分别允许长请求；请求层必须保留显式指定的超时。
+// 文件合并允许长请求；请求层必须保留显式指定的超时。
 const LONG_TIMEOUT = 300_000
 const documentUrl = (id: string) => `${DOCUMENT_API}/${encodeURIComponent(id)}`
 const uploadUrl = (id: string) => `${DOCUMENT_API}/uploads/${encodeURIComponent(id)}`
+
 export const getKnowledgeDocumentFolders = (params?: KnowledgeFolderQuery) =>
   request.get<ResultModel<KnowledgeDocumentFolder[]>>({ url: `${DOCUMENT_API}/folders`, params })
 export const getKnowledgeDocumentPage = (params: KnowledgeDocumentQuery) =>
   request.get<ResultModel<PageResult<KnowledgeDocumentRecord>>>({ url: DOCUMENT_API, params })
 export const getKnowledgeDocument = (id: string) =>
   request.get<ResultModel<KnowledgeDocumentDetail>>({ url: documentUrl(id) })
-export const getKnowledgeModelOptions = () =>
-  request.get<ResultModel<KnowledgeModelOption[]>>({ url: `${DOCUMENT_API}/model-options` })
 export const updateKnowledgeDocument = (id: string, data: KnowledgeDocumentSaveDTO) =>
   request.put<ResultModel<boolean>>({ url: documentUrl(id), data })
 export const getKnowledgeDownloadUrl = (id: string) =>
@@ -40,9 +42,56 @@ export const completeKnowledgeUpload = (id: string) =>
   request.post<ResultModel<KnowledgeDocumentDetail>>({ url: `${uploadUrl(id)}/complete`, timeout: LONG_TIMEOUT })
 export const cancelKnowledgeUpload = (id: string) =>
   request.post<ResultModel<boolean>>({ url: `${uploadUrl(id)}/cancel` })
-export const parseKnowledgeDocument = (id: string) =>
-  request.post<ResultModel<KnowledgeDocumentDetail>>({ url: `${documentUrl(id)}/parse`, timeout: LONG_TIMEOUT })
-export const getKnowledgeChunks = (id: string, params: { current: number; size: number }) =>
-  request.get<ResultModel<PageResult<KnowledgeChunk>>>({ url: `${documentUrl(id)}/chunks`, params })
-export const confirmKnowledgeDocument = (id: string) =>
-  request.post<ResultModel<KnowledgeDocumentDetail>>({ url: `${documentUrl(id)}/confirm`, timeout: LONG_TIMEOUT })
+
+export const getChunkState = (id: string) =>
+  request.get<ResultModel<KnowledgeChunkState>>({ url: `${documentUrl(id)}/chunks/state` })
+
+export const generateChunks = (id: string, data: KnowledgeChunkGenerateDTO, timeoutMs?: number) =>
+  request.post<ResultModel<KnowledgeChunkState>>({
+    url: `${documentUrl(id)}/chunks/generate`,
+    data,
+    timeout: timeoutMs,
+  })
+
+export const getChunkPage = (id: string, params: KnowledgeChunkQuery) =>
+  request.get<ResultModel<PageResult<KnowledgeChunkItem>>>({
+    url: `${documentUrl(id)}/chunks`,
+    params,
+  })
+
+export const getChunkDetail = (id: string, chunkId: string) =>
+  request.get<ResultModel<KnowledgeChunkItem>>({
+    url: `${documentUrl(id)}/chunks/${encodeURIComponent(chunkId)}`,
+  })
+
+export const updateChunks = (id: string, data: KnowledgeChunkSaveDTO) =>
+  request.put<ResultModel<KnowledgeChunkState>>({
+    url: `${documentUrl(id)}/chunks`,
+    data,
+  })
+
+export const mergeChunks = (id: string, data: KnowledgeChunkMergeDTO) =>
+  request.post<ResultModel<KnowledgeChunkState>>({
+    url: `${documentUrl(id)}/chunks/merge`,
+    data,
+  })
+
+export const confirmChunks = (id: string, data: KnowledgeChunkConfirmDTO) =>
+  request.post<ResultModel<KnowledgeChunkState>>({
+    url: `${documentUrl(id)}/chunks/confirm`,
+    data,
+  })
+
+export const deleteChunk = (id: string, chunkId: string, version: string | number) =>
+  request.delete<ResultModel<KnowledgeChunkState>>({
+    url: `${documentUrl(id)}/chunks/${encodeURIComponent(chunkId)}`,
+    params: { version },
+  })
+
+export const splitChunk = (id: string, chunkId: string, data: KnowledgeChunkSplitDTO) =>
+  request.post<ResultModel<KnowledgeChunkState>>({
+    url: `${documentUrl(id)}/chunks/${encodeURIComponent(chunkId)}/split`,
+    data,
+  })
+
+

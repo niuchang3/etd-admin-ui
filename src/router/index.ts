@@ -24,6 +24,17 @@ const router = createRouter({
           meta: { title: '首页', menuCode: 'ai:model-square' },
         },
         {
+          path: 'ai/knowledge-documents/:id/chunks',
+          name: 'knowledge-document-chunks',
+          component: () => import('@/views/ai/knowledge-document/chunks/index.vue'),
+          meta: {
+            title: '文档分片管理',
+            breadcrumb: [
+              { label: '知识库资料', path: '/ai/knowledge-documents' },
+            ],
+          },
+        },
+        {
           path: 'no-permission',
           name: 'no-permission',
           component: NotFoundView,

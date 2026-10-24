@@ -73,13 +73,15 @@
             allow-clear
             placeholder="上传状态"
             class="status-select"
+            @change="handleSearch"
           />
           <a-select
-            v-model:value="query.processingStatus"
-            :options="getOptions(KNOWLEDGE_DICT_TYPE.PROCESSING_STATUS)"
+            v-model:value="query.chunkStatus"
+            :options="chunkStatusOptions"
             allow-clear
-            placeholder="处理状态"
+            placeholder="分片状态"
             class="status-select"
+            @change="handleSearch"
           />
           <a-button type="primary" :loading="loading" @click="handleSearch">
             <SearchOutlined />查询
@@ -102,16 +104,18 @@
         :pagination="pagination"
         row-key="id"
         size="small"
-        :scroll="{ x: 1200 }"
+        :scroll="{ x: 1280 }"
         @change="handleTableChange"
       >
         <template #bodyCell="{ column, record }">
-          <!-- 资料名称：12px 常规字重平滑排版 -->
-          <EllipsisText
-            v-if="column.key === 'documentName'"
-            :text="record.documentName"
-            class="document-name-cell"
-          />
+          <!-- 资料名称：带文件格式图标、12px 常规字重平滑排版 -->
+          <div v-if="column.key === 'documentName'" class="document-name-cell-wrap">
+            <FileTypeIcon :file-type="record.fileType" class="document-type-icon" />
+            <EllipsisText
+              :text="record.documentName"
+              class="document-name-cell"
+            />
+          </div>
 
           <!-- 原始文件名：12px 次级文字 -->
           <EllipsisText
@@ -125,7 +129,14 @@
             {{ formatFileSize(record.fileSize) }}
           </span>
 
-          <!-- 上传状态：DictTag 统一 20px 高度微型标签 -->
+          <!-- 共享状态：Tag 展示共享 / 私有 -->
+          <span v-else-if="column.key === 'isPublic'">
+            <a-tag :color="record.isPublic ? 'blue' : 'default'">
+              {{ record.isPublic ? '共享' : '私有' }}
+            </a-tag>
+          </span>
+
+          <!-- 上传状态：DictTag 统一 20px 高度微型标签，使用 uploadErrorMessage 展示上传错误 -->
           <DictTag
             v-else-if="column.key === 'uploadStatus'"
             :type-code="KNOWLEDGE_DICT_TYPE.UPLOAD_STATUS"
@@ -133,13 +144,17 @@
             :title="record.uploadErrorMessage || undefined"
           />
 
-          <!-- 处理状态：DictTag 统一 -->
+          <!-- 分片状态：DictTag 统一展示 -->
           <DictTag
-            v-else-if="column.key === 'processingStatus'"
-            :type-code="KNOWLEDGE_DICT_TYPE.PROCESSING_STATUS"
-            :value="record.processingStatus"
-            :title="record.errorMessage || undefined"
+            v-else-if="column.key === 'chunkStatus'"
+            :type-code="KNOWLEDGE_DICT_TYPE.CHUNK_STATUS"
+            :value="record.chunkStatus || KNOWLEDGE_CHUNK_STATUS.UNPROCESSED"
           />
+
+          <!-- 分片数量：等宽数字 -->
+          <span v-else-if="column.key === 'chunkCount'" class="du-mono chunk-count-cell">
+            {{ record.chunkCount ?? 0 }}
+          </span>
 
           <!-- 创建时间：11px 等宽微小字 -->
           <span v-else-if="column.key === 'createTime'" class="create-time-cell du-mono">
@@ -157,11 +172,17 @@
             >
               下载
             </a-button>
-            <a-button type="link" size="small" @click="handleView(record)">
+            <a-button
+              type="link"
+              size="small"
+              :disabled="record.uploadStatus !== UPLOAD.COMPLETED"
+              @click="handleManageChunks(record)"
+            >
               分片
             </a-button>
             <template v-if="canWrite">
               <span v-if="record.builtIn" class="readonly-label">内置数据只读</span>
+              <span v-else-if="record.writable === false" class="readonly-label">仅读</span>
               <template v-else>
                 <a-button
                   type="link"
@@ -174,28 +195,25 @@
                 <a-button
                   type="link"
                   size="small"
-                  :disabled="processingBusy(record)"
                   @click="handleEdit(record)"
                 >
-                  配置
+                  编辑
                 </a-button>
                 <a-button
                   type="link"
                   size="small"
-                  :disabled="processingBusy(record)"
                   @click="handleMove(record)"
                 >
                   移动
                 </a-button>
                 <a-popconfirm
-                  title="将删除原件、正文分片和向量，且无法恢复，确定删除？"
+                  title="确定删除该资料？操作后原件将被删除且不可恢复。"
                   @confirm="handleDelete(record)"
                 >
                   <a-button
                     type="link"
                     size="small"
                     danger
-                    :disabled="processingBusy(record)"
                     :loading="deletingId === record.id"
                   >
                     删除
@@ -217,36 +235,86 @@
       </a-table>
     </div>
 
-    <KnowledgeDocumentFormModal v-model:open="formOpen" :record="currentRecord" :folders="folders" :move-only="moveOnly" @success="getList" />
-    <KnowledgeUploadModal v-model:open="uploadOpen" :record="uploadRecord" :folder="selectedFolder" :folders="folders" @success="getList" />
-    <KnowledgeDocumentPreviewDrawer v-model:open="previewOpen" :record="previewRecord" @success="getList" />
+    <KnowledgeDocumentFormModal
+      v-model:open="formOpen"
+      :record="currentRecord"
+      :folders="folders"
+      :move-only="moveOnly"
+      @success="getList"
+    />
+    <KnowledgeUploadModal
+      v-model:open="uploadOpen"
+      :record="uploadRecord"
+      :folder="selectedFolder"
+      :folders="folders"
+      @success="getList"
+    />
   </section>
 </template>
 
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, reactive, ref } from 'vue'
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { message, type TableColumnsType } from 'ant-design-vue'
 import { FolderOutlined, ReloadOutlined, SearchOutlined, UploadOutlined } from '@ant-design/icons-vue'
 import { menusStore } from '@/stores/modules/user'
-import { deleteKnowledgeDocument, getKnowledgeDocumentFolders, getKnowledgeDocumentPage, getKnowledgeDownloadUrl } from '@/apis/ai/document'
-import type { KnowledgeDocumentFolder, KnowledgeDocumentQuery, KnowledgeDocumentRecord } from '@/apis/ai/document/type'
-import { KNOWLEDGE_DICT_TYPE, KNOWLEDGE_UPLOAD_STATUS as UPLOAD } from '@/constant'
+import {
+  deleteKnowledgeDocument,
+  getKnowledgeDocumentFolders,
+  getKnowledgeDocumentPage,
+  getKnowledgeDownloadUrl,
+} from '@/apis/ai/document'
+import type {
+  KnowledgeDocumentFolder,
+  KnowledgeDocumentQuery,
+  KnowledgeDocumentRecord,
+} from '@/apis/ai/document/type'
+import {
+  KNOWLEDGE_CHUNK_STATUS,
+  KNOWLEDGE_DICT_TYPE,
+  KNOWLEDGE_UPLOAD_STATUS as UPLOAD,
+} from '@/constant'
 import { useSystemDict } from '@/composables/useSystemDict'
 import { useSystemConfigStore } from '@/stores/modules/config'
 import { formatFileSize } from '@/utils/format'
 import EllipsisText from '@/components/EllipsisText.vue'
 import DictTag from '@/components/DictTag.vue'
+import FileTypeIcon from './components/FileTypeIcon.vue'
 import KnowledgeDocumentFormModal from './components/KnowledgeDocumentFormModal.vue'
 import KnowledgeUploadModal from './components/KnowledgeUploadModal.vue'
-import KnowledgeDocumentPreviewDrawer from './components/KnowledgeDocumentPreviewDrawer.vue'
-import { canResumeUpload, canUseFolder, getFolderAndDescendantIds, getFolderTree, processingBusy } from './helper'
+import {
+  canResumeUpload,
+  canUseFolder,
+  getFolderAndDescendantIds,
+  getFolderTree,
+} from './helper'
 
 const route = useRoute()
+const router = useRouter()
 const canWrite = computed(() => menusStore().canWritePath(route.path))
-const { getOptions } = useSystemDict(Object.values(KNOWLEDGE_DICT_TYPE))
+const { getOptions } = useSystemDict([
+  KNOWLEDGE_DICT_TYPE.UPLOAD_STATUS,
+  KNOWLEDGE_DICT_TYPE.CHUNK_STATUS,
+])
+
+const fallbackChunkStatusOptions = [
+  { label: '未分片', value: KNOWLEDGE_CHUNK_STATUS.UNPROCESSED },
+  { label: '生成中', value: KNOWLEDGE_CHUNK_STATUS.GENERATING },
+  { label: '草稿', value: KNOWLEDGE_CHUNK_STATUS.DRAFT },
+  { label: '已确认', value: KNOWLEDGE_CHUNK_STATUS.CONFIRMED },
+  { label: '失败', value: KNOWLEDGE_CHUNK_STATUS.FAILED },
+]
+
+const chunkStatusOptions = computed(() => {
+  const dictOptions = getOptions(KNOWLEDGE_DICT_TYPE.CHUNK_STATUS)
+  return dictOptions && dictOptions.length > 0 ? dictOptions : fallbackChunkStatusOptions
+})
+
 const configStore = useSystemConfigStore()
-const query = reactive<KnowledgeDocumentQuery>({ current: 1, size: configStore.resource?.pagination?.defaultSize || 10 })
+const query = reactive<KnowledgeDocumentQuery>({
+  current: 1,
+  size: configStore.resource?.pagination?.defaultSize || 10,
+})
 const tableData = ref<KnowledgeDocumentRecord[]>([])
 const total = ref(0)
 const loading = ref(false)
@@ -254,7 +322,9 @@ const foldersLoading = ref(false)
 const folders = ref<KnowledgeDocumentFolder[]>([])
 const folderSearch = ref('')
 const selectedFolderId = ref('')
-const selectedFolder = computed(() => folders.value.find((folder) => folder.id === selectedFolderId.value) || null)
+const selectedFolder = computed(
+  () => folders.value.find((folder) => folder.id === selectedFolderId.value) || null
+)
 const folderTree = computed(() => getFolderTree(folders.value))
 
 const filteredFolderTree = computed(() => {
@@ -279,54 +349,86 @@ const filteredFolderTree = computed(() => {
 const canUpload = computed(() => canUseFolder(selectedFolder.value || undefined))
 const formOpen = ref(false)
 const uploadOpen = ref(false)
-const previewOpen = ref(false)
 const moveOnly = ref(false)
 const currentRecord = ref<KnowledgeDocumentRecord | null>(null)
 const uploadRecord = ref<KnowledgeDocumentRecord | null>(null)
-const previewRecord = ref<KnowledgeDocumentRecord | null>(null)
 const downloadingId = ref('')
 const deletingId = ref('')
 
 const columns: TableColumnsType<KnowledgeDocumentRecord> = [
-  { title: '资料名称', key: 'documentName', width: 200, ellipsis: true },
+  { title: '资料名称', key: 'documentName', width: 220, ellipsis: true },
   { title: '原始文件名', key: 'originalFilename', width: 170, ellipsis: true },
-  { title: '大小', key: 'fileSize', width: 90 },
+  { title: '大小', key: 'fileSize', width: 85 },
+  { title: '共享状态', key: 'isPublic', width: 85, align: 'center' },
   { title: '上传状态', key: 'uploadStatus', width: 110, ellipsis: true },
-  { title: '处理状态', key: 'processingStatus', width: 110, ellipsis: true },
-  { title: '创建时间', key: 'createTime', width: 190, ellipsis: true },
-  { title: '操作', key: 'actions', width: 330, fixed: 'right', align: 'right' },
+  { title: '分片状态', key: 'chunkStatus', width: 110, ellipsis: true },
+  { title: '分片数', key: 'chunkCount', width: 75, align: 'right' },
+  { title: '创建时间', key: 'createTime', width: 155, ellipsis: true },
+  { title: '操作', key: 'actions', width: 270, fixed: 'right', align: 'right' },
 ]
 
+const handleManageChunks = (record: KnowledgeDocumentRecord) => {
+  router.push({ path: `/ai/knowledge-documents/${record.id}/chunks` })
+}
+
 const pagination = computed(() => ({
-  current: query.current, pageSize: query.size, total: total.value, showSizeChanger: true,
-  pageSizeOptions: ['10', '20', '50', '100', '200'].filter((size) => Number(size) <= (configStore.resource?.pagination?.maxSize || 200)),
+  current: query.current,
+  pageSize: query.size,
+  total: total.value,
+  showSizeChanger: true,
+  pageSizeOptions: ['10', '20', '50', '100', '200'].filter(
+    (size) => Number(size) <= (configStore.resource?.pagination?.maxSize || 200)
+  ),
   showTotal: (count: number) => `共 ${count} 条`,
 }))
 
 let listToken = 0
 let folderToken = 0
-let timer: ReturnType<typeof setTimeout> | undefined
 
 const getList = async () => {
-  clearTimeout(timer)
   const token = ++listToken
-  if (!selectedFolderId.value) { tableData.value = []; total.value = 0; loading.value = false; return }
+  if (!selectedFolderId.value) {
+    tableData.value = []
+    total.value = 0
+    loading.value = false
+    return
+  }
   loading.value = true
   try {
     const targetFolderIds = getFolderAndDescendantIds(selectedFolderId.value, folders.value)
+    const cleanUploadStatus =
+      query.uploadStatus &&
+      query.uploadStatus !== ('all' as any) &&
+      query.uploadStatus !== ('null' as any) &&
+      query.uploadStatus !== ('undefined' as any)
+        ? query.uploadStatus
+        : undefined
+
+    const cleanChunkStatus =
+      query.chunkStatus &&
+      query.chunkStatus !== ('all' as any) &&
+      query.chunkStatus !== ('null' as any) &&
+      query.chunkStatus !== ('undefined' as any)
+        ? query.chunkStatus
+        : undefined
+
     const response = await getKnowledgeDocumentPage({
-      ...query,
+      current: query.current,
+      size: query.size,
       folderId: selectedFolderId.value,
       folderIds: targetFolderIds.length > 0 ? targetFolderIds : [selectedFolderId.value],
       keyword: query.keyword?.trim() || undefined,
+      uploadStatus: cleanUploadStatus,
+      chunkStatus: cleanChunkStatus,
     })
     if (token !== listToken) return
-    tableData.value = response.data.records || []; total.value = response.data.total
-    if (tableData.value.some((record) => processingBusy(record) || record.uploadStatus === UPLOAD.COMPLETING || record.uploadStatus === UPLOAD.INITIALIZING)) {
-      timer = setTimeout(() => { void getList() }, 5000)
-    }
-  } catch { /* 请求层提示，保留当前筛选，允许重试。 */ }
-  finally { if (token === listToken) loading.value = false }
+    tableData.value = response.data.records || []
+    total.value = response.data.total
+  } catch {
+    /* 请求层提示，保留当前筛选，允许重试。 */
+  } finally {
+    if (token === listToken) loading.value = false
+  }
 }
 
 const getFolders = async () => {
@@ -337,51 +439,73 @@ const getFolders = async () => {
     if (token !== folderToken) return
     folders.value = response.data || []
     if (!folders.value.some((folder) => folder.id === selectedFolderId.value)) {
-      selectedFolderId.value = folders.value.find((folder) => !folder.navigationOnly)?.id || folders.value[0]?.id || ''
-      query.current = 1; tableData.value = []; total.value = 0
+      selectedFolderId.value =
+        folders.value.find((folder) => !folder.navigationOnly)?.id || folders.value[0]?.id || ''
+      query.current = 1
+      tableData.value = []
+      total.value = 0
     }
     await getList()
-  } catch { /* 不依赖分类维护菜单。 */ }
-  finally { if (token === folderToken) foldersLoading.value = false }
+  } catch {
+    /* 不依赖分类维护菜单。 */
+  } finally {
+    if (token === folderToken) foldersLoading.value = false
+  }
 }
 
 const handleFolderSelect = (keys: (string | number)[]) => {
   if (!keys.length) return
-  selectedFolderId.value = String(keys[0]); query.current = 1; tableData.value = []; total.value = 0
+  selectedFolderId.value = String(keys[0])
+  query.current = 1
+  tableData.value = []
+  total.value = 0
   void getList()
 }
 
-const handleSearch = () => { query.current = 1; void getList() }
-const handleReset = () => { query.keyword = undefined; query.uploadStatus = undefined; query.processingStatus = undefined; handleSearch() }
+const handleSearch = () => {
+  query.current = 1
+  void getList()
+}
+
+const handleReset = () => {
+  query.keyword = undefined
+  query.uploadStatus = undefined
+  query.chunkStatus = undefined
+  handleSearch()
+}
+
 const handleTableChange = (page: { current?: number; pageSize?: number }) => {
-  query.current = page.current || 1; query.size = Math.min(page.pageSize || 10, configStore.resource?.pagination?.maxSize || 200); void getList()
+  query.current = page.current || 1
+  query.size = Math.min(page.pageSize || 10, configStore.resource?.pagination?.maxSize || 200)
+  void getList()
 }
 
 const handleAdd = () => {
   if (!canWrite.value) return
   if (!canUpload.value) return
-  uploadRecord.value = null; uploadOpen.value = true
+  uploadRecord.value = null
+  uploadOpen.value = true
 }
 
 const handleResume = (record: KnowledgeDocumentRecord) => {
-  if (!canWrite.value) return
-  if (record.builtIn || !canResumeUpload(record)) return
-  uploadRecord.value = record; uploadOpen.value = true
+  if (!canWrite.value || record.writable === false || record.builtIn || !canResumeUpload(record)) return
+  uploadRecord.value = record
+  uploadOpen.value = true
 }
 
 const handleEdit = (record: KnowledgeDocumentRecord) => {
-  if (!canWrite.value) return
-  if (record.builtIn || processingBusy(record)) return
-  currentRecord.value = record; moveOnly.value = false; formOpen.value = true
+  if (!canWrite.value || record.writable === false || record.builtIn) return
+  currentRecord.value = record
+  moveOnly.value = false
+  formOpen.value = true
 }
 
 const handleMove = (record: KnowledgeDocumentRecord) => {
-  if (!canWrite.value) return
-  if (record.builtIn || processingBusy(record)) return
-  currentRecord.value = record; moveOnly.value = true; formOpen.value = true
+  if (!canWrite.value || record.writable === false || record.builtIn) return
+  currentRecord.value = record
+  moveOnly.value = true
+  formOpen.value = true
 }
-
-const handleView = (record: KnowledgeDocumentRecord) => { previewRecord.value = record; previewOpen.value = true }
 
 const handleDownload = async (record: KnowledgeDocumentRecord) => {
   if (record.uploadStatus !== UPLOAD.COMPLETED || downloadingId.value) return
@@ -389,28 +513,45 @@ const handleDownload = async (record: KnowledgeDocumentRecord) => {
   try {
     const response = await getKnowledgeDownloadUrl(record.id)
     const url = new URL(response.data, window.location.origin)
-    if (!['http:', 'https:'].includes(url.protocol)) { message.error('下载地址无效'); return }
+    if (!['http:', 'https:'].includes(url.protocol)) {
+      message.error('下载地址无效')
+      return
+    }
     const link = document.createElement('a')
-    link.href = url.href; link.rel = 'noopener noreferrer'; link.target = '_blank'; link.click()
-  } catch { /* 下载属于读取，由业务请求层处理权限错误。 */ }
-  finally { downloadingId.value = '' }
+    link.href = url.href
+    link.rel = 'noopener noreferrer'
+    link.target = '_blank'
+    link.click()
+  } catch {
+    /* 下载属于读取，由业务请求层处理权限错误。 */
+  } finally {
+    downloadingId.value = ''
+  }
 }
 
 const handleDelete = async (record: KnowledgeDocumentRecord) => {
-  if (!canWrite.value) return
-  if (record.builtIn || processingBusy(record) || deletingId.value) return
+  if (!canWrite.value || record.writable === false || record.builtIn || deletingId.value) return
   deletingId.value = record.id
   try {
     await deleteKnowledgeDocument(record.id)
-    message.success('资料原件、正文分片及向量已删除')
+    message.success('资料已删除')
     if (tableData.value.length === 1 && query.current > 1) query.current--
     await getList()
-  } catch { /* 请求层提示错误。 */ }
-  finally { deletingId.value = '' }
+  } catch {
+    /* 请求层提示错误。 */
+  } finally {
+    deletingId.value = ''
+  }
 }
 
-onMounted(() => { void getFolders() })
-onBeforeUnmount(() => { clearTimeout(timer); listToken++; folderToken++ })
+onMounted(() => {
+  void getFolders()
+})
+
+onBeforeUnmount(() => {
+  listToken++
+  folderToken++
+})
 </script>
 
 <style scoped>
@@ -451,29 +592,27 @@ onBeforeUnmount(() => { clearTimeout(timer); listToken++; folderToken++ })
 
 .tree-search {
   padding: var(--du-space-2) var(--du-space-3);
-  border-bottom: 1px solid var(--du-border);
+  border-bottom: 1px solid var(--du-border-subtle);
 }
 
 .tree-container {
   flex: 1;
-  overflow: auto;
+  overflow-y: auto;
   padding: var(--du-space-2);
 }
 
 .folder-node-title {
-  display: inline-flex;
+  display: flex;
   align-items: center;
-  gap: 5px;
-  max-width: 155px;
+  gap: var(--du-space-1);
+  font-size: 12px;
   overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  font-size: var(--du-font-size-sm, 12px);
 }
 
 .folder-icon {
-  font-size: var(--du-font-size-sm, 12px);
-  color: var(--du-text-muted);
+  font-size: 12px;
+  color: var(--du-text-secondary);
+  flex-shrink: 0;
 }
 
 .folder-text {
@@ -492,37 +631,39 @@ onBeforeUnmount(() => { clearTimeout(timer); listToken++; folderToken++ })
 
 .page-toolbar {
   display: flex;
-  min-height: 48px;
   align-items: center;
   justify-content: space-between;
-  gap: var(--du-space-3);
-  padding: var(--du-space-2) var(--du-space-3);
+  padding: var(--du-space-3);
   border-bottom: 1px solid var(--du-border);
+  gap: var(--du-space-2);
+  flex-wrap: wrap;
 }
 
 .filters {
   display: flex;
-  flex-wrap: wrap;
   align-items: center;
   gap: var(--du-space-2);
+  flex-wrap: wrap;
 }
 
 .current-folder-badge {
   display: inline-flex;
   align-items: center;
-  gap: 5px;
-  padding: 3px 8px;
-  border-radius: var(--du-radius-sm);
+  gap: var(--du-space-1);
+  height: 30px;
+  padding: 0 10px;
   background: var(--du-bg-subtle);
   border: 1px solid var(--du-border);
-  font-size: var(--du-font-size-sm, 12px);
+  border-radius: var(--du-radius-sm);
+  font-size: 12px;
   color: var(--du-text);
-  max-width: 200px;
+  max-width: 180px;
 }
 
 .folder-badge-icon {
-  color: #2563eb;
+  color: var(--du-primary-color, #2563eb);
   font-size: 12px;
+  flex-shrink: 0;
 }
 
 .folder-badge-text {
@@ -545,43 +686,46 @@ onBeforeUnmount(() => { clearTimeout(timer); listToken++; folderToken++ })
   gap: var(--du-space-2);
 }
 
-.document-name-cell {
-  font-size: var(--du-font-size-sm, 12px);
-  font-weight: var(--du-font-weight-normal, 400);
-  color: var(--du-text);
+.document-name-cell-wrap {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  max-width: 100%;
 }
 
-.file-size-cell {
-  font-size: var(--du-font-size-xs, 11px);
-  color: var(--du-text-secondary);
+.document-name-cell-wrap :deep(.document-name-cell) {
+  flex: 1;
+  min-width: 0;
+}
+
+.document-type-icon {
+  font-size: 14px;
+  flex-shrink: 0;
+}
+
+.document-name-cell {
+  font-size: 12px;
+  font-weight: 400;
+}
+
+.file-size-cell,
+.create-time-cell {
+  font-size: 11px;
 }
 
 .text-secondary {
   color: var(--du-text-secondary);
-  font-size: var(--du-font-size-sm, 12px);
-}
-
-.create-time-cell {
-  font-size: var(--du-font-size-xs, 11px);
-  color: var(--du-text-secondary);
-  font-family: var(--du-font-mono);
+  font-size: 12px;
 }
 
 .readonly-label {
-  font-size: var(--du-font-size-xs, 11px);
   color: var(--du-text-muted);
-}
-
-.row-actions {
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 2px;
-  white-space: nowrap;
+  font-size: var(--du-font-size-xs, 11px);
+  line-height: 24px;
 }
 
 .empty-tree {
-  margin-top: 30px;
+  margin: var(--du-space-4) 0;
 }
 </style>
-

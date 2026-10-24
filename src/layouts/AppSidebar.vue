@@ -119,7 +119,9 @@ const menuItems = computed<MenuProps['items']>(() => currentMenus.menus.map(conv
 
 // 当前 URL 对应的菜单会自动高亮。
 const selectedKeys = computed(() => {
-  const matchedEntry = Array.from(menuRouteMap.value.entries()).find(([, path]) => path === route.path)
+  const matchedEntry = Array.from(menuRouteMap.value.entries()).find(
+    ([, path]) => path === route.path || (path !== '/' && route.path.startsWith(path + '/'))
+  )
   return matchedEntry ? [matchedEntry[0]] : []
 })
 
