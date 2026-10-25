@@ -48,6 +48,12 @@
 
               <!-- 右侧独立操作区域：阻止冒泡，避免误触进入工作区 -->
               <div class="card-actions" @click.stop>
+                <a-tooltip title="召回测试">
+                  <a-button type="text" size="small" class="recall-btn" @click="handleGoRecallTest(record)">
+                    <AimOutlined />
+                  </a-button>
+                </a-tooltip>
+
                 <a-popconfirm
                   v-if="canWrite && record.writable !== false"
                   title="确定删除此知识库？操作将同时删除其所有分类与文档资料且不可恢复。"
@@ -135,6 +141,7 @@ import { computed, onMounted, reactive, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { message } from 'ant-design-vue'
 import {
+  AimOutlined,
   BookOutlined,
   DeleteOutlined,
   PlusOutlined,
@@ -220,6 +227,11 @@ const handleEnterWorkspace = (record: KnowledgeBaseRecord) => {
   // 设置当前工作区知识库并导航
   kbStore.currentKb = record
   void router.push(`/ai/knowledge-bases/${record.id}/documents`)
+}
+
+const handleGoRecallTest = (record: KnowledgeBaseRecord) => {
+  kbStore.currentKb = record
+  void router.push(`/ai/knowledge-bases/${record.id}/recall-test`)
 }
 
 const handleDelete = async (record: KnowledgeBaseRecord) => {

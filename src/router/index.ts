@@ -40,6 +40,12 @@ const router = createRouter({
           meta: { title: '文档管理', subTab: 'documents' },
         },
         {
+          path: 'ai/knowledge-bases/:id/recall-test',
+          name: 'knowledge-base-recall-test',
+          component: () => import('@/views/ai/knowledge-base/workspace/index.vue'),
+          meta: { title: '召回测试', subTab: 'recall-test' },
+        },
+        {
           path: 'ai/knowledge-bases/:id/settings',
           name: 'knowledge-base-settings',
           component: () => import('@/views/ai/knowledge-base/workspace/index.vue'),
@@ -123,7 +129,12 @@ export const syncDynamicRoutes = (menus: UserMenu[]) => {
 router.beforeEach(async (to) => {
   const hasSession = Boolean(getAccessToken() || getRefreshToken())
   if (!to.meta.public && !hasSession) return { name: 'login', query: { redirect: to.fullPath } }
-  if (to.name === 'login') return hasSession ? { path: '/dashboard' } : true
+  if (to.name === 'login') {
+    if (!hasSession) return true
+    const { menusStore } = await import('@/stores/modules/user')
+    const firstPath = menusStore().firstReadablePath()
+    return { path: firstPath ? (firstPath.startsWith('/') ? firstPath : `/${firstPath}`) : '/dashboard' }
+  }
   if (!hasSession) return true
 
   if (!dynamicRoutesReady) {
@@ -136,8 +147,8 @@ router.beforeEach(async (to) => {
         userStore().getUserInfo(),
         userStore().getUserRoles(),
       ])
-      const firstPath = menusStore().firstReadablePath() || '/dashboard'
-      if (!menus.length && !firstPath) return { name: 'no-permission', replace: true }
+      const firstPath = menusStore().firstReadablePath()
+      if (!menus.length || !firstPath) return { name: 'no-permission', replace: true }
       if (to.name === 'no-permission' || to.name === 'not-found' || to.path === '/' || to.name === 'admin') {
         const target = firstPath.startsWith('/') ? firstPath : `/${firstPath}`
         return { path: target, replace: true }
@@ -148,10 +159,11 @@ router.beforeEach(async (to) => {
     }
   }
 
-  // 动态路由就绪后，访问根路径 / 或 admin 时，默认进入首页 /dashboard
+  // 动态路由就绪后，访问根路径 / 或 admin 时，默认进入用户拥有的第一个菜单
   if (to.path === '/' || to.name === 'admin') {
     const { menusStore } = await import('@/stores/modules/user')
-    const firstPath = menusStore().firstReadablePath() || '/dashboard'
+    const firstPath = menusStore().firstReadablePath()
+    if (!firstPath) return { name: 'no-permission', replace: true }
     const target = firstPath.startsWith('/') ? firstPath : `/${firstPath}`
     return { path: target, replace: true }
   }

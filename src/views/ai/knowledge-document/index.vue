@@ -151,6 +151,16 @@
             :value="record.chunkStatus || KNOWLEDGE_CHUNK_STATUS.UNPROCESSED"
           />
 
+          <!-- 向量状态：DictTag 独立展示，不与其他状态相互推断 -->
+          <template v-else-if="column.key === 'vectorStatus'">
+            <DictTag
+              v-if="record.vectorStatus"
+              :type-code="KNOWLEDGE_DICT_TYPE.VECTOR_STATUS"
+              :value="record.vectorStatus"
+            />
+            <span v-else class="text-secondary">—</span>
+          </template>
+
           <!-- 分片数量：等宽数字 -->
           <span v-else-if="column.key === 'chunkCount'" class="du-mono chunk-count-cell">
             {{ record.chunkCount ?? 0 }}
@@ -187,38 +197,41 @@
                 <a-button
                   type="link"
                   size="small"
-                  :disabled="!canResumeUpload(record)"
-                  @click="handleResume(record)"
-                >
-                  续传
-                </a-button>
-                <a-button
-                  type="link"
-                  size="small"
                   @click="handleEdit(record)"
                 >
                   编辑
                 </a-button>
-                <a-button
-                  type="link"
-                  size="small"
-                  @click="handleMove(record)"
-                >
-                  移动
-                </a-button>
-                <a-popconfirm
-                  title="确定删除该资料？操作后原件将被删除且不可恢复。"
-                  @confirm="handleDelete(record)"
-                >
-                  <a-button
-                    type="link"
-                    size="small"
-                    danger
-                    :loading="deletingId === record.id"
-                  >
-                    删除
+                <a-dropdown :trigger="['click']">
+                  <a-button type="link" size="small" class="more-action-btn">
+                    更多<DownOutlined class="more-action-icon" />
                   </a-button>
-                </a-popconfirm>
+                  <template #overlay>
+                    <a-menu>
+                      <a-menu-item key="move" @click="handleMove(record)">
+                        <FolderOutlined />
+                        <span>移动分类</span>
+                      </a-menu-item>
+                      <a-menu-item
+                        v-if="canResumeUpload(record)"
+                        key="resume"
+                        @click="handleResume(record)"
+                      >
+                        <CloudUploadOutlined />
+                        <span>继续上传</span>
+                      </a-menu-item>
+                      <a-menu-divider />
+                      <a-menu-item
+                        key="delete"
+                        danger
+                        :disabled="deletingId === record.id"
+                        @click="confirmDelete(record)"
+                      >
+                        <DeleteOutlined />
+                        <span>删除资料</span>
+                      </a-menu-item>
+                    </a-menu>
+                  </template>
+                </a-dropdown>
               </template>
             </template>
             <span v-else class="readonly-label">只读</span>
@@ -255,8 +268,16 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, reactive, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { message, type TableColumnsType } from 'ant-design-vue'
-import { FolderOutlined, ReloadOutlined, SearchOutlined, UploadOutlined } from '@ant-design/icons-vue'
+import { message, Modal, type TableColumnsType } from 'ant-design-vue'
+import {
+  CloudUploadOutlined,
+  DeleteOutlined,
+  DownOutlined,
+  FolderOutlined,
+  ReloadOutlined,
+  SearchOutlined,
+  UploadOutlined,
+} from '@ant-design/icons-vue'
 import { menusStore } from '@/stores/modules/user'
 import {
   deleteKnowledgeDocument,
@@ -362,13 +383,17 @@ const columns: TableColumnsType<KnowledgeDocumentRecord> = [
   { title: '共享状态', dataIndex: 'isPublic', key: 'isPublic', width: 60, align: 'center' },
   { title: '上传状态', dataIndex: 'uploadStatus', key: 'uploadStatus', width: 72, align: 'center' },
   { title: '分片状态', dataIndex: 'chunkStatus', key: 'chunkStatus', width: 72, align: 'center' },
+  { title: '向量状态', dataIndex: 'vectorStatus', key: 'vectorStatus', width: 72, align: 'center' },
   { title: '分片数', dataIndex: 'chunkCount', key: 'chunkCount', width: 60, align: 'right' },
   { title: '创建时间', dataIndex: 'createTime', key: 'createTime', width: 140, align: 'center' },
   { title: '操作', key: 'actions', width: 215, fixed: 'right', align: 'right' },
 ]
 
 const handleManageChunks = (record: KnowledgeDocumentRecord) => {
-  router.push({ path: `/ai/knowledge-documents/${record.id}/chunks` })
+  router.push({
+    path: `/ai/knowledge-documents/${record.id}/chunks`,
+    query: record.knowledgeBaseId ? { kbId: record.knowledgeBaseId } : undefined,
+  })
 }
 
 const pagination = computed(() => ({
@@ -542,6 +567,20 @@ const handleDelete = async (record: KnowledgeDocumentRecord) => {
   } finally {
     deletingId.value = ''
   }
+}
+
+const confirmDelete = (record: KnowledgeDocumentRecord) => {
+  const name = record.documentName || record.originalFilename || '未命名资料'
+  Modal.confirm({
+    title: '确定删除该资料？',
+    content: `资料“${name}”删除后原件将被彻底删除且不可恢复。`,
+    okText: '删除',
+    okType: 'danger',
+    cancelText: '取消',
+    async onOk() {
+      await handleDelete(record)
+    },
+  })
 }
 
 onMounted(() => {
@@ -727,5 +766,16 @@ onBeforeUnmount(() => {
 
 .empty-tree {
   margin: var(--du-space-4) 0;
+}
+
+.more-action-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 1px;
+}
+
+.more-action-icon {
+  font-size: 9px;
+  margin-left: 1px;
 }
 </style>

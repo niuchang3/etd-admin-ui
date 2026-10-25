@@ -85,6 +85,7 @@
 import { computed, h, onMounted, ref, watch } from 'vue'
 import { Empty, type MenuProps } from 'ant-design-vue'
 import {
+  AimOutlined,
   ArrowLeftOutlined,
   ExclamationCircleOutlined,
   FileTextOutlined,
@@ -116,10 +117,25 @@ const loadFailed = ref(false)
 const logoError = ref(false)
 const simpleImage = Empty.PRESENTED_IMAGE_SIMPLE
 
-const isKbWorkspace = computed(() => {
-  return route.path.startsWith('/ai/knowledge-bases/') && Boolean(route.params.id)
+const currentKbId = computed(() => {
+  if (route.path.startsWith('/ai/knowledge-bases/')) {
+    return String(route.params.id || '')
+  }
+  if (route.path.includes('/chunks')) {
+    return String(route.query.kbId || kbStore.currentKb?.id || '')
+  }
+  return ''
 })
-const currentKbId = computed(() => String(route.params.id || ''))
+
+const isKbWorkspace = computed(() => {
+  if (route.path.startsWith('/ai/knowledge-bases/') && Boolean(route.params.id)) {
+    return true
+  }
+  if (route.path.includes('/chunks') && Boolean(currentKbId.value)) {
+    return true
+  }
+  return false
+})
 
 watch(
   () => [isKbWorkspace.value, currentKbId.value] as const,
@@ -140,6 +156,11 @@ const workspaceMenuItems = computed<MenuProps['items']>(() => [
     icon: h(FileTextOutlined),
   },
   {
+    key: 'recall-test',
+    label: '召回测试',
+    icon: h(AimOutlined),
+  },
+  {
     key: 'settings',
     label: '设置',
     icon: h(SettingOutlined),
@@ -148,6 +169,7 @@ const workspaceMenuItems = computed<MenuProps['items']>(() => [
 
 const workspaceSelectedKeys = computed(() => {
   if (route.path.endsWith('/settings')) return ['settings']
+  if (route.path.endsWith('/recall-test')) return ['recall-test']
   return ['documents']
 })
 
@@ -155,6 +177,8 @@ const handleWorkspaceMenuClick: MenuProps['onClick'] = ({ key }) => {
   if (!currentKbId.value) return
   if (key === 'documents') {
     void router.push(`/ai/knowledge-bases/${currentKbId.value}/documents`)
+  } else if (key === 'recall-test') {
+    void router.push(`/ai/knowledge-bases/${currentKbId.value}/recall-test`)
   } else if (key === 'settings') {
     void router.push(`/ai/knowledge-bases/${currentKbId.value}/settings`)
   }

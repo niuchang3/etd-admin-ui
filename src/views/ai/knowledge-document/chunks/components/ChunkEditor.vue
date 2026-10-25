@@ -43,6 +43,12 @@
               >
                 {{ heading }}
               </a-tag>
+              <a-tooltip title="系统在确认分片向量化时将自动继承此章节路径，增强检索语义，无需在正文中重复手写标题">
+                <a-tag color="processing" class="meta-tag context-boost-tag">
+                  <template #icon><InfoCircleOutlined /></template>
+                  向量上下文已关联
+                </a-tag>
+              </a-tooltip>
             </template>
 
             <!-- 文档元素项引用 -->
@@ -132,7 +138,7 @@
 <script setup lang="ts">
 import { computed, nextTick, onMounted, ref, watch } from 'vue'
 import { message } from 'ant-design-vue'
-import { DeleteOutlined, FieldTimeOutlined, ScissorOutlined } from '@ant-design/icons-vue'
+import { DeleteOutlined, FieldTimeOutlined, InfoCircleOutlined, ScissorOutlined } from '@ant-design/icons-vue'
 import { config, MdEditor, type ToolbarNames } from 'md-editor-v3'
 import katex from 'katex'
 import mermaid from 'mermaid'

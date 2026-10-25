@@ -193,10 +193,10 @@
               </a-col>
             </a-row>
 
-            <!-- 召回深度 3 等分栏 -->
+            <!-- 召回深度 4 等分栏 -->
             <a-row :gutter="16">
-              <a-col :span="8">
-                <a-form-item label="全文召回候选数" name="keywordRecallSize" extra="全文倒排候选数量 (1-100)">
+              <a-col :span="6">
+                <a-form-item label="全文召回候选数" name="keywordRecallSize" extra="倒排候选数 (1-100)">
                   <a-input-number
                     v-model:value="formData.keywordRecallSize"
                     :min="1"
@@ -206,11 +206,11 @@
                 </a-form-item>
               </a-col>
 
-              <a-col :span="8">
+              <a-col :span="6">
                 <a-form-item
                   label="向量召回候选数"
                   name="vectorRecallSize"
-                  :extra="isVectorRequired ? '向量相似度候选数量 (1-100)' : '纯全文检索下不生效'"
+                  :extra="isVectorRequired ? '向量候选数 (1-100)' : '纯全文下不生效'"
                 >
                   <a-input-number
                     v-model:value="formData.vectorRecallSize"
@@ -222,12 +222,24 @@
                 </a-form-item>
               </a-col>
 
-              <a-col :span="8">
-                <a-form-item label="最终输出 Top K" name="topK" extra="初筛合并输出数量 (1-100)">
+              <a-col :span="6">
+                <a-form-item label="最终输出 Top K" name="topK" extra="初筛合并数 (1-100)">
                   <a-input-number
                     v-model:value="formData.topK"
                     :min="1"
                     :max="100"
+                    style="width: 100%;"
+                  />
+                </a-form-item>
+              </a-col>
+
+              <a-col :span="6">
+                <a-form-item label="上下文扩展窗口" name="contextWindowSize" extra="指针滑动扩展 (0-3)">
+                  <a-input-number
+                    v-model:value="formData.contextWindowSize"
+                    :min="0"
+                    :max="3"
+                    placeholder="默认 0"
                     style="width: 100%;"
                   />
                 </a-form-item>
@@ -384,6 +396,7 @@ const orgDisplayName = ref('')
 
 const formData = reactive<KnowledgeBaseUpdateDTO>({
   version: '',
+  orgId: '',
   name: '',
   description: '',
   dataStatus: COMMON_STATUS.ENABLED,
@@ -394,6 +407,7 @@ const formData = reactive<KnowledgeBaseUpdateDTO>({
   keywordRecallSize: 10,
   vectorRecallSize: 10,
   topK: 5,
+  contextWindowSize: 0,
   similarityThreshold: null,
   rerankEnabled: false,
   rerankConnectionId: null,
@@ -461,6 +475,7 @@ const handleRerankEnabledChange = (checked: boolean) => {
 const syncFormData = async () => {
   if (!kb.value) return
   formData.version = kb.value.version
+  formData.orgId = String(kb.value.orgId || '')
   formData.name = kb.value.name
   formData.description = kb.value.description || ''
   formData.dataStatus = kb.value.dataStatus ?? COMMON_STATUS.ENABLED
@@ -471,6 +486,7 @@ const syncFormData = async () => {
   formData.keywordRecallSize = kb.value.keywordRecallSize ?? 10
   formData.vectorRecallSize = kb.value.vectorRecallSize ?? 10
   formData.topK = kb.value.topK ?? 5
+  formData.contextWindowSize = kb.value.contextWindowSize ?? 0
   formData.similarityThreshold = kb.value.similarityThreshold ?? null
   formData.rerankEnabled = kb.value.rerankEnabled ?? false
   formData.rerankConnectionId = kb.value.rerankConnectionId || null
@@ -512,6 +528,13 @@ const handleSubmit = async () => {
 
   if (isFormDisabled.value) return
 
+  // 必须携带原有的 orgId，保持字符串处理
+  const effectiveOrgId = String(formData.orgId || kb.value?.orgId || '')
+  if (!effectiveOrgId) {
+    message.error('未检测到知识库所属组织信息，无法保存')
+    return
+  }
+
   // 开启重排时的业务边界校验
   if (formData.rerankEnabled) {
     if (invalidRerankConnection.value) {
@@ -536,6 +559,7 @@ const handleSubmit = async () => {
   try {
     const payload: KnowledgeBaseUpdateDTO = {
       version: formData.version,
+      orgId: effectiveOrgId,
       name: formData.name.trim(),
       description: formData.description?.trim() || null,
       dataStatus: formData.dataStatus,
@@ -545,6 +569,7 @@ const handleSubmit = async () => {
       vectorRecallSize: isVectorRequired.value ? (formData.vectorRecallSize ?? 10) : null,
       topK: formData.topK ?? 5,
       similarityThreshold: formData.similarityThreshold ?? null,
+      contextWindowSize: formData.contextWindowSize ?? 0,
       embeddingConnectionId: isVectorRequired.value ? formData.embeddingConnectionId : null,
       dimensions: isVectorRequired.value ? formData.dimensions : null,
       rerankEnabled: formData.rerankEnabled,

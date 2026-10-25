@@ -6,6 +6,8 @@ import type {
   KnowledgeBaseQuery,
   KnowledgeBaseRecord,
   KnowledgeBaseUpdateDTO,
+  RecallTestHit,
+  RecallTestRequest,
 } from './type'
 
 const KB_API = '/ai/api/v1/knowledge-bases'
@@ -61,5 +63,17 @@ export const updateKnowledgeBase = async (id: string, data: KnowledgeBaseUpdateD
 export const deleteKnowledgeBase = async (id: string) => {
   return await request.delete<ResultModel<boolean>>({
     url: kbUrl(id),
+  })
+}
+
+/**
+ * 召回测试
+ * POST /v1/knowledge-bases/{id}/recall-test
+ */
+export const testRecall = async (id: string, data: RecallTestRequest) => {
+  return await request.post<ResultModel<RecallTestHit[]>>({
+    url: `${kbUrl(id)}/recall-test`,
+    data,
+    timeout: 60000, // 包含向量生成和重排，耗时较长，预留 60s
   })
 }

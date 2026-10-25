@@ -250,6 +250,7 @@ export const KNOWLEDGE_UPLOAD_STATUS = {
 export const KNOWLEDGE_DICT_TYPE = {
   UPLOAD_STATUS: 'ai_knowledge_upload_status',
   CHUNK_STATUS: 'ai_knowledge_chunk_status',
+  VECTOR_STATUS: 'ai_knowledge_vector_status',
 } as const
 export const KNOWLEDGE_CHUNK_STATUS = {
   UNPROCESSED: 'unprocessed',
@@ -259,5 +260,16 @@ export const KNOWLEDGE_CHUNK_STATUS = {
   FAILED: 'failed',
 } as const
 export type KnowledgeChunkStatusValue = typeof KNOWLEDGE_CHUNK_STATUS[keyof typeof KNOWLEDGE_CHUNK_STATUS]
+
+/** 知识库文档向量状态常量 */
+export const KNOWLEDGE_VECTOR_STATUS = {
+  UNPROCESSED: 'unprocessed',
+  GENERATING: 'generating',
+  COMPLETED: 'completed',
+  FAILED: 'failed',
+  STALE: 'stale',
+} as const
+export type KnowledgeVectorStatusValue = typeof KNOWLEDGE_VECTOR_STATUS[keyof typeof KNOWLEDGE_VECTOR_STATUS]
+
 export const KNOWLEDGE_UPLOAD_CONFIG_KEY = 'ai.knowledge.upload'
 

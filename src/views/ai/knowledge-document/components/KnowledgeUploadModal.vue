@@ -1,17 +1,33 @@
 <template>
   <a-modal
     :open="open"
-    title="资料上传 / 断点续传"
-    :width="640"
+    :title="detail ? '资料断点续传' : '资料上传'"
+    :width="680"
     :mask-closable="false"
     :closable="!busy && !cancelLoading"
     class="knowledge-upload-modal"
     @cancel="handleClose"
   >
     <a-spin :spinning="loading">
+      <!-- 异常或重试提示 -->
       <a-alert
+        v-if="!loading && (!configValid || !policy)"
+        type="error"
+        show-icon
+        class="modal-top-alert"
+      >
+        <template #message>
+          <div class="config-error-message">
+            <span>{{ !configValid ? `上传配置异常（${configError || '参数未生效'}），已暂停文件上传。` : '上传策略加载失败，已暂停文件上传。' }}</span>
+            <a-button type="link" size="small" class="retry-action-btn" @click="loadModalData">重试加载</a-button>
+          </div>
+        </template>
+      </a-alert>
+
+      <a-alert
+        v-else
         type="info"
-        message="支持单个文件上传，上传完成后可在列表查看上传状态与管理资料。"
+        :message="detail ? '当前处于断点续传模式，请选择与原资料一致的本地文件以继续未完成分片传输。' : '支持单个或批量文件选择与拖拽上传，系统将根据服务端策略切片并自动校验 SHA-256。'"
         show-icon
         class="modal-top-alert"
       />
@@ -36,30 +52,17 @@
         </a-form-item>
 
         <a-form-item label="本地文件">
-          <!-- Ant Design Vue 规范拖拽上传区域 -->
+          <!-- Ant Design Vue 规范拖拽上传区域：支持单选、多选与拖拽 -->
           <a-upload-dragger
             :before-upload="handleBeforeUpload"
             :show-upload-list="false"
             :accept="accept"
-            :disabled="busy || loading || !canWrite || terminal || !configValid"
+            :multiple="!detail"
+            :disabled="busy || loading || !canWrite || terminal || !configValid || !policy"
             class="standard-file-dragger"
           >
-            <div v-if="!file" class="dragger-placeholder">
-              <p class="dragger-icon">
-                <InboxOutlined />
-              </p>
-              <p class="dragger-title">点击或将本地文件拖拽到此区域上传</p>
-              <p class="dragger-tip">
-                支持单个文件上传，系统将根据服务端策略切片并自动校验 SHA-256
-              </p>
-              <p v-if="configValid && supportedFormatsText" class="dragger-formats">
-                支持格式：{{ supportedFormatsText }}
-              </p>
-              <p v-else-if="!loading && !configValid" class="dragger-formats-error">
-                上传配置异常，已禁用格式筛选与文件上传
-              </p>
-            </div>
-            <div v-else class="file-selected-box">
+            <!-- 断点续传已选文件展示 -->
+            <div v-if="detail && file" class="file-selected-box">
               <FileTextOutlined class="file-icon" />
               <div class="file-meta">
                 <div class="file-name" :title="file.name">{{ file.name }}</div>
@@ -69,15 +72,114 @@
                 type="link"
                 size="small"
                 :disabled="busy"
-                @click.stop="handleRemoveFile"
+                @click.stop="handleRemoveResumeFile"
               >
                 重新选择
               </a-button>
             </div>
+
+            <!-- 常规拖拽上传占位区 -->
+            <div v-else class="dragger-placeholder">
+              <p class="dragger-icon">
+                <InboxOutlined />
+              </p>
+              <p class="dragger-title">点击或将本地文件拖拽到此区域上传</p>
+              <p class="dragger-tip">
+                {{ detail ? '请选择与原资料一致的文件以补传分片' : '支持逐文件或批量添加，计算哈希前将严格校验格式与大小' }}
+              </p>
+              <!-- 核心动态文案：单个文件不超过 {maxSizeMb} MiB -->
+              <p v-if="configValid && maxSizeMb" class="dragger-limit">
+                单个文件不超过 {{ maxSizeMb }} MiB
+              </p>
+              <p v-if="configValid && supportedFormatsText" class="dragger-formats">
+                支持格式：{{ supportedFormatsText }}
+              </p>
+              <p v-else-if="!loading && !configValid" class="dragger-formats-error">
+                上传配置未就绪，已暂停文件上传
+              </p>
+            </div>
           </a-upload-dragger>
 
+          <!-- 批量待上传文件队列 -->
+          <div v-if="!detail && uploadQueue.length > 0" class="upload-queue-container">
+            <div class="queue-header">
+              <span class="queue-title">
+                待上传文件列表（{{ uploadQueue.length }}）
+                <span v-if="completedQueueCount > 0" class="queue-completed-badge">
+                  已完成 {{ completedQueueCount }}
+                </span>
+              </span>
+              <a-button
+                v-if="!busy"
+                type="link"
+                size="small"
+                class="queue-clear-btn"
+                @click="handleClearQueue"
+              >
+                清空列表
+              </a-button>
+            </div>
+
+            <div class="queue-list">
+              <div
+                v-for="item in uploadQueue"
+                :key="item.uid"
+                class="queue-item"
+                :class="`status-${item.status}`"
+              >
+                <div class="item-main">
+                  <FileTextOutlined class="item-icon" />
+                  <div class="item-info">
+                    <div class="item-name" :title="item.file.name">{{ item.file.name }}</div>
+                    <div class="item-meta du-mono">
+                      <span>{{ formatFileSize(item.file.size) }}</span>
+                      <span v-if="item.status === 'hashing'" class="item-state-text hashing">
+                        计算摘要 {{ item.hashProgress }}%
+                      </span>
+                      <span v-else-if="item.status === 'uploading'" class="item-state-text uploading">
+                        分片上传 {{ item.uploadProgress }}%
+                      </span>
+                      <span v-else-if="item.status === 'merging'" class="item-state-text merging">
+                        服务端合并中...
+                      </span>
+                      <span v-else-if="item.status === 'completed'" class="item-state-text completed">
+                        已完成
+                      </span>
+                      <span v-else-if="item.status === 'failed'" class="item-state-text failed">
+                        失败：{{ item.error || '上传中断' }}
+                      </span>
+                      <span v-else class="item-state-text pending">待上传</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="item-actions">
+                  <span v-if="item.status === 'completed'" class="status-icon completed">
+                    <CheckCircleOutlined />
+                  </span>
+                  <span v-else-if="item.status === 'failed'" class="status-icon failed" :title="item.error">
+                    <CloseCircleOutlined />
+                  </span>
+                  <span v-else-if="item.status === 'hashing' || item.status === 'uploading' || item.status === 'merging'" class="status-icon busy">
+                    <LoadingOutlined />
+                  </span>
+                  <a-button
+                    v-if="!busy && item.status !== 'completed'"
+                    type="link"
+                    size="small"
+                    danger
+                    class="item-delete-btn"
+                    @click="handleRemoveQueueItem(item.uid)"
+                  >
+                    <DeleteOutlined />
+                  </a-button>
+                </div>
+              </div>
+            </div>
+          </div>
+
           <div v-if="policy" class="policy-tip du-mono">
-            单文件上限 {{ formatFileSize(policy.maxFileBytes) }} · 策略分片 {{ formatFileSize(policy.partSizeBytes) }} · 会话 {{ policy.sessionSeconds }}s · 凭证 {{ policy.urlSeconds }}s
+            单文件生效上限 {{ formatEffectiveLimit }} · 策略分片 {{ formatFileSize(policy.partSizeBytes) }} · 会话 {{ policy.sessionSeconds }}s · 凭证 {{ policy.urlSeconds }}s
           </div>
         </a-form-item>
       </a-form>
@@ -106,8 +208,8 @@
         </div>
       </div>
 
-      <!-- 校验与上传进度条 -->
-      <div v-if="hashing" class="progress-section">
+      <!-- 续传模式计算摘要与上传进度条 -->
+      <div v-if="detail && hashing" class="progress-section">
         <div class="progress-label">
           <span>正在计算文件 SHA-256 校验和...</span>
           <span class="du-mono">{{ hashProgress }}%</span>
@@ -118,9 +220,9 @@
       <div v-if="detail && !hashing" class="progress-section">
         <div class="progress-label">
           <span>{{ merging ? '分片传输完成，服务端合并中...' : '分片传输进度' }}</span>
-          <span class="du-mono">{{ uploadProgress }}%</span>
+          <span class="du-mono">{{ resumeUploadProgress }}%</span>
         </div>
-        <a-progress :percent="uploadProgress" :status="merging ? 'active' : undefined" size="small" :show-info="false" />
+        <a-progress :percent="resumeUploadProgress" :status="merging ? 'active' : undefined" size="small" :show-info="false" />
       </div>
 
       <a-alert v-if="notice" :message="notice" type="warning" show-icon class="status-notice" />
@@ -143,7 +245,7 @@
           <a-button v-if="canWrite && busy && !merging" @click="handlePause">
             暂停
           </a-button>
-          <a-button :disabled="busy || cancelLoading" @click="handleRefresh">
+          <a-button v-if="detail" :disabled="busy || cancelLoading" @click="handleRefresh">
             <ReloadOutlined />刷新进度
           </a-button>
         </div>
@@ -156,10 +258,10 @@
             v-if="canWrite && !terminal"
             type="primary"
             :loading="busy"
-            :disabled="!file || loading || !policy || busy || cancelLoading || !configValid"
+            :disabled="submitDisabled"
             @click="handleSubmit"
           >
-            <UploadOutlined />{{ detail ? '继续 / 重试失败分片' : '开始上传' }}
+            <UploadOutlined />{{ submitButtonText }}
           </a-button>
         </div>
       </div>
@@ -172,8 +274,12 @@ import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { message } from 'ant-design-vue'
 import {
+  CheckCircleOutlined,
+  CloseCircleOutlined,
+  DeleteOutlined,
   FileTextOutlined,
   InboxOutlined,
+  LoadingOutlined,
   ReloadOutlined,
   UploadOutlined,
 } from '@ant-design/icons-vue'
@@ -204,9 +310,19 @@ import { calculateFileHash, uploadMissingParts } from '../upload/transfer'
 import {
   canResumeUpload,
   canUseFolder,
-  isAllowedKnowledgeUploadFile,
   parseKnowledgeUploadConfig,
+  validateKnowledgeUploadFile,
 } from '../helper'
+
+export interface UploadQueueItem {
+  uid: string
+  file: File
+  status: 'pending' | 'hashing' | 'uploading' | 'merging' | 'completed' | 'failed'
+  hashProgress: number
+  uploadProgress: number
+  documentDetail?: KnowledgeDocumentDetail | null
+  error?: string
+}
 
 const props = defineProps<{
   open: boolean
@@ -230,11 +346,16 @@ const detail = ref<KnowledgeDocumentDetail | null>(null)
 const policy = ref<KnowledgeUploadPolicy | null>(null)
 const accept = ref('')
 const allowedExtensions = ref<string[]>([])
+const maxSizeMb = ref<number | undefined>(undefined)
 const configValid = ref(false)
 const configError = ref('')
 const supportedFormatsText = computed(() => allowedExtensions.value.join('、'))
 
+// 单文件续传模式绑定的文件
 const file = ref<File | null>(null)
+// 新建上传模式下的待上传队列
+const uploadQueue = ref<UploadQueueItem[]>([])
+
 const isPublic = ref(false)
 const loading = ref(false)
 const busy = ref(false)
@@ -250,109 +371,225 @@ const terminal = computed(
     detail.value?.uploadStatus === UPLOAD.CANCELLED
 )
 
-const uploadProgress = computed(() => {
+/** 续传模式下的上传进度 */
+const resumeUploadProgress = computed(() => {
   if (!detail.value) return 0
   const bytes = (detail.value.uploadParts || []).reduce((sum, part) => sum + Number(part.size), 0)
   return Math.min(100, Math.round((bytes / Number(detail.value.fileSize)) * 100))
+})
+
+/** 计算实际生效的单文件大小上限字节数（取配置与策略较小值） */
+const effectiveMaxFileBytes = computed(() => {
+  let bytes: number | undefined
+  if (typeof maxSizeMb.value === 'number' && maxSizeMb.value > 0) {
+    bytes = maxSizeMb.value * 1024 * 1024
+  }
+  if (policy.value && Number(policy.value.maxFileBytes) > 0) {
+    const policyBytes = Number(policy.value.maxFileBytes)
+    if (bytes === undefined || policyBytes < bytes) {
+      bytes = policyBytes
+    }
+  }
+  return bytes
+})
+
+const formatEffectiveLimit = computed(() => {
+  if (effectiveMaxFileBytes.value === undefined) return '未设置'
+  return formatFileSize(effectiveMaxFileBytes.value)
+})
+
+const pendingQueueCount = computed(
+  () => uploadQueue.value.filter((item) => item.status === 'pending' || item.status === 'failed').length
+)
+const completedQueueCount = computed(
+  () => uploadQueue.value.filter((item) => item.status === 'completed').length
+)
+
+const submitDisabled = computed(() => {
+  if (loading.value || busy.value || cancelLoading.value || !configValid.value || !policy.value) {
+    return true
+  }
+  if (detail.value) {
+    return !file.value || terminal.value || initializationUncertain
+  }
+  return pendingQueueCount.value === 0 || initializationUncertain
+})
+
+const submitButtonText = computed(() => {
+  if (detail.value) {
+    return '继续 / 重试失败分片'
+  }
+  if (pendingQueueCount.value > 0) {
+    return `开始上传 (${pendingQueueCount.value})`
+  }
+  return '开始上传'
 })
 
 let controller: AbortController | null = null
 let requestToken = 0
 let initializationUncertain = false
 
-watch(
-  () => props.open,
-  async (open) => {
-    const token = ++requestToken
-    if (!open) return
-    detail.value = null
-    file.value = null
-    isPublic.value = props.record?.isPublic ?? props.defaultIsPublic ?? false
-    policy.value = null
-    notice.value = ''
-    accept.value = ''
-    allowedExtensions.value = []
-    configValid.value = false
-    configError.value = ''
-    initializationUncertain = false
-    loading.value = true
+/** 加载配置、策略与文档详情 */
+const loadModalData = async () => {
+  const token = ++requestToken
+  detail.value = null
+  file.value = null
+  uploadQueue.value = []
+  isPublic.value = props.record?.isPublic ?? props.defaultIsPublic ?? false
+  policy.value = null
+  notice.value = ''
+  accept.value = ''
+  allowedExtensions.value = []
+  maxSizeMb.value = undefined
+  configValid.value = false
+  configError.value = ''
+  initializationUncertain = false
+  loading.value = true
 
-    try {
-      const results = await Promise.allSettled([
-        getKnowledgeUploadPolicy(),
-        getSystemConfigValues([KNOWLEDGE_UPLOAD_CONFIG_KEY]),
-        props.record ? getKnowledgeDocument(props.record.id) : Promise.resolve(null),
-      ])
-      if (token !== requestToken) return
+  try {
+    const results = await Promise.allSettled([
+      getKnowledgeUploadPolicy(),
+      getSystemConfigValues([KNOWLEDGE_UPLOAD_CONFIG_KEY]),
+      props.record ? getKnowledgeDocument(props.record.id) : Promise.resolve(null),
+    ])
+    if (token !== requestToken) return
 
-      const [policyResult, configResult, detailResult] = results
+    const [policyResult, configResult, detailResult] = results
 
-      if (configResult.status === 'fulfilled') {
-        const rawConfig = configResult.value.data?.[KNOWLEDGE_UPLOAD_CONFIG_KEY]
-        const parseRes = parseKnowledgeUploadConfig(rawConfig)
-        if (parseRes.valid) {
-          configValid.value = true
-          allowedExtensions.value = parseRes.allowedExtensions
-          accept.value = parseRes.accept
-        } else {
-          configValid.value = false
-          allowedExtensions.value = []
-          accept.value = ''
-          configError.value = parseRes.error || '上传格式系统参数异常'
-        }
+    // 1. 处理系统配置 ai.knowledge.upload
+    if (configResult.status === 'fulfilled') {
+      const rawConfig = configResult.value.data?.[KNOWLEDGE_UPLOAD_CONFIG_KEY]
+      const parseRes = parseKnowledgeUploadConfig(rawConfig)
+      if (parseRes.valid) {
+        configValid.value = true
+        allowedExtensions.value = parseRes.allowedExtensions
+        accept.value = parseRes.accept
+        maxSizeMb.value = parseRes.maxSizeMb
       } else {
         configValid.value = false
         allowedExtensions.value = []
         accept.value = ''
-        configError.value = '上传格式系统参数加载失败'
+        maxSizeMb.value = undefined
+        configError.value = parseRes.error || '上传格式系统参数异常'
       }
+    } else {
+      configValid.value = false
+      allowedExtensions.value = []
+      accept.value = ''
+      maxSizeMb.value = undefined
+      configError.value = '上传系统参数加载失败'
+    }
 
-      if (policyResult.status === 'fulfilled') {
-        const data = policyResult.value.data
-        if (
-          Number.isSafeInteger(Number(data.maxFileBytes)) &&
-          Number(data.maxFileBytes) > 0 &&
-          Number.isSafeInteger(Number(data.partSizeBytes)) &&
-          Number(data.partSizeBytes) > 0
-        ) {
-          policy.value = data
-        } else {
-          notice.value = '上传策略无效，请联系管理员或重新打开弹窗。'
-        }
+    // 2. 处理服务端上传策略
+    if (policyResult.status === 'fulfilled') {
+      const data = policyResult.value.data
+      if (
+        Number.isSafeInteger(Number(data.maxFileBytes)) &&
+        Number(data.maxFileBytes) > 0 &&
+        Number.isSafeInteger(Number(data.partSizeBytes)) &&
+        Number(data.partSizeBytes) > 0
+      ) {
+        policy.value = data
+      } else {
+        notice.value = '上传策略无效，请联系管理员或重新加载。'
       }
+    } else {
+      notice.value = '上传策略加载失败，请重试。'
+    }
 
-      if (!configValid.value) {
-        notice.value = `上传配置异常（${configError.value}），已禁用文件上传。`
-      } else if (detailResult.status === 'fulfilled' && detailResult.value) {
-        detail.value = detailResult.value.data
-        notice.value = '请重新选择原始文件，校验摘要后仅补传未确认分片。'
-      } else if (detailResult.status === 'rejected') {
-        initializationUncertain = true
-        notice.value = '资料详情加载失败，请关闭后重试。'
-      }
-    } finally {
-      if (token === requestToken) loading.value = false
+    // 3. 处理资料详情（断点续传）
+    if (!configValid.value) {
+      notice.value = `上传配置异常（${configError.value}），已暂停文件上传。`
+    } else if (detailResult.status === 'fulfilled' && detailResult.value) {
+      detail.value = detailResult.value.data
+      notice.value = '请重新选择原始文件，校验摘要后仅补传未确认分片。'
+    } else if (detailResult.status === 'rejected') {
+      initializationUncertain = true
+      notice.value = '资料详情加载失败，请重试。'
+    }
+  } finally {
+    if (token === requestToken) loading.value = false
+  }
+}
+
+watch(
+  () => props.open,
+  (open) => {
+    if (open) {
+      loadModalData()
     }
   }
 )
 
-/** 拦截 Ant Design 原生上传，接收原始文件对象由自主逻辑进行分片上传 */
+/**
+ * 拦截 Ant Design 原生上传：
+ * 文件选择、拖拽和批量上传均需在此处逐文件前置校验。
+ * 超限文件不进入上传队列，其他合规文件继续加入队列处理。
+ */
 const handleBeforeUpload = (rawFile: File) => {
-  if (!configValid.value || allowedExtensions.value.length === 0) {
-    message.error('上传配置异常，已禁用文件上传')
+  if (!configValid.value) {
+    message.error(configError.value ? `上传配置异常（${configError.value}），已暂停文件上传` : '上传配置尚未就绪，已暂停文件上传')
     return false
   }
-  if (!isAllowedKnowledgeUploadFile(rawFile.name, allowedExtensions.value)) {
-    message.error(`不支持该文件格式，仅支持：${supportedFormatsText.value}`)
+
+  // 逐文件执行扩展名与大小校验（取 maxSizeMb 与 maxFileBytes 两者较小值，等于上限允许）
+  const validation = validateKnowledgeUploadFile(rawFile, {
+    allowedExtensions: allowedExtensions.value,
+    maxSizeMb: maxSizeMb.value,
+    maxFileBytes: policy.value ? Number(policy.value.maxFileBytes) : undefined,
+  })
+
+  // 超限或格式不符合：立即提示，不进入上传队列
+  if (!validation.valid) {
+    message.error(validation.error || '文件不符合要求，已拒绝上传')
     return false
   }
-  file.value = rawFile
+
+  // 断点续传模式：绑定单个文件
+  if (detail.value) {
+    if (detail.value.fileSize && rawFile.size !== Number(detail.value.fileSize)) {
+      message.error(`所选文件大小与续传记录原始大小不一致（期望 ${formatFileSize(Number(detail.value.fileSize))}）`)
+      return false
+    }
+    file.value = rawFile
+    return false
+  }
+
+  // 新建上传模式：加入待上传队列（防重复添加）
+  const exists = uploadQueue.value.some(
+    (item) => item.file.name === rawFile.name && item.file.size === rawFile.size && item.status !== 'completed'
+  )
+  if (exists) {
+    message.warning(`文件“${rawFile.name}”已在待上传列表中`)
+    return false
+  }
+
+  uploadQueue.value.push({
+    uid: `${rawFile.name}_${rawFile.size}_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+    file: rawFile,
+    status: 'pending',
+    hashProgress: 0,
+    uploadProgress: 0,
+  })
+
   return false
 }
 
-const handleRemoveFile = () => {
+const handleRemoveResumeFile = () => {
   if (busy.value) return
   file.value = null
+}
+
+const handleRemoveQueueItem = (uid: string) => {
+  if (busy.value) return
+  uploadQueue.value = uploadQueue.value.filter((item) => item.uid !== uid)
+}
+
+const handleClearQueue = () => {
+  if (busy.value) return
+  uploadQueue.value = uploadQueue.value.filter(
+    (item) => item.status === 'hashing' || item.status === 'uploading' || item.status === 'merging'
+  )
 }
 
 const handleRefresh = async () => {
@@ -367,35 +604,24 @@ const handleRefresh = async () => {
   }
 }
 
-const handleSubmit = async () => {
-  if (!canWrite.value) return
-  if (!configValid.value) {
-    message.error('上传配置异常，已禁用文件上传')
-    return
-  }
-  if (!file.value || !policy.value || busy.value || terminal.value || initializationUncertain)
-    return
-  if (detail.value?.builtIn) return
-  if (!detail.value && !canUseFolder(props.folder || undefined)) return
-  if (detail.value && !canResumeUpload(detail.value)) {
+/** 提交单文件续传 */
+const submitResumeUpload = async (localFile: File) => {
+  if (!detail.value || !policy.value) return
+  if (!canResumeUpload(detail.value)) {
     notice.value = '当前会话不可续传，请刷新进度确认状态。'
     return
   }
 
-  const localFile = file.value
-  if (!isAllowedKnowledgeUploadFile(localFile.name, allowedExtensions.value)) {
-    notice.value = `不支持该文件格式，仅支持：${supportedFormatsText.value}`
+  const validation = validateKnowledgeUploadFile(localFile, {
+    allowedExtensions: allowedExtensions.value,
+    maxSizeMb: maxSizeMb.value,
+    maxFileBytes: Number(policy.value.maxFileBytes),
+  })
+  if (!validation.valid) {
+    notice.value = validation.error || '文件校验失败'
     return
   }
-  if (localFile.size <= 0 || localFile.size > Number(policy.value.maxFileBytes)) {
-    notice.value = '文件为空或超过服务端上传大小上限。'
-    return
-  }
-  if (localFile.name.length > 255) {
-    notice.value = '文件名不能超过255字。'
-    return
-  }
-  if (detail.value && localFile.size !== Number(detail.value.fileSize)) {
+  if (localFile.size !== Number(detail.value.fileSize)) {
     notice.value = '所选文件大小与原始文件不一致。'
     return
   }
@@ -414,29 +640,7 @@ const handleSubmit = async () => {
     hashing.value = false
     if (signal.aborted || !canWrite.value) return
 
-    if (detail.value) {
-      detail.value = (await resumeKnowledgeUpload(detail.value.id, digest)).data
-    } else {
-      try {
-        detail.value = (
-          await createKnowledgeUpload({
-            knowledgeBaseId: props.knowledgeBaseId || '',
-            folderId: props.folder!.id,
-            originalFilename: localFile.name,
-            contentType: localFile.type || 'application/octet-stream',
-            fileSize: localFile.size,
-            fileSha256: digest,
-            isPublic: isPublic.value,
-          })
-        ).data
-        emit('success')
-      } catch (error) {
-        initializationUncertain = true
-        notice.value = '初始化未取得资料 ID，请关闭并刷新列表检查是否已创建，再从该资料续传，避免重复初始化。'
-        throw error
-      }
-    }
-
+    detail.value = (await resumeKnowledgeUpload(detail.value.id, digest)).data
     const current = detail.value
     if (signal.aborted || !canWrite.value) return
     if (current.uploadStatus === UPLOAD.COMPLETED) {
@@ -495,6 +699,137 @@ const handleSubmit = async () => {
   }
 }
 
+/** 提交批量队列上传 */
+const submitBatchQueueUpload = async () => {
+  if (!policy.value) return
+  if (!canUseFolder(props.folder || undefined)) {
+    message.warning('请选择有效的可写入分类目录')
+    return
+  }
+
+  const pendingItems = uploadQueue.value.filter(
+    (item) => item.status === 'pending' || item.status === 'failed'
+  )
+  if (pendingItems.length === 0) {
+    message.info('当前没有待上传的文件')
+    return
+  }
+
+  busy.value = true
+  notice.value = ''
+  controller = new AbortController()
+  const signal = controller.signal
+
+  let successCount = 0
+  let failCount = 0
+
+  for (const item of pendingItems) {
+    if (signal.aborted || !canWrite.value) break
+
+    // 防御性二次前置校验
+    const validation = validateKnowledgeUploadFile(item.file, {
+      allowedExtensions: allowedExtensions.value,
+      maxSizeMb: maxSizeMb.value,
+      maxFileBytes: Number(policy.value.maxFileBytes),
+    })
+    if (!validation.valid) {
+      item.status = 'failed'
+      item.error = validation.error
+      failCount++
+      continue
+    }
+
+    try {
+      // 1. 计算文件哈希
+      item.status = 'hashing'
+      item.hashProgress = 0
+      const digest = await calculateFileHash(item.file, signal, (progress) => {
+        item.hashProgress = progress
+      })
+      if (signal.aborted || !canWrite.value) break
+
+      // 2. 初始化上传会话
+      item.status = 'uploading'
+      item.uploadProgress = 0
+      const initRes = await createKnowledgeUpload({
+        knowledgeBaseId: props.knowledgeBaseId || '',
+        folderId: props.folder!.id,
+        originalFilename: item.file.name,
+        contentType: item.file.type || 'application/octet-stream',
+        fileSize: item.file.size,
+        fileSha256: digest,
+        isPublic: isPublic.value,
+      })
+      item.documentDetail = initRes.data
+      const currentDetail = item.documentDetail
+
+      if (signal.aborted || !canWrite.value) break
+      if (currentDetail.uploadStatus === UPLOAD.COMPLETED) {
+        item.status = 'completed'
+        item.uploadProgress = 100
+        successCount++
+        emit('success')
+        continue
+      }
+
+      // 3. 上传分片
+      await uploadMissingParts(item.file, currentDetail, signal, () => canWrite.value, (parts) => {
+        currentDetail.uploadParts = parts
+        const uploadedBytes = parts.reduce((sum, p) => sum + Number(p.size), 0)
+        item.uploadProgress = Math.min(100, Math.round((uploadedBytes / Number(currentDetail.fileSize)) * 100))
+      })
+      if (signal.aborted || !canWrite.value) break
+
+      // 4. 服务端合并
+      item.status = 'merging'
+      const completeRes = await completeKnowledgeUpload(currentDetail.id)
+      item.documentDetail = completeRes.data
+      item.status = 'completed'
+      item.uploadProgress = 100
+      successCount++
+      emit('success')
+    } catch (err) {
+      if (signal.aborted) {
+        notice.value = '上传已暂停，已确认分片保留，可继续上传。'
+        break
+      } else {
+        item.status = 'failed'
+        item.error = err instanceof Error ? err.message : '上传失败'
+        failCount++
+      }
+    }
+  }
+
+  busy.value = false
+  controller = null
+
+  if (successCount > 0 && failCount === 0) {
+    message.success(`成功上传 ${successCount} 个资料文件`)
+  } else if (successCount > 0 && failCount > 0) {
+    message.warning(`上传处理完毕：成功 ${successCount} 个，失败 ${failCount} 个`)
+  } else if (failCount > 0) {
+    message.error(`${failCount} 个文件上传未完成，请查看列表提示并重试`)
+  }
+}
+
+const handleSubmit = async () => {
+  if (!canWrite.value) return
+  if (!configValid.value) {
+    message.error('上传配置异常，已暂停文件上传')
+    return
+  }
+  if (!policy.value || busy.value || terminal.value || initializationUncertain) return
+  if (detail.value?.builtIn) return
+
+  if (detail.value) {
+    if (file.value) {
+      await submitResumeUpload(file.value)
+    }
+  } else {
+    await submitBatchQueueUpload()
+  }
+}
+
 const handlePause = () => {
   if (!canWrite.value) return
   if (!merging.value) controller?.abort()
@@ -530,6 +865,20 @@ onBeforeUnmount(() => controller?.abort())
 <style scoped>
 .modal-top-alert {
   margin-bottom: var(--du-space-3);
+}
+
+.config-error-message {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--du-space-2);
+}
+
+.retry-action-btn {
+  padding: 0 4px !important;
+  font-size: var(--du-font-size-xs, 11px) !important;
+  height: auto !important;
+  line-height: 1 !important;
 }
 
 .upload-form {
@@ -577,10 +926,18 @@ onBeforeUnmount(() => controller?.abort())
   margin: 0;
 }
 
+.dragger-limit {
+  font-size: var(--du-font-size-xs, 11px);
+  color: var(--du-accent, #2563eb);
+  font-weight: 500;
+  margin: 6px 0 0;
+  line-height: 1.5;
+}
+
 .dragger-formats {
   font-size: var(--du-font-size-xs, 11px);
   color: var(--du-text-secondary);
-  margin: 6px 0 0;
+  margin: 4px 0 0;
   word-break: break-all;
   line-height: 1.5;
 }
@@ -626,6 +983,174 @@ onBeforeUnmount(() => controller?.abort())
   font-size: var(--du-font-size-xs, 11px);
   color: var(--du-text-secondary);
   margin-top: 2px;
+}
+
+/* 待上传队列列表样式 */
+.upload-queue-container {
+  margin-top: var(--du-space-3);
+  border: 1px solid var(--du-border);
+  border-radius: var(--du-radius-sm);
+  background: #ffffff;
+  overflow: hidden;
+}
+
+.queue-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 12px;
+  background: var(--du-bg-subtle);
+  border-bottom: 1px solid var(--du-border);
+  font-size: var(--du-font-size-xs, 11px);
+}
+
+.queue-title {
+  color: var(--du-text);
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.queue-completed-badge {
+  font-size: 10px;
+  padding: 1px 6px;
+  border-radius: 10px;
+  background: #dcfce7;
+  color: #15803d;
+  font-weight: 500;
+}
+
+.queue-clear-btn {
+  padding: 0 !important;
+  font-size: var(--du-font-size-xs, 11px) !important;
+  height: auto !important;
+}
+
+.queue-list {
+  max-height: 200px;
+  overflow-y: auto;
+  padding: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.queue-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 10px;
+  background: var(--du-bg-subtle);
+  border: 1px solid var(--du-border);
+  border-radius: var(--du-radius-sm);
+  transition: all 0.2s ease;
+}
+
+.queue-item:hover {
+  background: #f8faff;
+  border-color: var(--du-border-strong);
+}
+
+.queue-item.status-completed {
+  background: #f0fdf4;
+  border-color: #bbf7d0;
+}
+
+.queue-item.status-failed {
+  background: #fef2f2;
+  border-color: #fecaca;
+}
+
+.item-main {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+  min-width: 0;
+}
+
+.item-icon {
+  font-size: 16px;
+  color: var(--du-accent);
+  flex-shrink: 0;
+}
+
+.item-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.item-name {
+  font-size: var(--du-font-size-sm, 12px);
+  color: var(--du-text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  line-height: 1.4;
+}
+
+.item-meta {
+  font-size: var(--du-font-size-xs, 11px);
+  color: var(--du-text-secondary);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 2px;
+}
+
+.item-state-text.hashing {
+  color: var(--du-accent);
+}
+
+.item-state-text.uploading {
+  color: #0284c7;
+}
+
+.item-state-text.merging {
+  color: #7c3aed;
+}
+
+.item-state-text.completed {
+  color: #16a34a;
+}
+
+.item-state-text.failed {
+  color: #dc2626;
+}
+
+.item-state-text.pending {
+  color: var(--du-text-muted);
+}
+
+.item-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: 8px;
+  flex-shrink: 0;
+}
+
+.status-icon.completed {
+  color: #16a34a;
+  font-size: 14px;
+}
+
+.status-icon.failed {
+  color: #dc2626;
+  font-size: 14px;
+}
+
+.status-icon.busy {
+  color: var(--du-accent);
+  font-size: 14px;
+}
+
+.item-delete-btn {
+  padding: 0 4px !important;
+  font-size: 12px !important;
+  height: 22px !important;
+  line-height: 22px !important;
 }
 
 .policy-tip {
@@ -695,3 +1220,4 @@ onBeforeUnmount(() => controller?.abort())
   gap: var(--du-space-2);
 }
 </style>
+

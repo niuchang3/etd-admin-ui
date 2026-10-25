@@ -11,6 +11,7 @@ export interface KnowledgeDocumentQuery extends PageRequest {
   keyword?: string
   uploadStatus?: UploadStatus
   chunkStatus?: KnowledgeChunkStatus
+  vectorStatus?: KnowledgeVectorStatus | string
   dataStatus?: number
 }
 
@@ -29,6 +30,7 @@ export interface KnowledgeDocumentRecord {
   uploadErrorMessage?: string | null
   uploadExpiresAt?: string | null
   chunkStatus?: KnowledgeChunkStatus
+  vectorStatus?: KnowledgeVectorStatus | string
   chunkCount?: number
   isPublic: boolean
   dataStatus: number
@@ -39,18 +41,17 @@ export interface KnowledgeDocumentRecord {
 }
 
 export type KnowledgeChunkStatus = 'unprocessed' | 'generating' | 'draft' | 'confirmed' | 'failed'
+export type KnowledgeVectorStatus = 'unprocessed' | 'generating' | 'completed' | 'failed' | 'stale'
 
 export interface KnowledgeChunkBasicParameters {
-  strategy: 'hierarchical' | 'hybrid' | 'regex'
+  strategy?: 'hybrid'
   firstPage?: number
   lastPage?: number
   maxTokens?: number
   mergePeers?: boolean
-  pattern?: string
   ocr?: boolean
   tableStructure?: boolean
   useMarkdownTables?: boolean
-  overlapTokens?: number
 }
 
 export interface KnowledgeChunkNormalParameters {
@@ -105,6 +106,7 @@ export interface KnowledgeChunkState {
   fileType?: string
   version: string | number
   chunkStatus: KnowledgeChunkStatus
+  vectorStatus?: KnowledgeVectorStatus | string
   chunkCount: number
   chunkParameters?: KnowledgeChunkParameters | null
   chunkErrorMessage?: string | null

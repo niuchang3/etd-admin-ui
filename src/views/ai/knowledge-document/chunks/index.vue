@@ -17,6 +17,12 @@
           :value="documentState.chunkStatus"
           class="status-tag"
         />
+        <DictTag
+          v-if="documentState?.vectorStatus"
+          :type-code="KNOWLEDGE_DICT_TYPE.VECTOR_STATUS"
+          :value="documentState.vectorStatus"
+          class="status-tag"
+        />
         <a-tag
           v-if="documentState?.isPublic !== undefined"
           :color="documentState.isPublic ? 'blue' : 'default'"
@@ -76,26 +82,28 @@
           </a-button>
 
           <a-popconfirm
-            title="确认分片结果？人工确认后分片将标记为已确认（如后续再次修改将自动回到待确认）。"
-            ok-text="确认分片"
+            title="确认分片切分结果？在向量或混合检索模式下，系统将同步生成并保存分片向量，耗时约数秒至数十秒。"
+            ok-text="确定确认"
             cancel-text="取消"
-            :disabled="!canMaintain || isGenerating || !hasChunks"
+            :disabled="!canMaintain || isGenerating || !hasChunks || confirmLoading"
             @confirm="handleConfirm"
           >
             <a-button
               type="primary"
-              ghost
+              :ghost="!isVectorNeedsReconfirm"
+              :danger="documentState?.vectorStatus === 'failed'"
               :disabled="!canMaintain || isGenerating || !hasChunks"
               :loading="confirmLoading"
             >
-              <CheckOutlined /> 确认分片
+              <CheckOutlined />
+              {{ confirmLoading ? '确认处理中...' : (isVectorNeedsReconfirm ? '重新确认分片' : '确认分片') }}
             </a-button>
           </a-popconfirm>
         </template>
       </div>
     </header>
 
-    <!-- 顶部告警提示：失败或异常反馈 -->
+    <!-- 顶部告警提示：分片失败反馈 -->
     <a-alert
       v-if="documentState?.chunkStatus === 'failed' && documentState?.chunkErrorMessage"
       :message="`分片生成失败：${documentState.chunkErrorMessage}。${documentState.chunkCount > 0 ? '已保留最近一次成功生成的分片数据，仍可继续查看与修改。' : ''}`"
@@ -104,6 +112,70 @@
       banner
       class="state-alert"
     />
+
+    <!-- 向量状态引导提示：failed 失败或 stale 过期时引导重新确认 -->
+    <a-alert
+      v-if="documentState?.vectorStatus === 'failed'"
+      type="error"
+      show-icon
+      banner
+      class="state-alert"
+    >
+      <template #message>
+        <div class="vector-alert-content">
+          <span>当前文档向量处理失败，检索能力可能受限。请核对分片内容后重新确认分片。</span>
+          <a-popconfirm
+            title="重新确认分片？系统将重新生成并保存分片向量。"
+            ok-text="确定确认"
+            cancel-text="取消"
+            :disabled="!canMaintain || isGenerating || !hasChunks || confirmLoading"
+            @confirm="handleConfirm"
+          >
+            <a-button
+              type="primary"
+              size="small"
+              danger
+              :loading="confirmLoading"
+              :disabled="!canMaintain || isGenerating || !hasChunks"
+              class="reconfirm-banner-btn"
+            >
+              重新确认分片
+            </a-button>
+          </a-popconfirm>
+        </div>
+      </template>
+    </a-alert>
+
+    <a-alert
+      v-else-if="documentState?.vectorStatus === 'stale'"
+      type="warning"
+      show-icon
+      banner
+      class="state-alert"
+    >
+      <template #message>
+        <div class="vector-alert-content">
+          <span>当前分片数据或配置已发生变更，向量已过时（stale）。建议重新确认分片以更新最新向量。</span>
+          <a-popconfirm
+            title="重新确认分片？系统将同步生成并保存最新向量。"
+            ok-text="确定确认"
+            cancel-text="取消"
+            :disabled="!canMaintain || isGenerating || !hasChunks || confirmLoading"
+            @confirm="handleConfirm"
+          >
+            <a-button
+              type="primary"
+              size="small"
+              :loading="confirmLoading"
+              :disabled="!canMaintain || isGenerating || !hasChunks"
+              class="reconfirm-banner-btn"
+            >
+              更新确认分片
+            </a-button>
+          </a-popconfirm>
+        </div>
+      </template>
+    </a-alert>
 
     <!-- 模式一：首次未生成视图 -->
     <main v-if="isInitialUnprocessed" class="initial-config-view du-panel">
@@ -249,6 +321,7 @@ import {
   SettingOutlined,
 } from '@ant-design/icons-vue'
 import { menusStore } from '@/stores/modules/user'
+import { useKnowledgeBaseStore } from '@/stores/modules/knowledgeBase'
 import {
   confirmChunks,
   deleteChunk,
@@ -281,10 +354,13 @@ import {
 
 const route = useRoute()
 const router = useRouter()
+const kbStore = useKnowledgeBaseStore()
 const documentId = String(route.params.id || '')
 
-// 页面操作权限继承父级知识库资料菜单
-const canWrite = computed(() => menusStore().canWritePath('/ai/knowledge-documents'))
+// 页面操作权限继承父级知识库菜单或知识库资料菜单
+const canWrite = computed(() => {
+  return menusStore().canWritePath('/ai/knowledge-bases') || menusStore().canWritePath('/ai/knowledge-documents')
+})
 
 // 维护权限同时要求菜单写权限且当前角色数据范围允许维护（documentState.writable !== false）
 // 严禁根据 isPublic 推断维护权限
@@ -297,6 +373,12 @@ const canMaintain = computed(() => {
 // 状态对象与表单配置
 const documentState = ref<KnowledgeChunkState | null>(null)
 const chunkForm = ref<ChunkFormState>(initializeChunkForm())
+
+// 向量状态异常判断：failed（处理失败）或 stale（分片变动后过期），用于引导重新确认
+const isVectorNeedsReconfirm = computed(() => {
+  const vs = documentState.value?.vectorStatus
+  return vs === 'failed' || vs === 'stale'
+})
 
 // 加载态控制
 const pageLoading = ref(false)
@@ -910,7 +992,7 @@ const handleConfirmSplit = async (payload: { firstContent: string; secondContent
  */
 const handleConfirm = async () => {
   if (!documentState.value) return
-  if (!canMaintain.value || !hasChunks.value) return
+  if (!canMaintain.value || !hasChunks.value || confirmLoading.value) return
 
   confirmLoading.value = true
   try {
@@ -925,11 +1007,22 @@ const handleConfirm = async () => {
     const res = await confirmChunks(documentId, {
       version: currentVersion,
     })
+    // 确认成功后使用后端返回的最新状态和 version（包含 vectorStatus）
     documentState.value = res.data
-    message.success('分片结果已确认')
+    message.success('分片已确认，向量已生成并保存')
+    // 刷新分片列表以同步后端最新状态与分片信息
+    await loadChunkPage()
   } catch (err: any) {
     if (err?.response?.status === 409 || err?.data?.code === 4009) {
-      message.error('检测到数据版本冲突，请刷新页面后重试')
+      message.error('检测到数据版本冲突，已重新获取最新状态')
+    } else {
+      message.error(err?.message || '确认分片处理失败，请稍后重试')
+    }
+    // 失败后刷新状态及 version，不在前端自行递增版本
+    try {
+      await loadState(true)
+    } catch {
+      // 忽略静默刷新异常
     }
   } finally {
     confirmLoading.value = false
@@ -949,6 +1042,17 @@ const handlePageChange = (page: number, pageSize: number) => {
  * 返回列表与离开页面拦截
  */
 const handleBack = () => {
+  const doBack = () => {
+    const kbId = String(route.query.kbId || kbStore.currentKb?.id || '')
+    if (kbId) {
+      void router.push(`/ai/knowledge-bases/${kbId}/documents`)
+    } else if (window.history.length > 1) {
+      router.back()
+    } else {
+      void router.push('/ai/knowledge-bases')
+    }
+  }
+
   if (hasUnsavedChanges.value) {
     Modal.confirm({
       title: '离开页面确认',
@@ -956,11 +1060,11 @@ const handleBack = () => {
       okText: '确定离开',
       cancelText: '留下保存',
       onOk: () => {
-        router.push('/ai/knowledge-documents')
+        doBack()
       },
     })
   } else {
-    router.push('/ai/knowledge-documents')
+    doBack()
   }
 }
 
@@ -994,6 +1098,10 @@ const handleBeforeUnload = (e: BeforeUnloadEvent) => {
 
 onMounted(async () => {
   window.addEventListener('beforeunload', handleBeforeUnload)
+  const kbId = String(route.query.kbId || '')
+  if (kbId && (!kbStore.currentKb || String(kbStore.currentKb.id) !== kbId)) {
+    void kbStore.loadKbDetail(kbId)
+  }
   try {
     const state = await loadState()
     if (state && state.chunkCount > 0) {
@@ -1202,5 +1310,20 @@ onBeforeUnmount(() => {
   font-size: var(--du-font-size-xs, 11px);
   color: var(--du-text-muted, #64748b);
   margin: 0;
+}
+
+.vector-alert-content {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+}
+
+.reconfirm-banner-btn {
+  flex-shrink: 0;
+  height: 24px;
+  font-size: var(--du-font-size-xs, 11px);
+  padding: 0 8px;
 }
 </style>

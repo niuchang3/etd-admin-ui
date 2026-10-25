@@ -137,12 +137,89 @@ export function filterTreeNodes<T extends { key: string; title: string; children
   return result
 }
 
+export interface TreeCheckedResolution {
+  /** 纯选中的叶子节点 key，用于赋给 a-tree 的 checkedKeys，防止级联误勾选未授权后代 */
+  checkedKeys: string[]
+  /** 树中处于半选状态的祖先节点 key */
+  halfCheckedKeys: string[]
+  /** 树中所有完全选中的节点 key（包含全选的父节点与叶子节点） */
+  allCheckedKeys: string[]
+}
+
+/**
+ * 根据后端返回的 selectedIds 和树结构，精确计算树组件回显所需的 checkedKeys 和半选 halfCheckedKeys。
+ * 核心原理：
+ * 1. 在父子级联树中，直接将祖先节点塞入 checkedKeys 会导致组件将该祖先节点下所有未授权的子节点强制全选。
+ * 2. 只有当一个节点的所有后代叶子节点都属于 selectedIds 时，该节点才算全选；若仅部分属于，则该父节点应为半选（halfChecked）。
+ * 3. 给 a-tree 的 checkedKeys 只传入真正应被勾选的叶子节点，组件会自动向上计算父节点的全选/半选状态，
+ *    绝不会将未授权的兄弟节点或后代节点误勾选。
+ */
+export function resolveTreeCheckedState(
+  tree: TreeNodeItem[],
+  selectedIds: string[]
+): TreeCheckedResolution {
+  const selectedSet = new Set((selectedIds || []).map(String))
+  const checkedKeys: string[] = []
+  const halfCheckedKeys: string[] = []
+  const allCheckedKeys: string[] = []
+
+  // 递归函数：返回当前节点下的授权状态
+  // status: 'ALL' (该子树所有叶子均被授权), 'PART' (部分叶子被授权), 'NONE' (无叶子被授权)
+  const traverse = (node: TreeNodeItem): 'ALL' | 'PART' | 'NONE' => {
+    const key = String(node.key)
+    const hasChildren = Boolean(node.children && node.children.length > 0)
+
+    if (!hasChildren) {
+      if (selectedSet.has(key)) {
+        checkedKeys.push(key)
+        allCheckedKeys.push(key)
+        return 'ALL'
+      }
+      return 'NONE'
+    }
+
+    let allCount = 0
+    let noneCount = 0
+    let partCount = 0
+
+    for (const child of node.children!) {
+      const childStatus = traverse(child)
+      if (childStatus === 'ALL') allCount++
+      else if (childStatus === 'NONE') noneCount++
+      else partCount++
+    }
+
+    const totalChildren = node.children!.length
+
+    if (allCount === totalChildren) {
+      allCheckedKeys.push(key)
+      return 'ALL'
+    } else if (allCount > 0 || partCount > 0) {
+      halfCheckedKeys.push(key)
+      return 'PART'
+    } else {
+      return 'NONE'
+    }
+  }
+
+  for (const root of tree) {
+    traverse(root)
+  }
+
+  return {
+    checkedKeys,
+    halfCheckedKeys,
+    allCheckedKeys,
+  }
+}
+
 /**
  * 树的展开、勾选、全选与清空状态 Hook
  */
 export function useTreeSelection() {
   const checkedKeys = ref<string[]>([])
   const halfCheckedKeys = ref<string[]>([])
+  const allSelectedKeys = ref<string[]>([])
   const expandedKeys = ref<string[]>([])
 
   const onTreeCheck = (
@@ -154,12 +231,21 @@ export function useTreeSelection() {
       : typeof keys === 'object' && keys && 'checked' in keys && Array.isArray((keys as { checked: unknown[] }).checked)
         ? (keys as { checked: unknown[] }).checked
         : []
-    checkedKeys.value = Array.from(new Set(rawKeys.map(String)))
+    const uniqueKeys = Array.from(new Set(rawKeys.map(String)))
+    checkedKeys.value = uniqueKeys
+    allSelectedKeys.value = uniqueKeys
     if (e && e.halfCheckedKeys && Array.isArray(e.halfCheckedKeys)) {
       halfCheckedKeys.value = Array.from(new Set(e.halfCheckedKeys.map(String)))
     } else {
       halfCheckedKeys.value = []
     }
+  }
+
+  const initCheckedState = (tree: TreeNodeItem[], selectedIds: string[]) => {
+    const resolved = resolveTreeCheckedState(tree, selectedIds)
+    checkedKeys.value = resolved.checkedKeys
+    halfCheckedKeys.value = resolved.halfCheckedKeys
+    allSelectedKeys.value = resolved.allCheckedKeys
   }
 
   const expandAll = (tree: TreeNodeItem[]) => {
@@ -171,24 +257,29 @@ export function useTreeSelection() {
   }
 
   const checkAll = (tree: TreeNodeItem[]) => {
-    checkedKeys.value = flattenTreeKeys(tree)
+    const all = flattenTreeKeys(tree)
+    checkedKeys.value = all
+    allSelectedKeys.value = all
     halfCheckedKeys.value = []
   }
 
   const clearChecked = () => {
     checkedKeys.value = []
+    allSelectedKeys.value = []
     halfCheckedKeys.value = []
   }
 
   /** 获取最终合并提交的 ID 列表（包含完全勾选项与半勾选父级） */
   const getSelectedAndHalfKeys = (): string[] => {
-    return Array.from(new Set([...checkedKeys.value, ...halfCheckedKeys.value]))
+    return Array.from(new Set([...allSelectedKeys.value, ...checkedKeys.value, ...halfCheckedKeys.value]))
   }
 
   return {
     checkedKeys,
     halfCheckedKeys,
+    allSelectedKeys,
     expandedKeys,
+    initCheckedState,
     onTreeCheck,
     expandAll,
     collapseAll,

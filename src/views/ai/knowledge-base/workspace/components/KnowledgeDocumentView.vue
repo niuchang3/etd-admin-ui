@@ -166,7 +166,7 @@
           :pagination="pagination"
           row-key="id"
           size="small"
-          :scroll="{ x: 1220 }"
+          :scroll="{ x: 1330 }"
           @change="handleTableChange"
         >
           <template #bodyCell="{ column, record }">
@@ -210,6 +210,16 @@
               :value="record.chunkStatus || KNOWLEDGE_CHUNK_STATUS.UNPROCESSED"
             />
 
+            <!-- 向量状态：独立展示，不与其他状态相互推断 -->
+            <template v-else-if="column.key === 'vectorStatus'">
+              <DictTag
+                v-if="record.vectorStatus"
+                :type-code="KNOWLEDGE_DICT_TYPE.VECTOR_STATUS"
+                :value="record.vectorStatus"
+              />
+              <span v-else class="text-secondary">—</span>
+            </template>
+
             <!-- 分片数量 -->
             <span v-else-if="column.key === 'chunkCount'" class="du-mono chunk-count-cell">
               {{ record.chunkCount ?? 0 }}
@@ -232,7 +242,7 @@
               {{ record.createTime || '—' }}
             </span>
 
-            <!-- 表格操作列：24px 小型 Link 按钮 -->
+            <!-- 表格操作列：24px 小型 Link 按钮，遵循收敛规范与安全防重叠宽度 -->
             <div v-else-if="column.key === 'actions'" class="row-actions">
               <a-button
                 type="link"
@@ -258,41 +268,41 @@
                   <a-button
                     type="link"
                     size="small"
-                    :disabled="!canResumeUpload(record)"
-                    @click="handleResume(record)"
-                  >
-                    续传
-                  </a-button>
-                  <a-button
-                    type="link"
-                    size="small"
                     @click="handleEdit(record)"
                   >
                     编辑
                   </a-button>
-                  <a-button
-                    type="link"
-                    size="small"
-                    @click="handleMove(record)"
-                  >
-                    移动
-                  </a-button>
-                  <a-popconfirm
-                    title="确定删除该文档？操作后文件将被删除且不可恢复。"
-                    ok-text="删除"
-                    cancel-text="取消"
-                    ok-type="danger"
-                    @confirm="handleDelete(record)"
-                  >
-                    <a-button
-                      type="link"
-                      size="small"
-                      danger
-                      :loading="deletingId === record.id"
-                    >
-                      删除
+                  <a-dropdown :trigger="['click']">
+                    <a-button type="link" size="small" class="more-action-btn">
+                      更多<DownOutlined class="more-action-icon" />
                     </a-button>
-                  </a-popconfirm>
+                    <template #overlay>
+                      <a-menu>
+                        <a-menu-item key="move" @click="handleMove(record)">
+                          <FolderOutlined />
+                          <span>移动分类</span>
+                        </a-menu-item>
+                        <a-menu-item
+                          v-if="canResumeUpload(record)"
+                          key="resume"
+                          @click="handleResume(record)"
+                        >
+                          <CloudUploadOutlined />
+                          <span>继续上传</span>
+                        </a-menu-item>
+                        <a-menu-divider />
+                        <a-menu-item
+                          key="delete"
+                          danger
+                          :disabled="deletingId === record.id"
+                          @click="confirmDelete(record)"
+                        >
+                          <DeleteOutlined />
+                          <span>删除文档</span>
+                        </a-menu-item>
+                      </a-menu>
+                    </template>
+                  </a-dropdown>
                 </template>
               </template>
               <span v-else class="readonly-label">只读</span>
@@ -349,10 +359,12 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
-import { message, type TableColumnsType } from 'ant-design-vue'
+import { message, Modal, type TableColumnsType } from 'ant-design-vue'
 import {
   CloseCircleOutlined,
+  CloudUploadOutlined,
   DeleteOutlined,
+  DownOutlined,
   EditOutlined,
   FolderOutlined,
   PlusOutlined,
@@ -545,6 +557,13 @@ const columns: TableColumnsType<KnowledgeDocumentRecord> = [
     align: 'center',
   },
   {
+    title: '向量状态',
+    dataIndex: 'vectorStatus',
+    key: 'vectorStatus',
+    width: 90,
+    align: 'center',
+  },
+  {
     title: '分片数',
     dataIndex: 'chunkCount',
     key: 'chunkCount',
@@ -568,7 +587,7 @@ const columns: TableColumnsType<KnowledgeDocumentRecord> = [
   {
     title: '操作',
     key: 'actions',
-    width: 180,
+    width: 200,
     fixed: 'right',
   },
 ]
@@ -726,6 +745,20 @@ const handleDelete = async (record: KnowledgeDocumentRecord) => {
   } finally {
     deletingId.value = null
   }
+}
+
+const confirmDelete = (record: KnowledgeDocumentRecord) => {
+  const name = record.documentName || record.originalFilename || '未命名文档'
+  Modal.confirm({
+    title: '确定删除该文档？',
+    content: `文档“${name}”删除后原文件及分片数据将被彻底删除且不可恢复。`,
+    okText: '删除',
+    okType: 'danger',
+    cancelText: '取消',
+    async onOk() {
+      await handleDelete(record)
+    },
+  })
 }
 
 const handleDownload = async (record: KnowledgeDocumentRecord) => {
@@ -992,8 +1025,20 @@ watch(
 .row-actions {
   display: flex;
   align-items: center;
+  justify-content: flex-end;
   white-space: nowrap;
   flex-wrap: nowrap;
   gap: 2px;
+}
+
+.more-action-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 1px;
+}
+
+.more-action-icon {
+  font-size: 9px;
+  margin-left: 1px;
 }
 </style>

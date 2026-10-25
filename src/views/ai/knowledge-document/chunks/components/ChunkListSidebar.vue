@@ -60,7 +60,14 @@
               <div class="chunk-meta-row">
                 <span class="chunk-display-index">#{{ getDisplayIndex(idx) }}</span>
                 <span class="chunk-raw-index du-mono">idx: {{ chunk.chunkIndex }}</span>
-                <span class="chunk-tokens du-mono">{{ chunk.tokenCount ?? 0 }}t</span>
+                <span
+                  class="chunk-tokens du-mono"
+                  :class="{ 'is-low-token': (chunk.tokenCount ?? 0) < 100 }"
+                  :title="(chunk.tokenCount ?? 0) < 100 ? '当前分片偏小 (< 100t)，建议勾选并与相邻分片合并以提升召回效果' : undefined"
+                >
+                  {{ chunk.tokenCount ?? 0 }}t
+                  <span v-if="(chunk.tokenCount ?? 0) < 100" class="low-token-badge">偏小</span>
+                </span>
                 <span v-if="chunk.source?.pageNumbers?.length" class="chunk-pages">
                   P.{{ chunk.source.pageNumbers.join(',') }}
                 </span>
@@ -311,6 +318,19 @@ const handlePageChange = (page: number, pageSize: number) => {
 .chunk-tokens {
   font-size: 10.5px;
   color: #0284c7;
+}
+
+.chunk-tokens.is-low-token {
+  color: #d97706;
+}
+
+.low-token-badge {
+  font-size: 9px;
+  background: #fef3c7;
+  color: #b45309;
+  padding: 0 3px;
+  border-radius: 2px;
+  margin-left: 2px;
 }
 
 .chunk-pages {

@@ -89,6 +89,7 @@ const originalSelectedMenuIds = ref<string[]>([])
 const {
   checkedKeys,
   expandedKeys,
+  initCheckedState,
   onTreeCheck,
   expandAll,
   collapseAll,
@@ -116,7 +117,6 @@ const loadMenuSettings = async () => {
     const menus = data.menus || []
     const selected = (data.selectedMenuIds || []).map(String)
     originalSelectedMenuIds.value = [...selected]
-    checkedKeys.value = [...selected]
 
     menuTree.value = buildTreeStructure(menus, {
       titleKey: 'menuName',
@@ -131,6 +131,9 @@ const loadMenuSettings = async () => {
         children: [],
       }),
     })
+
+    // 基于完整树结构自底向上精准计算回显 checkedKeys 与半选 halfCheckedKeys，杜绝组件因父节点扩大勾选子节点
+    initCheckedState(menuTree.value, selected)
 
     if (expandedKeys.value.length === 0) {
       expandAll(menuTree.value)

@@ -32,6 +32,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { useKnowledgeBaseStore } from '@/stores/modules/knowledgeBase'
 import KnowledgeDocumentView from './components/KnowledgeDocumentView.vue'
 import SettingsView from './components/SettingsView.vue'
+import RecallTestView from './components/RecallTestView.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -46,6 +47,9 @@ const loadFailed = computed(() => kbStore.loadFailed)
 const currentSubComponent = computed(() => {
   if (route.path.endsWith('/settings')) {
     return SettingsView
+  }
+  if (route.path.endsWith('/recall-test')) {
+    return RecallTestView
   }
   return KnowledgeDocumentView
 })

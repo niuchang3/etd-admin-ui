@@ -179,10 +179,13 @@ const submit = async () => {
     await currentTenant.initializeTenant()
     // 第三步：此时请求拦截器已能写入租户 ID，可并行获取用户资料和菜单树。
     await Promise.all([currentUser.getUserInfo(), currentUser.getUserRoles(), currentMenus.getUserMenus()])
+    const firstPath = currentMenus.firstReadablePath()
+    const defaultPath = firstPath ? (firstPath.startsWith('/') ? firstPath : `/${firstPath}`) : '/no-permission'
+    const redirectQuery = typeof route.query.redirect === 'string' ? route.query.redirect.trim() : ''
     const redirect =
-      typeof route.query.redirect === 'string' && route.query.redirect.trim() !== '/'
-        ? route.query.redirect
-        : '/dashboard'
+      redirectQuery && redirectQuery !== '/' && redirectQuery !== '/login'
+        ? redirectQuery
+        : defaultPath
     await router.replace(redirect)
   } catch (error) {
     // 任一初始化阶段失败都回滚整个登录会话。

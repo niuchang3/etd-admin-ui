@@ -20,6 +20,7 @@ export interface KnowledgeBaseRecord {
   vectorRecallSize?: number | null
   topK?: number | null
   similarityThreshold?: number | null
+  contextWindowSize?: number | null
 
   // 向量与重排模型配置
   embeddingConnectionId?: string | null
@@ -52,6 +53,7 @@ export interface KnowledgeBaseCreateDTO {
   vectorRecallSize?: number | null
   topK?: number | null
   similarityThreshold?: number | null
+  contextWindowSize?: number | null
   embeddingConnectionId?: string | null
   dimensions?: number | null
   rerankEnabled?: boolean
@@ -59,9 +61,10 @@ export interface KnowledgeBaseCreateDTO {
   rerankThreshold?: number | null
 }
 
-/** 修改知识库 DTO（orgId 创建后不可修改，提交最新 version） */
+/** 修改知识库 DTO（orgId 创建后不可修改，提交原有 orgId 与最新 version） */
 export interface KnowledgeBaseUpdateDTO {
   version: string | number
+  orgId: string
   name: string
   description?: string | null
   dataStatus: number
@@ -71,9 +74,36 @@ export interface KnowledgeBaseUpdateDTO {
   vectorRecallSize?: number | null
   topK?: number | null
   similarityThreshold?: number | null
+  contextWindowSize?: number | null
   embeddingConnectionId?: string | null
   dimensions?: number | null
   rerankEnabled?: boolean
   rerankConnectionId?: string | null
   rerankThreshold?: number | null
+}
+
+/** 召回测试请求体 */
+export interface RecallTestRequest {
+  query: string
+}
+
+/** 召回命中分片来源信息 */
+export interface RecallTestHitSource {
+  headings?: string[] | null
+  pageNumbers?: number[] | null
+  documentItemRefs?: string[] | null
+}
+
+/** 召回命中分片项 */
+export interface RecallTestHit {
+  chunkId: string
+  documentId: string
+  documentName: string
+  chunkIndex: number
+  content: string
+  source?: RecallTestHitSource | null
+  keywordScore?: number | null
+  vectorScore?: number | null
+  rerankScore?: number | null
+  score: number
 }

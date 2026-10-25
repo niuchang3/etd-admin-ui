@@ -82,6 +82,7 @@ export const confirmChunks = (id: string, data: KnowledgeChunkConfirmDTO) =>
   request.post<ResultModel<KnowledgeChunkState>>({
     url: `${documentUrl(id)}/chunks/confirm`,
     data,
+    timeout: 120000, // 向量/混合模式下同步生成向量耗时较长，配置 120s 超时
   })
 
 export const deleteChunk = (id: string, chunkId: string, version: string | number) =>

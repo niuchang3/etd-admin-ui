@@ -10,7 +10,12 @@
       <RightOutlined />
       <span class="breadcrumb-text">{{ kbStore.currentKb?.name || '知识库' }}</span>
       <RightOutlined />
-      <span class="breadcrumb-current" aria-current="page">{{ currentTitle }}</span>
+      <template v-if="isChunksPage">
+        <router-link class="breadcrumb-link" :to="`/ai/knowledge-bases/${currentKbId}/documents`">文档管理</router-link>
+        <RightOutlined />
+        <span class="breadcrumb-current" aria-current="page">{{ currentTitle }}</span>
+      </template>
+      <span v-else class="breadcrumb-current" aria-current="page">{{ currentTitle }}</span>
     </template>
 
     <!-- 详情页可以通过路由 meta.breadcrumb 增加任意数量的中间层级。 -->
@@ -48,9 +53,27 @@ const homePath = computed(() => {
   return path.startsWith('/') ? path : `/${path}`
 })
 
-const isKbWorkspace = computed(() => {
-  return route.path.startsWith('/ai/knowledge-bases/') && Boolean(route.params.id)
+const currentKbId = computed(() => {
+  if (route.path.startsWith('/ai/knowledge-bases/')) {
+    return String(route.params.id || '')
+  }
+  if (route.path.includes('/chunks')) {
+    return String(route.query.kbId || kbStore.currentKb?.id || '')
+  }
+  return ''
 })
+
+const isKbWorkspace = computed(() => {
+  if (route.path.startsWith('/ai/knowledge-bases/') && Boolean(route.params.id)) {
+    return true
+  }
+  if (route.path.includes('/chunks') && Boolean(currentKbId.value)) {
+    return true
+  }
+  return false
+})
+
+const isChunksPage = computed(() => route.path.includes('/chunks'))
 
 const kbListQuery = computed(() => {
   const q: Record<string, any> = {}

@@ -189,33 +189,40 @@ export const menusStore = defineStore('menus', () => {
     return (menuPath.startsWith('/') ? menuPath : `/${menuPath}`) === path
   })
   const canWritePath = (path: string) => {
-    if (path.startsWith('/ai/knowledge-bases')) {
-      const kbMenu = findByPath('/ai/knowledge-bases')
+    if (path.startsWith('/ai/knowledge-bases') || path.startsWith('/ai/knowledge-documents')) {
+      const kbMenu = findByPath('/ai/knowledge-bases') || findByPath('/ai/knowledge-documents')
       return Boolean(kbMenu && canWriteMenu(kbMenu))
     }
     const menu = findByPath(path)
     return Boolean(menu && canWriteMenu(menu))
   }
+  const findFirstLeafMenuPath = (nodes: UserMenuNode[]): string | null => {
+    for (const node of nodes) {
+      if (!canReadMenu(node)) continue
+      if (node.children && node.children.length > 0) {
+        const childPath = findFirstLeafMenuPath(node.children)
+        if (childPath) return childPath
+      } else if (node.menuPath && !/^https?:\/\//i.test(node.menuPath.trim())) {
+        const p = node.menuPath.trim()
+        return p.startsWith('/') ? p : `/${p}`
+      }
+    }
+    return null
+  }
   const firstReadablePath = () => {
-    const dashboard = rawMenus.value.find(
-      (menu) =>
-        canReadMenu(menu) &&
-        ((menu.menuPath &&
-          (menu.menuPath.trim() === '/dashboard' ||
-            menu.menuPath.trim() === 'dashboard' ||
-            menu.menuRouter?.includes('dashboard'))) ||
-          menu.permissionCode === 'ai:model-square')
-    )
-    if (dashboard?.menuPath) {
-      const p = dashboard.menuPath.trim()
+    // 1. 深度优先遍历排好序的菜单树，获取用户可访问的第一个叶子菜单项
+    const treeFirst = findFirstLeafMenuPath(menus.value)
+    if (treeFirst) return treeFirst
+
+    // 2. 兜底按列表顺序查找首个有效站内菜单
+    const rawFirst = rawMenus.value.find(
+      (menu) => canReadMenu(menu) && menu.menuPath && !/^https?:\/\//i.test(menu.menuPath.trim())
+    )?.menuPath
+    if (rawFirst) {
+      const p = rawFirst.trim()
       return p.startsWith('/') ? p : `/${p}`
     }
-    const first = rawMenus.value.find((menu) => canReadMenu(menu) && menu.menuPath)?.menuPath
-    if (first) {
-      const p = first.trim()
-      return p.startsWith('/') ? p : `/${p}`
-    }
-    return '/dashboard'
+    return ''
   }
   const $reset = () => {
     rawMenus.value = []

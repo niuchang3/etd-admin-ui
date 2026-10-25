@@ -151,7 +151,7 @@
       </a-row>
 
       <a-row :gutter="16">
-        <a-col :span="8">
+        <a-col :span="6">
           <a-form-item label="全文召回候选数" name="keywordRecallSize">
             <a-input-number
               v-model:value="formData.keywordRecallSize"
@@ -161,7 +161,7 @@
             />
           </a-form-item>
         </a-col>
-        <a-col :span="8">
+        <a-col :span="6">
           <a-form-item label="向量召回候选数" name="vectorRecallSize">
             <a-input-number
               v-model:value="formData.vectorRecallSize"
@@ -172,12 +172,23 @@
             />
           </a-form-item>
         </a-col>
-        <a-col :span="8">
+        <a-col :span="6">
           <a-form-item label="最终输出 Top K" name="topK">
             <a-input-number
               v-model:value="formData.topK"
               :min="1"
               :max="100"
+              style="width: 100%;"
+            />
+          </a-form-item>
+        </a-col>
+        <a-col :span="6">
+          <a-form-item label="上下文扩展窗口" name="contextWindowSize" extra="0~3，0关闭">
+            <a-input-number
+              v-model:value="formData.contextWindowSize"
+              :min="0"
+              :max="3"
+              placeholder="默认 0"
               style="width: 100%;"
             />
           </a-form-item>
@@ -296,6 +307,7 @@ const formData = reactive<KnowledgeBaseCreateDTO>({
   keywordRecallSize: 10,
   vectorRecallSize: 10,
   topK: 5,
+  contextWindowSize: 0,
   similarityThreshold: null,
   rerankEnabled: false,
   rerankConnectionId: null,
@@ -383,6 +395,7 @@ watch(
       formData.keywordRecallSize = 10
       formData.vectorRecallSize = 10
       formData.topK = 5
+      formData.contextWindowSize = 0
       formData.similarityThreshold = null
       formData.rerankEnabled = false
       formData.rerankConnectionId = null
@@ -431,6 +444,7 @@ const handleSubmit = async () => {
       vectorRecallSize: isVectorRequired.value ? (formData.vectorRecallSize ?? 10) : null,
       topK: formData.topK ?? 5,
       similarityThreshold: formData.similarityThreshold ?? null,
+      contextWindowSize: formData.contextWindowSize ?? 0,
       embeddingConnectionId: isVectorRequired.value ? formData.embeddingConnectionId : null,
       dimensions: isVectorRequired.value ? formData.dimensions : null,
       rerankEnabled: formData.rerankEnabled,

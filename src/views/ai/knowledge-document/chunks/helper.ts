@@ -123,22 +123,17 @@ export function checkAdjacentChunks(
  * 分片表单数据状态模型
  */
 export interface ChunkFormState {
-  // 基础参数
-  strategy: 'hierarchical' | 'hybrid' | 'regex'
+  // 基础参数（仅保留 hybrid 策略）
+  strategy: 'hybrid'
   firstPage?: number | null
   lastPage?: number | null
   maxTokens?: number | null
   mergePeers?: boolean
-  pattern?: string
   ocr?: boolean
   tableStructure?: boolean
   useMarkdownTables?: boolean
-  overlapTokens: number
 
   // 普通参数
-  boundaryPlacement?: 'next' | 'previous' | 'discard'
-  mergeSmallChunks?: boolean
-  minTokens?: number | null
   ocrPreset?: string
   ocrLanguages?: string[]
   forceOcr?: boolean
@@ -177,20 +172,15 @@ export function initializeChunkForm(
     const advanced = existing.advanced || {}
 
     return {
-      strategy: basic.strategy || 'hybrid',
+      strategy: 'hybrid',
       firstPage: basic.firstPage ?? null,
       lastPage: basic.lastPage ?? null,
-      maxTokens: basic.maxTokens ?? 512,
+      maxTokens: basic.maxTokens ?? 600,
       mergePeers: basic.mergePeers ?? true,
-      pattern: basic.pattern || '',
       ocr: isPdfOrImg ? Boolean(basic.ocr) : false,
       tableStructure: basic.tableStructure !== false,
       useMarkdownTables: basic.useMarkdownTables !== false,
-      overlapTokens: Math.max(0, Number(basic.overlapTokens ?? 0)),
 
-      boundaryPlacement: normal.boundaryPlacement || 'next',
-      mergeSmallChunks: Boolean(normal.mergeSmallChunks),
-      minTokens: normal.minTokens ?? 50,
       ocrPreset: normal.ocrPreset || '',
       ocrLanguages: Array.isArray(normal.ocrLanguages) ? [...normal.ocrLanguages] : [],
       forceOcr: Boolean(normal.forceOcr),
@@ -221,17 +211,12 @@ export function initializeChunkForm(
     strategy: 'hybrid',
     firstPage: null,
     lastPage: null,
-    maxTokens: 512,
+    maxTokens: 600,
     mergePeers: true,
-    pattern: '',
     ocr: false,
     tableStructure: true,
     useMarkdownTables: true,
-    overlapTokens: 0,
 
-    boundaryPlacement: 'next',
-    mergeSmallChunks: false,
-    minTokens: 50,
     ocrPreset: '',
     ocrLanguages: [],
     forceOcr: false,
@@ -264,11 +249,11 @@ export function buildChunkParameters(
   fileType?: string | null
 ): KnowledgeChunkParameters {
   const isPdfOrImg = isPdfOrImageDocument(fileType)
-  const strategy = form.strategy || 'hybrid'
 
   // 1. 构建 basic
   const basic: KnowledgeChunkBasicParameters = {
-    strategy,
+    strategy: 'hybrid',
+    mergePeers: Boolean(form.mergePeers),
   }
 
   // 页码范围仅 PDF/图片适用
@@ -282,20 +267,8 @@ export function buildChunkParameters(
     basic.ocr = Boolean(form.ocr)
   }
 
-  // maxTokens 仅 hybrid 和 regex
-  if (strategy === 'hybrid' || strategy === 'regex') {
-    basic.maxTokens = Number(form.maxTokens) > 0 ? Number(form.maxTokens) : 512
-  }
-
-  // mergePeers 仅 hybrid
-  if (strategy === 'hybrid') {
-    basic.mergePeers = Boolean(form.mergePeers)
-  }
-
-  // pattern 仅 regex 必填
-  if (strategy === 'regex') {
-    basic.pattern = String(form.pattern || '').trim()
-  }
+  // 单片 Token 上限
+  basic.maxTokens = Number(form.maxTokens) > 0 ? Number(form.maxTokens) : 600
 
   if (form.tableStructure !== undefined) {
     basic.tableStructure = Boolean(form.tableStructure)
@@ -304,24 +277,8 @@ export function buildChunkParameters(
     basic.useMarkdownTables = Boolean(form.useMarkdownTables)
   }
 
-  // 最多重叠 Token 数：基础参数，默认值 0，最小值 0；0 表示关闭
-  if (form.overlapTokens !== undefined && form.overlapTokens !== null) {
-    basic.overlapTokens = Math.max(0, Number(form.overlapTokens))
-  }
-
   // 2. 构建 normal
   const normal: KnowledgeChunkNormalParameters = {}
-
-  // 正则专属
-  if (strategy === 'regex') {
-    normal.boundaryPlacement = form.boundaryPlacement || 'next'
-    if (form.mergeSmallChunks) {
-      normal.mergeSmallChunks = true
-      if (form.minTokens && Number(form.minTokens) > 0) {
-        normal.minTokens = Number(form.minTokens)
-      }
-    }
-  }
 
   // OCR 专属：仅适用的 PDF/图片且 OCR 开启时才发送
   if (isPdfOrImg && form.ocr) {
@@ -344,8 +301,7 @@ export function buildChunkParameters(
     }
   }
 
-  // regex 策略不支持 useMarkdownImages=true
-  if (strategy !== 'regex' && form.useMarkdownImages) {
+  if (form.useMarkdownImages) {
     normal.useMarkdownImages = true
   }
 
@@ -358,15 +314,8 @@ export function buildChunkParameters(
     documentTimeout: formatSecondsToIsoDuration(form.documentTimeoutSeconds || 90),
   }
 
-  // 分词器互斥规则
-  if (strategy === 'hybrid') {
-    if (form.tokenizer && form.tokenizer.trim()) {
-      advanced.tokenizer = form.tokenizer.trim()
-    }
-  } else if (strategy === 'regex') {
-    if (form.tokenizer === 'cl100k_base') {
-      advanced.tokenizer = 'cl100k_base'
-    }
+  if (form.tokenizer && form.tokenizer.trim()) {
+    advanced.tokenizer = form.tokenizer.trim()
   }
 
   // PDF 流水线专属高级参数
@@ -416,45 +365,14 @@ export function buildChunkParameters(
 
 /**
  * 分片参数校验规则：
- * 1. 设置 maxTokens 时，overlapTokens 必须小于 maxTokens。
- * 2. 混合策略开启重叠时，必须填写 maxTokens。
- * 3. 正则短片段阈值 minTokens 不能超过 maxTokens - overlapTokens。
+ * 校验单片 Token 上限必须大于 0。
  */
 export function validateChunkParameters(form: ChunkFormState): string | null {
-  const strategy = form.strategy || 'hybrid'
-  const overlapTokens = Math.max(0, Number(form.overlapTokens ?? 0))
-
-  // 1. 设置 maxTokens 时，overlapTokens 必须小于 maxTokens
-  if (form.maxTokens !== undefined && form.maxTokens !== null && Number(form.maxTokens) > 0) {
+  if (form.maxTokens !== undefined && form.maxTokens !== null) {
     const maxTokens = Number(form.maxTokens)
-    if (overlapTokens >= maxTokens) {
-      return `最多重叠 Token 数 (${overlapTokens}) 必须小于单片 Token 上限 (${maxTokens})`
+    if (maxTokens <= 0) {
+      return '单片 Token 上限必须大于 0'
     }
   }
-
-  // 2. 混合策略开启重叠时，必须填写 maxTokens
-  if (strategy === 'hybrid') {
-    if (overlapTokens > 0) {
-      if (!form.maxTokens || Number(form.maxTokens) <= 0) {
-        return '混合策略开启重叠时，必须填写单片 Token 上限'
-      }
-    }
-  }
-
-  // 3. 正则短片段阈值 minTokens 不能超过 maxTokens - overlapTokens
-  if (strategy === 'regex') {
-    if (!form.pattern?.trim()) {
-      return '正则表达式策略下，切分正则表达式不能为空'
-    }
-    if (form.mergeSmallChunks && form.minTokens && Number(form.minTokens) > 0) {
-      const minTokens = Number(form.minTokens)
-      const maxTokens = Number(form.maxTokens || 512)
-      const effectiveLimit = maxTokens - overlapTokens
-      if (minTokens > effectiveLimit) {
-        return `短片段 Token 阈值 (${minTokens}) 不能超过单片 Token 上限与重叠数之差 (${effectiveLimit})`
-      }
-    }
-  }
-
   return null
 }

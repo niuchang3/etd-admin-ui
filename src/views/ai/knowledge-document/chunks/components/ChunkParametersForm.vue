@@ -3,27 +3,8 @@
     <a-form layout="vertical" class="param-form">
       <a-collapse v-model:activeKey="activeCollapseKeys" :bordered="false" class="param-collapse">
         <!-- 基础参数面板（默认展开） -->
-        <a-collapse-panel key="basic" header="基础参数（必选与核心分片策略）" class="collapse-section">
+        <a-collapse-panel key="basic" header="基础参数（版面语义与切片参数）" class="collapse-section">
           <div class="form-grid">
-            <!-- 分片策略 -->
-            <a-form-item label="分片策略" required class="grid-col-full">
-              <a-radio-group
-                v-model:value="modelValue.strategy"
-                button-style="solid"
-                :disabled="disabled"
-                @change="handleStrategyChange"
-              >
-                <a-radio-button value="hybrid">混合分片 (Hybrid)</a-radio-button>
-                <a-radio-button value="hierarchical">层级分片 (Hierarchical)</a-radio-button>
-                <a-radio-button value="regex">正则表达式 (Regex)</a-radio-button>
-              </a-radio-group>
-              <div class="field-hint">
-                <span v-if="modelValue.strategy === 'hybrid'">结合版面语义与 Token 限制的通用智能分片。</span>
-                <span v-else-if="modelValue.strategy === 'hierarchical'">严格根据文档标题层级树切分，不拆分大标题块。</span>
-                <span v-else-if="modelValue.strategy === 'regex'">根据自定义 Java 正则表达式切分，并保护表格与代码块。</span>
-              </div>
-            </a-form-item>
-
             <!-- 起止页码：仅 PDF 和图片显示 -->
             <template v-if="isPdfOrImage">
               <a-form-item label="起始页码 (从1开始)">
@@ -48,44 +29,24 @@
               </a-form-item>
             </template>
 
-            <!-- 单片 Token 上限：仅 hybrid 和 regex 显示 -->
-            <a-form-item
-              v-if="modelValue.strategy === 'hybrid' || modelValue.strategy === 'regex'"
-              label="单片 Token 上限"
-              required
-            >
+            <!-- 单片 Token 上限 -->
+            <a-form-item label="单片 Token 上限" required>
               <a-input-number
                 v-model:value="modelValue.maxTokens"
                 :min="32"
                 :max="8192"
                 :precision="0"
-                placeholder="例如 512"
-                :disabled="disabled"
-                style="width: 100%"
-              />
-            </a-form-item>
-
-            <!-- 最多重叠 Token 数：基础参数，默认值 0，最小值 0；0 表示关闭 -->
-            <a-form-item label="最多重叠 Token 数">
-              <a-input-number
-                v-model:value="modelValue.overlapTokens"
-                :min="0"
-                :precision="0"
-                placeholder="0 (表示关闭)"
+                placeholder="推荐 600"
                 :disabled="disabled"
                 style="width: 100%"
               />
               <div class="field-hint">
-                自动生成时，在后一片前面追加前一片末尾的部分内容。按cl100k_base计算，实际重叠可能因结构保护和剩余预算减少。
+                推荐设定为 500 ~ 800 Tokens（默认 600），既保证语义独立闭环，又避免生成过长分片。
               </div>
             </a-form-item>
 
-            <!-- 自动合并同级小块：仅 hybrid 显示 -->
-            <a-form-item
-              v-if="modelValue.strategy === 'hybrid'"
-              label="自动合并同级小块"
-              class="switch-item"
-            >
+            <!-- 自动合并同级小块 -->
+            <a-form-item label="自动合并同级小块" class="switch-item">
               <div class="switch-row">
                 <a-switch
                   v-model:checked="modelValue.mergePeers"
@@ -95,22 +56,6 @@
                 />
                 <span class="switch-desc">将相近的段落或列表项合并为同一分片</span>
               </div>
-            </a-form-item>
-
-            <!-- Java 正则表达式：仅 regex 显示且必填 -->
-            <a-form-item
-              v-if="modelValue.strategy === 'regex'"
-              label="切分正则表达式 (Java 正则)"
-              required
-              class="grid-col-full"
-            >
-              <a-input
-                v-model:value="modelValue.pattern"
-                placeholder="例如：\n{2,} 或第[0-9]+章"
-                :maxlength="4096"
-                allow-clear
-                :disabled="disabled"
-              />
             </a-form-item>
 
             <!-- OCR 启用开关：仅 PDF 和图片显示 -->
@@ -155,50 +100,8 @@
         </a-collapse-panel>
 
         <!-- 普通参数面板（默认折叠） -->
-        <a-collapse-panel key="normal" header="普通参数（正则控制、OCR与格式流水线）" class="collapse-section">
+        <a-collapse-panel key="normal" header="普通参数（OCR与格式流水线）" class="collapse-section">
           <div class="form-grid">
-            <!-- 正则专属：匹配内容归入位置 -->
-            <template v-if="modelValue.strategy === 'regex'">
-              <a-form-item label="正则匹配边界归属" required>
-                <a-select
-                  v-model:value="modelValue.boundaryPlacement"
-                  :disabled="disabled"
-                  :options="[
-                    { label: '归入下一分片 (next)', value: 'next' },
-                    { label: '归入上一分片 (previous)', value: 'previous' },
-                    { label: '丢弃匹配项 (discard)', value: 'discard' },
-                  ]"
-                />
-              </a-form-item>
-
-              <a-form-item label="合并短片段" class="switch-item">
-                <div class="switch-row">
-                  <a-switch
-                    v-model:checked="modelValue.mergeSmallChunks"
-                    checked-children="开启"
-                    un-checked-children="关闭"
-                    :disabled="disabled"
-                  />
-                  <span class="switch-desc">将长度过短的正则分片合并</span>
-                </div>
-              </a-form-item>
-
-              <a-form-item
-                v-if="modelValue.mergeSmallChunks"
-                label="短片段 Token 阈值"
-                required
-              >
-                <a-input-number
-                  v-model:value="modelValue.minTokens"
-                  :min="1"
-                  :max="Math.max(1, (modelValue.maxTokens || 512) - (modelValue.overlapTokens || 0))"
-                  :precision="0"
-                  :disabled="disabled"
-                  style="width: 100%"
-                />
-              </a-form-item>
-            </template>
-
             <!-- OCR 扩展项：仅 PDF/图片且 OCR 开启时显示 -->
             <template v-if="isPdfOrImage && modelValue.ocr">
               <a-form-item label="OCR 引擎预设">
@@ -259,12 +162,8 @@
               </a-form-item>
             </template>
 
-            <!-- 输出 Markdown 图片引用：regex 策略不支持 -->
-            <a-form-item
-              v-if="modelValue.strategy !== 'regex'"
-              label="输出 Markdown 图片引用"
-              class="switch-item"
-            >
+            <!-- 输出 Markdown 图片引用 -->
+            <a-form-item label="输出 Markdown 图片引用" class="switch-item">
               <div class="switch-row">
                 <a-switch
                   v-model:checked="modelValue.useMarkdownImages"
@@ -304,24 +203,9 @@
               <div class="field-hint">接口标准转换格式例如 PT90S，超时时间过短可能导致复杂大文件生成失败。</div>
             </a-form-item>
 
-            <!-- 分词器：hierarchical 不发送；regex 仅允许省略或 cl100k_base；hybrid 允许自定义 -->
-            <a-form-item
-              v-if="modelValue.strategy === 'hybrid' || modelValue.strategy === 'regex'"
-              label="统计分词器 (Tokenizer)"
-            >
-              <a-select
-                v-if="modelValue.strategy === 'regex'"
-                v-model:value="modelValue.tokenizer"
-                allow-clear
-                placeholder="默认（省略）"
-                :disabled="disabled"
-                :options="[
-                  { label: '系统默认（省略）', value: '' },
-                  { label: 'cl100k_base (OpenAI 通用分词器)', value: 'cl100k_base' },
-                ]"
-              />
+            <!-- 分词器 -->
+            <a-form-item label="统计分词器 (Tokenizer)">
               <a-input
-                v-else
                 v-model:value="modelValue.tokenizer"
                 placeholder="留空使用系统默认分词器"
                 allow-clear
@@ -563,39 +447,6 @@ const headingOptions = computed(() => {
   }
   return props.modelValue.pdfHeadingHierarchyOptions
 })
-
-/**
- * 切换策略时自动清理非本策略专属参数，避免发送无效组合
- */
-const handleStrategyChange = () => {
-  const strategy = props.modelValue.strategy
-  if (strategy === 'hierarchical') {
-    props.modelValue.maxTokens = null
-    props.modelValue.mergePeers = false
-    props.modelValue.pattern = ''
-    props.modelValue.boundaryPlacement = 'next'
-    props.modelValue.mergeSmallChunks = false
-    props.modelValue.minTokens = null
-    props.modelValue.tokenizer = ''
-  } else if (strategy === 'hybrid') {
-    props.modelValue.pattern = ''
-    props.modelValue.boundaryPlacement = 'next'
-    props.modelValue.mergeSmallChunks = false
-    props.modelValue.minTokens = null
-    if (props.modelValue.maxTokens == null) {
-      props.modelValue.maxTokens = 512
-    }
-  } else if (strategy === 'regex') {
-    props.modelValue.mergePeers = false
-    props.modelValue.useMarkdownImages = false
-    if (props.modelValue.tokenizer && props.modelValue.tokenizer !== 'cl100k_base') {
-      props.modelValue.tokenizer = ''
-    }
-    if (props.modelValue.maxTokens == null) {
-      props.modelValue.maxTokens = 512
-    }
-  }
-}
 
 /**
  * OCR 变更清理
