@@ -21,26 +21,6 @@
           <a-input :value="folder?.folderName || detail?.folderId" disabled />
         </a-form-item>
 
-        <a-form-item label="资料归属部门" extra="新上传默认使用目录所属部门；续传保留原资料归属部门。">
-          <a-select
-            v-if="!folder && !detail"
-            v-model:value="orgId"
-            :options="orgOptions"
-            placeholder="请选择部门"
-            @change="(val: any) => loadOrgName(String(val))"
-          />
-          <a-input
-            v-else
-            :value="orgDisplayName"
-            :title="orgId ? `部门 ID: ${orgId}` : undefined"
-            disabled
-          >
-            <template #prefix>
-              <ApartmentOutlined style="color: var(--du-primary-color, #2563eb); margin-right: 4px;" />
-            </template>
-          </a-input>
-        </a-form-item>
-
         <a-form-item v-if="!detail" label="租户内共享" extra="开启后租户内其他部门成员可跨部门读取、预览与下载该资料（默认关闭）。">
           <div class="switch-row">
             <a-switch
@@ -176,7 +156,7 @@
             v-if="canWrite && !terminal"
             type="primary"
             :loading="busy"
-            :disabled="!file || loading || !policy || !orgId || busy || cancelLoading || !configValid"
+            :disabled="!file || loading || !policy || busy || cancelLoading || !configValid"
             @click="handleSubmit"
           >
             <UploadOutlined />{{ detail ? '继续 / 重试失败分片' : '开始上传' }}
@@ -188,11 +168,10 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onBeforeUnmount, reactive, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { message } from 'ant-design-vue'
 import {
-  ApartmentOutlined,
   FileTextOutlined,
   InboxOutlined,
   ReloadOutlined,
@@ -200,7 +179,6 @@ import {
 } from '@ant-design/icons-vue'
 import { menusStore } from '@/stores/modules/user'
 import { getSystemConfigValues } from '@/apis/upms/config'
-import { getOrganizationLookup } from '@/apis/upms/organization'
 import {
   cancelKnowledgeUpload,
   completeKnowledgeUpload,
@@ -232,6 +210,8 @@ import {
 
 const props = defineProps<{
   open: boolean
+  knowledgeBaseId?: string
+  defaultIsPublic?: boolean
   folder: KnowledgeDocumentFolder | null
   folders: KnowledgeDocumentFolder[]
   record: KnowledgeDocumentRecord | null
@@ -253,54 +233,6 @@ const allowedExtensions = ref<string[]>([])
 const configValid = ref(false)
 const configError = ref('')
 const supportedFormatsText = computed(() => allowedExtensions.value.join('、'))
-const orgId = ref('')
-
-// 部门信息回显缓存与状态（使用跨菜单 GET /v1/organization/lookup/{id}）
-const orgLookupCache = reactive(new Map<string, string>())
-const orgName = ref('')
-const orgLoading = ref(false)
-
-const loadOrgName = async (id: string) => {
-  if (!id) {
-    orgName.value = ''
-    return
-  }
-  if (orgLookupCache.has(id)) {
-    orgName.value = orgLookupCache.get(id)!
-    return
-  }
-  orgLoading.value = true
-  try {
-    const res = await getOrganizationLookup(id)
-    if (res.data) {
-      const name = res.data.orgName || id
-      orgName.value = name
-      orgLookupCache.set(id, name)
-    } else {
-      // 接口说明：data 为 null 时按部门不存在处理，避免页面报错
-      orgName.value = '部门不存在'
-      orgLookupCache.set(id, '部门不存在')
-    }
-  } catch {
-    orgName.value = `部门 (${id})`
-  } finally {
-    orgLoading.value = false
-  }
-}
-
-const orgDisplayName = computed(() => {
-  if (orgLoading.value) return '正在加载部门信息...'
-  if (orgName.value) return orgName.value
-  if (!orgId.value) return '未分配部门'
-  return `部门 (${orgId.value})`
-})
-
-const orgOptions = computed(() =>
-  Array.from(new Set(props.folders.filter(canUseFolder).map((folder) => folder.orgId))).map((id) => ({
-    label: orgLookupCache.get(id) || id,
-    value: id,
-  }))
-)
 
 const file = ref<File | null>(null)
 const isPublic = ref(false)
@@ -335,7 +267,7 @@ watch(
     if (!open) return
     detail.value = null
     file.value = null
-    isPublic.value = false
+    isPublic.value = props.record?.isPublic ?? props.defaultIsPublic ?? false
     policy.value = null
     notice.value = ''
     accept.value = ''
@@ -343,24 +275,6 @@ watch(
     configValid.value = false
     configError.value = ''
     initializationUncertain = false
-    orgId.value = props.folder?.orgId || ''
-    if (orgId.value) {
-      loadOrgName(orgId.value)
-    }
-    // 异步预热备选部门回显名称
-    props.folders.filter(canUseFolder).forEach((f) => {
-      if (f.orgId && !orgLookupCache.has(f.orgId)) {
-        getOrganizationLookup(f.orgId)
-          .then((res) => {
-            if (res.data) {
-              orgLookupCache.set(f.orgId, res.data.orgName || f.orgId)
-            } else {
-              orgLookupCache.set(f.orgId, '部门不存在')
-            }
-          })
-          .catch(() => {})
-      }
-    })
     loading.value = true
 
     try {
@@ -411,10 +325,6 @@ watch(
         notice.value = `上传配置异常（${configError.value}），已禁用文件上传。`
       } else if (detailResult.status === 'fulfilled' && detailResult.value) {
         detail.value = detailResult.value.data
-        orgId.value = detail.value.orgId
-        if (orgId.value) {
-          loadOrgName(orgId.value)
-        }
         notice.value = '请重新选择原始文件，校验摘要后仅补传未确认分片。'
       } else if (detailResult.status === 'rejected') {
         initializationUncertain = true
@@ -463,7 +373,7 @@ const handleSubmit = async () => {
     message.error('上传配置异常，已禁用文件上传')
     return
   }
-  if (!file.value || !policy.value || busy.value || terminal.value || initializationUncertain || !orgId.value)
+  if (!file.value || !policy.value || busy.value || terminal.value || initializationUncertain)
     return
   if (detail.value?.builtIn) return
   if (!detail.value && !canUseFolder(props.folder || undefined)) return
@@ -510,8 +420,8 @@ const handleSubmit = async () => {
       try {
         detail.value = (
           await createKnowledgeUpload({
+            knowledgeBaseId: props.knowledgeBaseId || '',
             folderId: props.folder!.id,
-            orgId: orgId.value,
             originalFilename: localFile.name,
             contentType: localFile.type || 'application/octet-stream',
             fileSize: localFile.size,

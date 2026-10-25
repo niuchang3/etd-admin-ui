@@ -132,7 +132,47 @@ export const menusStore = defineStore('menus', () => {
   const menus = ref<UserMenuNode[]>([])
   const dynamicRoutesRegistered = ref(false)
   const setUserMenus = (sourceMenus: UserMenu[]) => {
-    const normalized = normalizeMenuTree(sourceMenus)
+    // 过滤与归一化：
+    // 1. 全局“AI管理”下只保留“知识库”，删除独立“知识库分类”菜单
+    // 2. 映射知识库菜单路由为 /ai/knowledge-bases，组件为 @/views/ai/knowledge-base/index.vue，权限码为 ai:knowledge-base
+    const filteredMenus = (Array.isArray(sourceMenus) ? sourceMenus : [])
+      .filter((menu) => {
+        const path = menu.menuPath?.trim() || ''
+        const code = menu.permissionCode?.trim() || ''
+        const router = menu.menuRouter?.trim() || ''
+        if (
+          code === 'ai:knowledge-folder' ||
+          path === '/ai/knowledge-folders' ||
+          path === 'ai/knowledge-folders' ||
+          router.includes('knowledge-folder')
+        ) {
+          return false
+        }
+        return true
+      })
+      .map((menu) => {
+        const path = menu.menuPath?.trim() || ''
+        const code = menu.permissionCode?.trim() || ''
+        if (
+          code === 'ai:knowledge-document' ||
+          path === '/ai/knowledge-documents' ||
+          path === 'ai/knowledge-documents' ||
+          path === '/ai/knowledge-bases' ||
+          path === 'ai/knowledge-bases' ||
+          code === 'ai:knowledge-base'
+        ) {
+          return {
+            ...menu,
+            menuName: '知识库',
+            menuPath: '/ai/knowledge-bases',
+            menuRouter: '@/views/ai/knowledge-base/index.vue',
+            permissionCode: 'ai:knowledge-base',
+          }
+        }
+        return menu
+      })
+
+    const normalized = normalizeMenuTree(filteredMenus)
     rawMenus.value = normalized.raw
     menus.value = normalized.tree
     syncDynamicRoutes(rawMenus.value.filter(canReadMenu))
@@ -149,6 +189,10 @@ export const menusStore = defineStore('menus', () => {
     return (menuPath.startsWith('/') ? menuPath : `/${menuPath}`) === path
   })
   const canWritePath = (path: string) => {
+    if (path.startsWith('/ai/knowledge-bases')) {
+      const kbMenu = findByPath('/ai/knowledge-bases')
+      return Boolean(kbMenu && canWriteMenu(kbMenu))
+    }
     const menu = findByPath(path)
     return Boolean(menu && canWriteMenu(menu))
   }

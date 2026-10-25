@@ -3,7 +3,7 @@ import type { PageResult, ResultModel } from '@/apis/types'
 import type { KnowledgeFolderQuery } from '@/apis/ai/folder/type'
 import type {
   KnowledgeDocumentFolder, KnowledgeDocumentQuery, KnowledgeDocumentRecord,
-  KnowledgeDocumentDetail, KnowledgeDocumentSaveDTO,
+  KnowledgeDocumentDetail, KnowledgeDocumentSaveDTO, KnowledgeDocumentStatusDTO,
   KnowledgeUploadPolicy, KnowledgeUploadInitDTO,
   KnowledgeChunkState, KnowledgeChunkItem, KnowledgeChunkQuery,
   KnowledgeChunkGenerateDTO, KnowledgeChunkSaveDTO,
@@ -24,6 +24,8 @@ export const getKnowledgeDocument = (id: string) =>
   request.get<ResultModel<KnowledgeDocumentDetail>>({ url: documentUrl(id) })
 export const updateKnowledgeDocument = (id: string, data: KnowledgeDocumentSaveDTO) =>
   request.put<ResultModel<boolean>>({ url: documentUrl(id), data })
+export const updateKnowledgeDocumentStatus = (id: string, data: KnowledgeDocumentStatusDTO) =>
+  request.put<ResultModel<boolean>>({ url: `${documentUrl(id)}/status`, data })
 export const getKnowledgeDownloadUrl = (id: string) =>
   request.post<ResultModel<string>>({ url: `${documentUrl(id)}/download-url` })
 export const deleteKnowledgeDocument = (id: string) =>

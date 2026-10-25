@@ -4,14 +4,25 @@
     <router-link class="breadcrumb-link root-link" :to="homePath">ETD Console</router-link>
     <RightOutlined />
 
-    <!-- 详情页可以通过路由 meta.breadcrumb 增加任意数量的中间层级。 -->
-    <template v-for="item in parentItems" :key="`${item.label}-${item.path}`">
-      <router-link v-if="item.path" class="breadcrumb-link" :to="item.path">{{ item.label }}</router-link>
-      <span v-else class="breadcrumb-text">{{ item.label }}</span>
+    <!-- 知识库工作区动态面包屑 -->
+    <template v-if="isKbWorkspace">
+      <router-link class="breadcrumb-link" :to="{ path: '/ai/knowledge-bases', query: kbListQuery }">知识库</router-link>
       <RightOutlined />
+      <span class="breadcrumb-text">{{ kbStore.currentKb?.name || '知识库' }}</span>
+      <RightOutlined />
+      <span class="breadcrumb-current" aria-current="page">{{ currentTitle }}</span>
     </template>
 
-    <span class="breadcrumb-current" aria-current="page">{{ currentTitle }}</span>
+    <!-- 详情页可以通过路由 meta.breadcrumb 增加任意数量的中间层级。 -->
+    <template v-else>
+      <template v-for="item in parentItems" :key="`${item.label}-${item.path}`">
+        <router-link v-if="item.path" class="breadcrumb-link" :to="item.path">{{ item.label }}</router-link>
+        <span v-else class="breadcrumb-text">{{ item.label }}</span>
+        <RightOutlined />
+      </template>
+
+      <span class="breadcrumb-current" aria-current="page">{{ currentTitle }}</span>
+    </template>
   </nav>
 </template>
 
@@ -20,6 +31,7 @@ import { computed } from 'vue'
 import { useRoute } from 'vue-router'
 import { RightOutlined } from '@ant-design/icons-vue'
 import { menusStore } from '@/stores/modules/user'
+import { useKnowledgeBaseStore } from '@/stores/modules/knowledgeBase'
 
 interface BreadcrumbItem {
   label: string
@@ -28,10 +40,23 @@ interface BreadcrumbItem {
 
 const route = useRoute()
 const currentMenus = menusStore()
+const kbStore = useKnowledgeBaseStore()
+
 const homePath = computed(() => {
   const path = currentMenus.firstReadablePath()
   if (!path) return '/no-permission'
   return path.startsWith('/') ? path : `/${path}`
+})
+
+const isKbWorkspace = computed(() => {
+  return route.path.startsWith('/ai/knowledge-bases/') && Boolean(route.params.id)
+})
+
+const kbListQuery = computed(() => {
+  const q: Record<string, any> = {}
+  if (kbStore.listQuery.current > 1) q.current = kbStore.listQuery.current
+  if (kbStore.listQuery.keyword) q.keyword = kbStore.listQuery.keyword
+  return q
 })
 
 // 菜单页面直接读取 title；详情页面可额外配置可点击的父级 breadcrumb。

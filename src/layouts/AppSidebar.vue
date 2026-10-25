@@ -19,31 +19,56 @@
     </div>
 
     <nav class="navigation" aria-label="主导航">
-      <!-- 首次请求菜单时显示紧凑加载状态。 -->
-      <div v-if="loading" class="menu-state">
-        <a-spin size="small" />
-        <span v-if="!collapsed">正在加载菜单</span>
+      <!-- 知识库工作区专用导航 -->
+      <div v-if="isKbWorkspace" class="workspace-sidebar-container">
+        <button
+          type="button"
+          class="back-menu-button"
+          :title="collapsed ? '返回主菜单' : undefined"
+          @click="handleBackToMainMenu"
+        >
+          <ArrowLeftOutlined />
+          <span v-if="!collapsed">返回主菜单</span>
+        </button>
+
+        <a-menu
+          mode="inline"
+          theme="dark"
+          :inline-collapsed="collapsed"
+          :items="workspaceMenuItems"
+          :selected-keys="workspaceSelectedKeys"
+          @click="handleWorkspaceMenuClick"
+        />
       </div>
 
-      <!-- 请求失败时允许主动重试，不使用静态菜单掩盖接口问题。 -->
-      <div v-else-if="loadFailed" class="menu-state menu-error">
-        <ExclamationCircleOutlined />
-        <span v-if="!collapsed">菜单加载失败</span>
-        <button v-if="!collapsed" type="button" @click="loadMenus">重试</button>
-      </div>
+      <!-- 全局菜单树导航 -->
+      <template v-else>
+        <!-- 首次请求菜单时显示紧凑加载状态。 -->
+        <div v-if="loading" class="menu-state">
+          <a-spin size="small" />
+          <span v-if="!collapsed">正在加载菜单</span>
+        </div>
 
-      <a-empty v-else-if="!menuItems?.length && !collapsed" :image="simpleImage" description="暂无可用菜单" />
+        <!-- 请求失败时允许主动重试，不使用静态菜单掩盖接口问题。 -->
+        <div v-else-if="loadFailed" class="menu-state menu-error">
+          <ExclamationCircleOutlined />
+          <span v-if="!collapsed">菜单加载失败</span>
+          <button v-if="!collapsed" type="button" @click="loadMenus">重试</button>
+        </div>
 
-      <!-- Ant Design Menu 根据 children 递归渲染任意层级菜单树。 -->
-      <a-menu
-        v-else
-        mode="inline"
-        theme="dark"
-        :inline-collapsed="collapsed"
-        :items="menuItems"
-        :selected-keys="selectedKeys"
-        @click="handleMenuClick"
-      />
+        <a-empty v-else-if="!menuItems?.length && !collapsed" :image="simpleImage" description="暂无可用菜单" />
+
+        <!-- Ant Design Menu 根据 children 递归渲染任意层级菜单树。 -->
+        <a-menu
+          v-else
+          mode="inline"
+          theme="dark"
+          :inline-collapsed="collapsed"
+          :items="menuItems"
+          :selected-keys="selectedKeys"
+          @click="handleMenuClick"
+        />
+      </template>
     </nav>
 
     <div class="sidebar-footer">
@@ -59,11 +84,19 @@
 <script setup lang="ts">
 import { computed, h, onMounted, ref, watch } from 'vue'
 import { Empty, type MenuProps } from 'ant-design-vue'
-import { ExclamationCircleOutlined, MenuFoldOutlined, MenuUnfoldOutlined } from '@ant-design/icons-vue'
+import {
+  ArrowLeftOutlined,
+  ExclamationCircleOutlined,
+  FileTextOutlined,
+  MenuFoldOutlined,
+  MenuUnfoldOutlined,
+  SettingOutlined,
+} from '@ant-design/icons-vue'
 import { useRoute, useRouter } from 'vue-router'
 import { resolveMenuIcon } from '@/config/menuIcons'
 import { menusStore, type UserMenuNode } from '@/stores/modules/user'
 import { useSystemConfigStore } from '@/stores/modules/config'
+import { useKnowledgeBaseStore } from '@/stores/modules/knowledgeBase'
 
 defineProps<{
   collapsed: boolean
@@ -77,14 +110,66 @@ const route = useRoute()
 const router = useRouter()
 const currentMenus = menusStore()
 const configStore = useSystemConfigStore()
+const kbStore = useKnowledgeBaseStore()
 const loading = ref(false)
 const loadFailed = ref(false)
 const logoError = ref(false)
 const simpleImage = Empty.PRESENTED_IMAGE_SIMPLE
 
-watch(() => configStore.branding.logo, () => {
-  logoError.value = false
+const isKbWorkspace = computed(() => {
+  return route.path.startsWith('/ai/knowledge-bases/') && Boolean(route.params.id)
 })
+const currentKbId = computed(() => String(route.params.id || ''))
+
+watch(
+  () => [isKbWorkspace.value, currentKbId.value] as const,
+  ([inWorkspace, kbId]) => {
+    if (inWorkspace && kbId) {
+      if (!kbStore.currentKb || String(kbStore.currentKb.id) !== String(kbId)) {
+        void kbStore.loadKbDetail(kbId)
+      }
+    }
+  },
+  { immediate: true }
+)
+
+const workspaceMenuItems = computed<MenuProps['items']>(() => [
+  {
+    key: 'documents',
+    label: '文档管理',
+    icon: h(FileTextOutlined),
+  },
+  {
+    key: 'settings',
+    label: '设置',
+    icon: h(SettingOutlined),
+  },
+])
+
+const workspaceSelectedKeys = computed(() => {
+  if (route.path.endsWith('/settings')) return ['settings']
+  return ['documents']
+})
+
+const handleWorkspaceMenuClick: MenuProps['onClick'] = ({ key }) => {
+  if (!currentKbId.value) return
+  if (key === 'documents') {
+    void router.push(`/ai/knowledge-bases/${currentKbId.value}/documents`)
+  } else if (key === 'settings') {
+    void router.push(`/ai/knowledge-bases/${currentKbId.value}/settings`)
+  }
+}
+
+const handleBackToMainMenu = () => {
+  const query: Record<string, any> = {}
+  if (kbStore.listQuery.current > 1) {
+    query.current = kbStore.listQuery.current
+  }
+  if (kbStore.listQuery.keyword) {
+    query.keyword = kbStore.listQuery.keyword
+  }
+  void router.push({ path: '/ai/knowledge-bases', query })
+}
 
 // 文档约定 menuPath 是页面访问路径，menuRouter 是组件地址。
 const getMenuRoute = (menu: UserMenuNode) => {
@@ -256,4 +341,41 @@ onMounted(() => {
 .collapse-button :deep(.anticon) { width: 16px; flex: 0 0 16px; font-size: 14px; }
 .is-collapsed .brand,
 .is-collapsed .collapse-button { justify-content: center; padding-right: 0; padding-left: 0; }
+
+/* 知识库工作区专属导航样式 */
+.workspace-sidebar-container {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.back-menu-button {
+  display: flex;
+  width: 100%;
+  height: 32px;
+  align-items: center;
+  gap: 8px;
+  padding: 0 10px;
+  color: #8fb0ff;
+  border: 1px solid rgba(143, 176, 255, 0.2);
+  border-radius: var(--du-radius-sm, 3px);
+  background: rgba(143, 176, 255, 0.08);
+  cursor: pointer;
+  font-size: var(--du-font-size-sm, 12px);
+  font-weight: 500;
+  text-align: left;
+  transition: all 140ms ease;
+  margin-bottom: var(--du-space-2, 8px);
+}
+
+.back-menu-button:hover {
+  color: #adc6ff;
+  border-color: rgba(143, 176, 255, 0.4);
+  background: rgba(143, 176, 255, 0.16);
+}
+
+.is-collapsed .back-menu-button {
+  justify-content: center;
+  padding: 0;
+}
 </style>

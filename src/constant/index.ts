@@ -213,11 +213,21 @@ export const EVENT_MESSAGE_STATUS_OPTIONS = [
 export const AI_PERMISSION_CODE = {
   MODEL: 'ai:model',
   MODEL_SQUARE: 'ai:model-square',
+  KNOWLEDGE_BASE: 'ai:knowledge-base',
   KNOWLEDGE_FOLDER: 'ai:knowledge-folder',
   KNOWLEDGE_DOCUMENT: 'ai:knowledge-document',
 } as const
 
 export type AiPermissionCodeValue = typeof AI_PERMISSION_CODE[keyof typeof AI_PERMISSION_CODE]
+
+/** 知识库检索模式常量 */
+export const KNOWLEDGE_RETRIEVAL_MODE = {
+  KEYWORD: 'keyword',
+  VECTOR: 'vector',
+  HYBRID: 'hybrid',
+} as const
+export type KnowledgeRetrievalModeValue = typeof KNOWLEDGE_RETRIEVAL_MODE[keyof typeof KNOWLEDGE_RETRIEVAL_MODE]
+
 
 /**
  * AI 模块系统字典类型编码（服务商、模型类型、接入协议、认证方式、向量维度）

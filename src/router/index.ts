@@ -24,13 +24,35 @@ const router = createRouter({
           meta: { title: '首页', menuCode: 'ai:model-square' },
         },
         {
+          path: 'ai/knowledge-bases',
+          name: 'knowledge-bases',
+          component: () => import('@/views/ai/knowledge-base/index.vue'),
+          meta: { title: '知识库' },
+        },
+        {
+          path: 'ai/knowledge-bases/:id',
+          redirect: (to) => `/ai/knowledge-bases/${to.params.id}/documents`,
+        },
+        {
+          path: 'ai/knowledge-bases/:id/documents',
+          name: 'knowledge-base-documents',
+          component: () => import('@/views/ai/knowledge-base/workspace/index.vue'),
+          meta: { title: '文档管理', subTab: 'documents' },
+        },
+        {
+          path: 'ai/knowledge-bases/:id/settings',
+          name: 'knowledge-base-settings',
+          component: () => import('@/views/ai/knowledge-base/workspace/index.vue'),
+          meta: { title: '设置', subTab: 'settings' },
+        },
+        {
           path: 'ai/knowledge-documents/:id/chunks',
           name: 'knowledge-document-chunks',
           component: () => import('@/views/ai/knowledge-document/chunks/index.vue'),
           meta: {
             title: '文档分片管理',
             breadcrumb: [
-              { label: '知识库资料', path: '/ai/knowledge-documents' },
+              { label: '知识库', path: '/ai/knowledge-bases' },
             ],
           },
         },

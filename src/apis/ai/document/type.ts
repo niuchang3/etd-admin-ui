@@ -5,16 +5,19 @@ export type KnowledgeDocumentFolder = KnowledgeFolderRecord
 export type UploadStatus = 'initializing' | 'uploading' | 'completing' | 'completed' | 'failed' | 'cancelled'
 
 export interface KnowledgeDocumentQuery extends PageRequest {
+  knowledgeBaseId?: string
   folderId?: string
   folderIds?: string[]
   keyword?: string
   uploadStatus?: UploadStatus
   chunkStatus?: KnowledgeChunkStatus
+  dataStatus?: number
 }
 
 export interface KnowledgeDocumentRecord {
   id: string
-  orgId: string
+  knowledgeBaseId?: string
+  orgId?: string
   folderId: string
   version: string | number
   documentName: string
@@ -28,6 +31,7 @@ export interface KnowledgeDocumentRecord {
   chunkStatus?: KnowledgeChunkStatus
   chunkCount?: number
   isPublic: boolean
+  dataStatus: number
   writable?: boolean
   createTime?: string | null
   updateTime?: string | null
@@ -191,11 +195,18 @@ export interface KnowledgeUploadPolicy {
 }
 
 export interface KnowledgeUploadInitDTO {
+  knowledgeBaseId: string
   folderId: string
-  orgId: string
+  orgId?: string
   originalFilename: string
   contentType: string
   fileSize: number
   fileSha256: string
-  isPublic: boolean
+  isPublic?: boolean
 }
+
+export interface KnowledgeDocumentStatusDTO {
+  version: string | number
+  dataStatus: number
+}
+
