@@ -100,7 +100,7 @@
                 v-if="selectedFolderId"
                 class="clear-folder-icon"
                 title="清除分类筛选"
-                @click="selectedFolderId = null; handleSearch()"
+                @click="handleClearFolder"
               />
             </span>
 
@@ -149,6 +149,16 @@
           <div class="toolbar-actions">
             <a-button
               v-if="canWrite && kb?.writable !== false"
+              danger
+              :disabled="selectedRowKeys.length === 0"
+              :loading="batchDeleting"
+              @click="handleBatchDelete"
+            >
+              <DeleteOutlined />批量删除<template v-if="selectedRowKeys.length"> ({{ selectedRowKeys.length }})</template>
+            </a-button>
+
+            <a-button
+              v-if="canWrite && kb?.writable !== false"
               type="primary"
               :disabled="!selectedFolderId && !folders.length"
               @click="handleAddDoc"
@@ -164,6 +174,7 @@
           :data-source="tableData"
           :loading="loading"
           :pagination="pagination"
+          :row-selection="rowSelection"
           row-key="id"
           size="small"
           :scroll="{ x: 1330 }"
@@ -357,7 +368,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, reactive, ref, watch } from 'vue'
+import { computed, h, onMounted, reactive, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { message, Modal, type TableColumnsType } from 'ant-design-vue'
 import {
@@ -382,12 +393,14 @@ import type {
   KnowledgeFolderRecord,
 } from '@/apis/ai/folder/type'
 import {
+  batchDeleteKnowledgeDocuments,
   deleteKnowledgeDocument,
   getKnowledgeDocumentPage,
   getKnowledgeDownloadUrl,
   updateKnowledgeDocumentStatus,
 } from '@/apis/ai/document'
 import type {
+  KnowledgeDocumentBatchDeleteFailure,
   KnowledgeDocumentQuery,
   KnowledgeDocumentRecord,
 } from '@/apis/ai/document/type'
@@ -458,6 +471,24 @@ const tableData = ref<KnowledgeDocumentRecord[]>([])
 const downloadingId = ref<string | null>(null)
 const deletingId = ref<string | null>(null)
 const statusChangingId = ref<string | null>(null)
+const selectedRowKeys = ref<string[]>([])
+const batchDeleting = ref(false)
+
+// 多选框配置：仅当前可写且 writable === true 的记录可选
+const rowSelection = computed(() => ({
+  selectedRowKeys: selectedRowKeys.value,
+  onChange: (keys: (string | number)[]) => {
+    selectedRowKeys.value = keys.map(String)
+  },
+  getCheckboxProps: (record: KnowledgeDocumentRecord) => ({
+    disabled:
+      !canWrite.value ||
+      kb.value?.writable === false ||
+      record.writable !== true ||
+      record.builtIn === true,
+    name: record.documentName,
+  }),
+}))
 
 // 弹窗状态
 const docFormOpen = ref(false)
@@ -631,8 +662,15 @@ const getDocuments = async () => {
 const handleFolderSelect = (keys: any[]) => {
   const nextKey = keys[0] ? String(keys[0]) : null
   selectedFolderId.value = nextKey === selectedFolderId.value ? null : nextKey
+  selectedRowKeys.value = []
   query.current = 1
   void getDocuments()
+}
+
+const handleClearFolder = () => {
+  selectedFolderId.value = null
+  selectedRowKeys.value = []
+  handleSearch()
 }
 
 const handleCreateRootFolder = () => {
@@ -663,6 +701,7 @@ const handleDeleteFolder = async (node: any) => {
     if (selectedFolderId.value === folderId) {
       selectedFolderId.value = null
     }
+    selectedRowKeys.value = []
     await getFolders()
     await getDocuments()
   } catch (err: any) {
@@ -671,6 +710,7 @@ const handleDeleteFolder = async (node: any) => {
 }
 
 const handleSearch = () => {
+  selectedRowKeys.value = []
   query.current = 1
   void getDocuments()
 }
@@ -680,11 +720,13 @@ const handleReset = () => {
   query.uploadStatus = undefined
   query.chunkStatus = undefined
   query.dataStatus = undefined
+  selectedRowKeys.value = []
   query.current = 1
   void getDocuments()
 }
 
 const handleTableChange = (pag: any) => {
+  selectedRowKeys.value = []
   query.current = pag.current || 1
   query.size = pag.pageSize || 10
   void getDocuments()
@@ -738,6 +780,7 @@ const handleDelete = async (record: KnowledgeDocumentRecord) => {
   try {
     await deleteKnowledgeDocument(record.id)
     message.success('文档已删除')
+    selectedRowKeys.value = selectedRowKeys.value.filter((id) => id !== record.id)
     if (tableData.value.length === 1 && (query.current || 1) > 1) {
       query.current = (query.current || 1) - 1
     }
@@ -759,6 +802,111 @@ const confirmDelete = (record: KnowledgeDocumentRecord) => {
       await handleDelete(record)
     },
   })
+}
+
+// 批量删除确认弹窗与执行
+const handleBatchDelete = () => {
+  if (!canWrite.value || kb.value?.writable === false) return
+  if (!selectedRowKeys.value.length || batchDeleting.value) return
+
+  const count = selectedRowKeys.value.length
+  Modal.confirm({
+    title: `确定批量删除选中的 ${count} 份文档？`,
+    content: `删除后，选中的 ${count} 份文档及其原件、分片和向量数据将被彻底删除且不可恢复。`,
+    okText: '确定删除',
+    okType: 'danger',
+    cancelText: '取消',
+    async onOk() {
+      await executeBatchDelete()
+    },
+  })
+}
+
+const showBatchDeleteFailuresModal = (
+  failures: KnowledgeDocumentBatchDeleteFailure[],
+  getDocName: (id: string) => string,
+  title: string
+) => {
+  Modal.warning({
+    title,
+    width: 520,
+    content: () =>
+      h('div', { class: 'batch-delete-failures-box' }, [
+        h('p', { style: { marginBottom: '8px', color: '#595959', fontSize: '12px' } }, '以下文档未能删除成功：'),
+        h(
+          'ul',
+          {
+            style: {
+              maxHeight: '220px',
+              overflowY: 'auto',
+              paddingLeft: '18px',
+              margin: 0,
+              fontSize: '12px',
+              lineHeight: '1.8',
+            },
+          },
+          failures.map((f) =>
+            h('li', { key: f.id }, [
+              h('span', { style: { fontWeight: '500', color: '#262626' } }, `${getDocName(f.id)}：`),
+              h('span', { style: { color: '#ff4d4f' } }, f.message || '删除失败'),
+            ])
+          )
+        ),
+      ]),
+    okText: '知道了',
+  })
+}
+
+const refreshAfterBatchDelete = async (deletedCount: number) => {
+  if (tableData.value.length <= deletedCount && (query.current || 1) > 1) {
+    query.current = (query.current || 1) - 1
+  }
+  await getDocuments()
+}
+
+const executeBatchDelete = async () => {
+  if (batchDeleting.value) return
+  batchDeleting.value = true
+
+  const targetIds = [...selectedRowKeys.value]
+
+  try {
+    const res = await batchDeleteKnowledgeDocuments({
+      knowledgeBaseId: props.knowledgeBaseId,
+      documentIds: targetIds,
+    })
+
+    const data = res.data
+    const successIds = data?.successIds || []
+    const failures = data?.failures || []
+
+    const getDocName = (docId: string) => {
+      const item = tableData.value.find((d) => String(d.id) === String(docId))
+      return item?.documentName || item?.originalFilename || `文档(ID: ${docId})`
+    }
+
+    if (failures.length === 0) {
+      // 1. 全部成功：提示成功数量，清空选择并刷新列表
+      message.success(`成功删除 ${successIds.length} 份文档`)
+      selectedRowKeys.value = []
+      await refreshAfterBatchDelete(successIds.length)
+    } else if (successIds.length > 0) {
+      // 2. 部分成功：提示成功和失败数量，移除成功项的选择，保留当前页仍存在的失败项选择，并展示“文档名称/ID＋失败原因”
+      message.warning(`成功删除 ${successIds.length} 份文档，${failures.length} 份文档删除失败`)
+      const successSet = new Set(successIds.map(String))
+      selectedRowKeys.value = selectedRowKeys.value.filter((id) => !successSet.has(String(id)))
+      showBatchDeleteFailuresModal(failures, getDocName, '部分文档删除失败')
+      await refreshAfterBatchDelete(successIds.length)
+    } else {
+      // 3. 全部失败：展示失败明细，保留选择，允许用户处理后重试
+      showBatchDeleteFailuresModal(failures, getDocName, '批量删除失败')
+    }
+  } catch {
+    // 网络异常或业务请求失败时，不直接移除文档；保留选择并提示刷新核对实际结果
+    message.info('操作未完全确认，请刷新列表核对实际删除结果')
+  } finally {
+    batchDeleting.value = false
+  }
 }
 
 const handleDownload = async (record: KnowledgeDocumentRecord) => {
@@ -791,6 +939,7 @@ watch(
     if (newId) {
       query.knowledgeBaseId = newId
       selectedFolderId.value = null
+      selectedRowKeys.value = []
       query.current = 1
       void getFolders()
       void getDocuments()

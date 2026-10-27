@@ -24,6 +24,12 @@ const router = createRouter({
           meta: { title: '首页', menuCode: 'ai:model-square' },
         },
         {
+          path: 'ai/agents',
+          name: 'agents',
+          component: () => import('@/views/ai/agent/index.vue'),
+          meta: { title: 'Agent管理', menuCode: 'ai:agent' },
+        },
+        {
           path: 'ai/knowledge-bases',
           name: 'knowledge-bases',
           component: () => import('@/views/ai/knowledge-base/index.vue'),

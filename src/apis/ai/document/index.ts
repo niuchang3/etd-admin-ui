@@ -8,6 +8,7 @@ import type {
   KnowledgeChunkState, KnowledgeChunkItem, KnowledgeChunkQuery,
   KnowledgeChunkGenerateDTO, KnowledgeChunkSaveDTO,
   KnowledgeChunkMergeDTO, KnowledgeChunkConfirmDTO, KnowledgeChunkSplitDTO,
+  KnowledgeDocumentBatchDeleteDTO, KnowledgeDocumentBatchDeleteResult,
 } from './type'
 
 const DOCUMENT_API = '/ai/api/v1/knowledge-documents'
@@ -30,6 +31,11 @@ export const getKnowledgeDownloadUrl = (id: string) =>
   request.post<ResultModel<string>>({ url: `${documentUrl(id)}/download-url` })
 export const deleteKnowledgeDocument = (id: string) =>
   request.delete<ResultModel<boolean>>({ url: documentUrl(id) })
+export const batchDeleteKnowledgeDocuments = (data: KnowledgeDocumentBatchDeleteDTO) =>
+  request.post<ResultModel<KnowledgeDocumentBatchDeleteResult>>({
+    url: `${DOCUMENT_API}/batch-delete`,
+    data,
+  })
 export const getKnowledgeUploadPolicy = () =>
   request.get<ResultModel<KnowledgeUploadPolicy>>({ url: `${DOCUMENT_API}/uploads/policy` })
 export const createKnowledgeUpload = (data: KnowledgeUploadInitDTO) =>

@@ -212,3 +212,21 @@ export interface KnowledgeDocumentStatusDTO {
   dataStatus: number
 }
 
+/** 批量删除文档请求参数 */
+export interface KnowledgeDocumentBatchDeleteDTO {
+  knowledgeBaseId: string
+  documentIds: string[]
+}
+
+/** 批量删除失败项明细 */
+export interface KnowledgeDocumentBatchDeleteFailure {
+  id: string
+  message: string
+}
+
+/** 批量删除文档响应数据 */
+export interface KnowledgeDocumentBatchDeleteResult {
+  successIds: string[]
+  failures: KnowledgeDocumentBatchDeleteFailure[]
+}
+
