@@ -53,9 +53,10 @@ instance.interceptors.request.use((config: InternalAxiosRequestConfig) => {
         // Pinia 尚未初始化挂载时的静默降级
     }
 
-    // 已登录请求统一使用 Bearer Token。
+    // 已登录请求统一使用 Bearer Token（刷新接口本身只依赖 refresh_token 校验，不携带可能已失效的 Authorization）。
+    const isRefreshUrl = config.url && config.url.includes('/internal/refresh');
     const token = getAccessToken();
-    if (token) {
+    if (token && !isRefreshUrl) {
         config.headers[HTTP_HEADER.AUTHORIZATION] = AUTH_TOKEN_PREFIX + token;
     }
     // 租户列表请求阶段可能尚未选定租户，因此只在 ID 存在时添加请求头。
@@ -69,8 +70,10 @@ instance.interceptors.request.use((config: InternalAxiosRequestConfig) => {
 })
 
 
-// 防止多个 401 响应同时触发重复刷新。
+// 防止多个 401 响应同时触发重复刷新，维护并发挂起队列。
 let isRefreshing = false;
+let retryQueue: Array<(token: string) => void> = [];
+
 /**
  * 响应拦截器：统一处理令牌刷新、错误提示和跳转登录页。
  */
@@ -85,24 +88,42 @@ instance.interceptors.response.use((config: AxiosResponse) => {
 }, async (error) => {
     let config = error.config;
 
-    // 登录接口返回 401 时不应再尝试刷新令牌。
-    const isLoginUrl = config.url && (config.url.includes('/login') || config.url.includes('/oauth2/login') || config.url.includes('/internal/login'));
+    // 认证相关接口（登录、刷新、退出）返回 401 时不应再尝试刷新令牌，防止死循环。
+    const isAuthUrl = config.url && (
+        config.url.includes('/login') ||
+        config.url.includes('/internal/refresh') ||
+        config.url.includes('/internal/logout')
+    );
 
-    // 普通请求遇到 401 时，仅刷新一次令牌并重放原请求。
-    if (error.response && error.response.status === 401 && !isLoginUrl && !isRefreshing && !config._retry) {
+    // 普通请求遇到 401 时，刷新令牌并重放原请求；若正处于刷新中则加入重试队列。
+    if (error.response && error.response.status === 401 && !isAuthUrl && !config._retry) {
         config._retry = true;
+
+        if (isRefreshing) {
+            return new Promise((resolve) => {
+                retryQueue.push((newToken: string) => {
+                    config.headers[HTTP_HEADER.AUTHORIZATION] = AUTH_TOKEN_PREFIX + newToken;
+                    resolve(instance(config));
+                });
+            });
+        }
+
         isRefreshing = true;
 
-        return await refreshToken().then(_res => {
-            const token = getAccessToken();
+        return await refreshToken().then(() => {
+            const token = getAccessToken() || '';
             config.headers[HTTP_HEADER.AUTHORIZATION] = AUTH_TOKEN_PREFIX + token;
+            // 唤醒所有挂起的并发请求并重试
+            retryQueue.forEach((callback) => callback(token));
+            retryQueue = [];
             return instance(config);
-        }).catch(_err => {
+        }).catch(err => {
+            retryQueue = [];
             clear()
             void clearStore()
             message.error('令牌失效,请重新登录。')
             router.push({ path: '/login' })
-            return Promise.reject(error)
+            return Promise.reject(err)
         }).finally(() => {
             isRefreshing = false;
         })

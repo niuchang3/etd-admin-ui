@@ -44,8 +44,16 @@ export const selectUserRole = async () => {
 
 /** 使用 Refresh Token 换取新的访问令牌 */
 export const updateToken = async (data: RefreshTokenParams) => {
-    return await request.post({
-        url: '/upms/api/oauth2/refresh',
-        data
-    })
+  return await request.post<ResultModel<Oauth2Token>>({
+    url: '/upms/api/internal/refresh',
+    data,
+  })
+}
+
+/** 退出登录并撤销服务端令牌 */
+export const logoutUser = async () => {
+  return await request.post<ResultModel<boolean>>({
+    url: '/upms/api/internal/logout',
+    data: {},
+  })
 }

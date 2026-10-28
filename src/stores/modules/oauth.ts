@@ -25,7 +25,7 @@ export const refreshToken = async () => {
   let token = getRefreshToken()
   if (!token) {
     router.push({ path: '/login' })
-    return
+    return Promise.reject(new Error('未找到有效刷新令牌'))
   }
   params.refresh_token = token
 

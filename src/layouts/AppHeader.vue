@@ -56,6 +56,7 @@ import type { MenuProps } from 'ant-design-vue'
 import { BellOutlined, DownOutlined, LogoutOutlined, QuestionCircleOutlined, SearchOutlined } from '@ant-design/icons-vue'
 import { clear as clearSession } from '@/stores/modules/oauth'
 import { clearStore, tenantsStore, userStore } from '@/stores/modules/user'
+import { logoutUser } from '@/apis/upms/login'
 import { runtimeEnvironment } from '@/config/runtimeEnvironment'
 
 const router = useRouter()
@@ -76,11 +77,18 @@ const accountLabel = computed(() => {
 })
 const userInitials = computed(() => displayName.value.trim().slice(0, 2).toUpperCase())
 
-// 退出时同时清理认证 Cookie 和用户会话状态。
+// 退出时通知后端撤销令牌，并清理本地认证 Cookie 和用户会话状态。
 const logout = async () => {
-  clearSession()
-  await clearStore()
-  await router.replace({ name: 'login' })
+  try {
+    await logoutUser()
+  } catch (error) {
+    // 即使后端网络异常，本地仍需安全清理并退出
+    console.warn('通知服务端撤销令牌失败:', error)
+  } finally {
+    clearSession()
+    await clearStore()
+    await router.replace({ name: 'login' })
+  }
 }
 
 // 根据下拉菜单键值分发用户操作。
