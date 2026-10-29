@@ -2,7 +2,7 @@
   <a-drawer
     :open="open"
     :title="drawerTitle"
-    :width="920"
+    :width="1000"
     :mask-closable="false"
     :destroy-on-close="true"
     class="agent-edit-drawer"
@@ -14,6 +14,15 @@
         <a-tag v-if="summary?.published" color="green" class="status-tag">已发布</a-tag>
         <a-tag v-else color="default" class="status-tag">未发布</a-tag>
         <span v-if="currentVersion" class="du-mono version-badge">v{{ currentVersion }}</span>
+
+        <a-button
+          :type="activeTabKey === 'debug' ? 'primary' : 'default'"
+          class="debug-toggle-btn"
+          @click="activeTabKey = activeTabKey === 'debug' ? 'draft' : 'debug'"
+        >
+          <BugOutlined />
+          {{ activeTabKey === 'debug' ? '返回配置编辑' : '在线调试草稿' }}
+        </a-button>
 
         <a-button
           type="default"
@@ -374,46 +383,31 @@
                 </a-row>
               </div>
 
-              <!-- 分区 7：纯本地体验展示预览（非在线真实运行调试） -->
+              <!-- 分区 7：草稿在线调试入口与状态快捷验证 -->
               <div class="section-card preview-section-card">
                 <div class="section-header">
-                  <span class="section-title">纯本地展示预览</span>
-                  <a-tag color="blue">静态预览 · 非真实调试</a-tag>
+                  <span class="section-title">草稿在线调试 (Debug Mode)</span>
+                  <a-tag color="orange">在线真实调试</a-tag>
                 </div>
                 <div class="preview-disclaimer">
-                  注：本区域仅提供名称、头像、简介、开场白及引导提问的纯本地视觉预览，当前后端尚未提供在线运行调试接口。
+                  在线调试使用已保存到服务端的草稿配置运行，实时测试当前系统提示词、模型连接与关联知识库的应答与引用效果。
                 </div>
 
-                <div class="local-preview-box">
-                  <div class="preview-chat-header">
-                    <div class="preview-avatar">
-                      <img
-                        v-if="formState.avatarPath"
-                        :src="formState.avatarPath"
-                        alt="avatar"
-                        @error="handleImgError"
-                      />
-                      <RobotOutlined v-else />
-                    </div>
-                    <div class="preview-info">
-                      <div class="preview-name">{{ formState.name || '未命名 Agent' }}</div>
-                      <div class="preview-desc">{{ formState.description || '暂无描述信息' }}</div>
+                <div class="debug-entry-card">
+                  <div class="entry-meta">
+                    <div class="entry-title">{{ formState.name || '未命名 Agent' }}</div>
+                    <div class="entry-sub-line">
+                      <span>生效模型：{{ selectedModelSummary || '尚未选择模型' }}</span>
+                      <span class="sep">|</span>
+                      <span>关联知识库：{{ selectedKbIds.length }} 个</span>
+                      <span class="sep">|</span>
+                      <span>开场白：{{ formState.draftConfig.openingMessage ? '已配置' : '默认' }}</span>
                     </div>
                   </div>
 
-                  <div class="preview-bubble">
-                    {{ formState.draftConfig.openingMessage || '你好！请在此描述你的问题。' }}
-                  </div>
-
-                  <div v-if="suggestedQuestionsList.filter(Boolean).length" class="preview-questions">
-                    <span
-                      v-for="(q, idx) in suggestedQuestionsList.filter(Boolean)"
-                      :key="idx"
-                      class="preview-q-chip"
-                    >
-                      {{ q }}
-                    </span>
-                  </div>
+                  <a-button type="primary" class="go-debug-btn" @click="activeTabKey = 'debug'">
+                    <PlayCircleOutlined /> 切换至在线调试对话
+                  </a-button>
                 </div>
               </div>
             </a-form>
@@ -499,6 +493,28 @@
               class="empty-published"
             />
           </a-tab-pane>
+
+          <!-- Tab 3: 草稿在线调试 (Debug Mode) -->
+          <a-tab-pane key="debug" tab="草稿在线调试">
+            <div class="debug-pane-container">
+              <a-alert
+                v-if="isDirty"
+                type="warning"
+                show-icon
+                class="debug-dirty-alert"
+                message="当前有未保存的草稿修改"
+                description="在线调试将使用已保存到服务端的草稿配置运行；若您刚才调整了系统提示词、模型或知识库，请先点击右上角“保存草稿”后再发起测试提问。"
+              />
+              <div class="debug-chat-box-wrap">
+                <AgentChatBox
+                  v-if="props.agentId"
+                  :agent-id="String(props.agentId)"
+                  conversation-type="debug"
+                  :can-write="canWrite"
+                />
+              </div>
+            </div>
+          </a-tab-pane>
         </a-tabs>
       </div>
     </a-spin>
@@ -507,10 +523,13 @@
 
 <script setup lang="ts">
 import { computed, reactive, ref, watch } from 'vue'
+import { useRoute } from 'vue-router'
 import { message, Modal, type FormInstance } from 'ant-design-vue'
 import {
   BookOutlined,
+  BugOutlined,
   DeleteOutlined,
+  PlayCircleOutlined,
   PlusOutlined,
   RobotOutlined,
 } from '@ant-design/icons-vue'
@@ -530,6 +549,8 @@ import type {
   AgentUpdateDTO,
 } from '@/apis/ai/agent/type'
 import { getOrganizationLookup } from '@/apis/upms/organization'
+import { menusStore } from '@/stores/modules/user'
+import AgentChatBox from './AgentChatBox.vue'
 
 const props = defineProps<{
   open: boolean
@@ -541,7 +562,10 @@ const emit = defineEmits<{
   (e: 'success'): void
 }>()
 
-const activeTabKey = ref<'draft' | 'published'>('draft')
+const route = useRoute()
+const canWrite = computed(() => menusStore().canWritePath(route.path) && Boolean(summary.value?.writable))
+
+const activeTabKey = ref<'draft' | 'published' | 'debug'>('draft')
 const initialLoading = ref(false)
 const saveLoading = ref(false)
 const publishLoading = ref(false)
@@ -1280,5 +1304,59 @@ const handleClose = () => {
 
 .empty-published {
   padding: 40px 0;
+}
+
+/* 草稿调试面板 */
+.debug-pane-container {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  height: calc(100vh - 170px);
+}
+
+.debug-dirty-alert {
+  flex-shrink: 0;
+}
+
+.debug-chat-box-wrap {
+  flex: 1;
+  min-height: 0;
+  border: 1px solid var(--du-color-border-secondary, #e8e8e8);
+  border-radius: var(--du-border-radius, 4px);
+  overflow: hidden;
+}
+
+.debug-entry-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  background-color: #fffbe6;
+  border: 1px solid #ffe58f;
+  border-radius: 4px;
+}
+
+.entry-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.entry-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: #262626;
+}
+
+.entry-sub-line {
+  font-size: 11.5px;
+  color: #8c8c8c;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.entry-sub-line .sep {
+  color: #d9d9d9;
 }
 </style>

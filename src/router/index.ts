@@ -12,6 +12,12 @@ const router = createRouter({
   routes: [
     { path: '/login', name: 'login', component: () => import('@/views/login/index.vue'), meta: { public: true } },
     {
+      path: '/chat',
+      name: 'ai-chat',
+      component: () => import('@/views/ai/chat/index.vue'),
+      meta: { title: 'AI 助手工作台' },
+    },
+    {
       path: '/',
       name: 'admin',
       component: AdminView,

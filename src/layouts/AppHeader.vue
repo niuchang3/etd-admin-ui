@@ -13,6 +13,15 @@
         <input aria-label="全局搜索" placeholder="搜索资源、任务或 ID" />
         <kbd>⌘ K</kbd>
       </div>
+      <button
+        type="button"
+        class="ai-workspace-btn"
+        title="打开全屏 AI 助手工作台"
+        @click="router.push('/chat')"
+      >
+        <RobotOutlined class="ai-btn-icon" />
+        <span class="ai-btn-text">AI 助手</span>
+      </button>
       <button type="button" class="icon-button" title="帮助"><QuestionCircleOutlined /></button>
       <button type="button" class="icon-button has-notice" title="通知"><BellOutlined /></button>
       <span class="divider" />
@@ -53,7 +62,7 @@
 import { computed, onMounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import type { MenuProps } from 'ant-design-vue'
-import { BellOutlined, DownOutlined, LogoutOutlined, QuestionCircleOutlined, SearchOutlined } from '@ant-design/icons-vue'
+import { BellOutlined, DownOutlined, LogoutOutlined, QuestionCircleOutlined, RobotOutlined, SearchOutlined } from '@ant-design/icons-vue'
 import { clear as clearSession } from '@/stores/modules/oauth'
 import { clearStore, tenantsStore, userStore } from '@/stores/modules/user'
 import { logoutUser } from '@/apis/upms/login'
@@ -197,6 +206,33 @@ onMounted(() => {
   background: #fff;
   font-family: var(--du-font-sans);
   font-size: var(--du-font-size-xs, 11px);
+}
+
+/* AI 助手工作台快捷入口 */
+.ai-workspace-btn {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  height: 28px;
+  padding: 0 10px;
+  border: 1px solid var(--du-color-primary, #1677ff);
+  background: rgba(22, 119, 255, 0.06);
+  color: var(--du-color-primary, #1677ff);
+  border-radius: var(--du-radius-sm, 4px);
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 500;
+  transition: all 0.2s;
+}
+
+.ai-workspace-btn:hover {
+  background: var(--du-color-primary, #1677ff);
+  color: #fff;
+  box-shadow: 0 2px 6px rgba(22, 119, 255, 0.25);
+}
+
+.ai-btn-icon {
+  font-size: 13px;
 }
 
 /* 帮助与通知图标按钮。 */

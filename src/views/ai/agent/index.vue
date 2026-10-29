@@ -160,6 +160,11 @@
                 <EyeOutlined />查看
               </a-button>
 
+              <!-- 对话入口：正式在线对话 -->
+              <a-button type="link" size="small" @click="handleChat(record)">
+                <MessageOutlined />对话
+              </a-button>
+
               <!-- 记录维护操作：要求菜单写权限且记录返回 writable === true -->
               <template v-if="canWrite && record.writable">
                 <a-button type="link" size="small" @click="handleEdit(record)">
@@ -231,6 +236,12 @@
       :agent-id="currentSelectedId"
       @success="handleDrawerSuccess"
     />
+
+    <!-- 正式在线聊天抽屉 -->
+    <AgentChatDrawer
+      v-model:open="chatDrawerOpen"
+      :agent="currentChatAgent"
+    />
   </section>
 </template>
 
@@ -243,6 +254,7 @@ import {
   DeleteOutlined,
   EditOutlined,
   EyeOutlined,
+  MessageOutlined,
   PlusOutlined,
   ReloadOutlined,
   RobotOutlined,
@@ -256,6 +268,7 @@ import EllipsisText from '@/components/EllipsisText.vue'
 import AgentCreateModal from './components/AgentCreateModal.vue'
 import AgentDetailModal from './components/AgentDetailModal.vue'
 import AgentEditDrawer from './components/AgentEditDrawer.vue'
+import AgentChatDrawer from './components/AgentChatDrawer.vue'
 
 const route = useRoute()
 
@@ -326,7 +339,7 @@ const columns: TableColumnsType = [
   {
     title: '操作',
     key: 'actions',
-    width: 190,
+    width: 240,
     fixed: 'right',
     align: 'center',
   },
@@ -366,7 +379,9 @@ const pagination = computed<TablePaginationConfig>(() => ({
 const createModalOpen = ref(false)
 const detailModalOpen = ref(false)
 const editDrawerOpen = ref(false)
+const chatDrawerOpen = ref(false)
 const currentSelectedId = ref<string | null>(null)
+const currentChatAgent = ref<AgentSummary | null>(null)
 
 // 获取列表数据
 const getList = async () => {
@@ -455,6 +470,20 @@ const handleCreateSuccess = (result: AgentMutationResult) => {
 const handleView = (record: AgentSummary) => {
   currentSelectedId.value = record.id
   detailModalOpen.value = true
+}
+
+// 打开正式聊天抽屉
+const handleChat = (record: AgentSummary) => {
+  if (!record.published) {
+    message.warning('该 Agent 尚未正式发布，请先发布或在编辑抽屉中进行草稿调试')
+    return
+  }
+  if (record.dataStatus === 0) {
+    message.warning('该 Agent 当前处于停用状态，请启用后再发起对话')
+    return
+  }
+  currentChatAgent.value = record
+  chatDrawerOpen.value = true
 }
 
 // 打开编辑抽屉

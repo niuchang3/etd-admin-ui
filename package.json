@@ -12,6 +12,7 @@
     "@fingerprintjs/fingerprintjs": "^5.2.0",
     "@types/moment": "^2.13.0",
     "ant-design-vue": "^4.1.2",
+    "ant-design-x-vue": "^1.6.0",
     "axios": "^1.6.7",
     "katex": "^0.19.1",
     "lodash": "^4.17.21",
