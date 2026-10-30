@@ -95,18 +95,16 @@
                     >
                       <EditOutlined />
                     </button>
-                    <a-popconfirm
-                      title="确定删除此对话吗？"
-                      ok-text="删除"
-                      cancel-text="取消"
-                      ok-type="danger"
-                      placement="right"
-                      @confirm="handleDeleteSession(sess)"
+                    <button
+                      type="button"
+                      class="action-icon-btn danger"
+                      title="删除对话"
+                      :disabled="deletingSessionId === String(sess.id)"
+                      @click="handleDeleteSession(sess)"
                     >
-                      <button type="button" class="action-icon-btn danger" title="删除">
-                        <DeleteOutlined />
-                      </button>
-                    </a-popconfirm>
+                      <LoadingOutlined v-if="deletingSessionId === String(sess.id)" spin />
+                      <DeleteOutlined v-else />
+                    </button>
                   </div>
                 </div>
               </div>
@@ -378,20 +376,24 @@
                     {{ msg.content }}
                   </div>
 
-                  <!-- 助手消息：使用 MdPreview 渲染专业 Markdown（带代码高亮与复制） -->
-                  <div v-else-if="msg.content" class="assistant-markdown-content">
-                    <MdPreview
-                      :model-value="msg.content"
-                      :theme="previewTheme"
-                      preview-theme="default"
-                      class="chat-md-preview"
-                    />
-                    <!-- 生成中的动态呼吸光标 -->
-                    <span
-                      v-if="msg.messageStatus === 'generating'"
-                      class="stream-cursor"
-                    />
-                  </div>
+                  <!-- 助手消息：生成中直接以零延迟内联打字渲染；生成完成后无缝切换为全功能 MdPreview -->
+                  <template v-else-if="msg.content">
+                    <!-- 正在打字生成中：轻量内联文本 + 终端闪烁光标 -->
+                    <div v-if="msg.messageStatus === 'generating'" class="streaming-text-wrap">
+                      <span class="streaming-text">{{ msg.content }}</span>
+                      <span class="blinking-cursor">▍</span>
+                    </div>
+
+                    <!-- 打字敲完终态：完整的高级 Markdown 排版与代码块高亮复制 -->
+                    <div v-else class="assistant-markdown-content">
+                      <MdPreview
+                        :model-value="msg.content"
+                        :theme="previewTheme"
+                        preview-theme="default"
+                        class="chat-md-preview"
+                      />
+                    </div>
+                  </template>
 
                   <!-- 错误中断告警 -->
                   <div v-if="msg.messageStatus === 'failed'" class="status-alert failed-alert">
@@ -604,9 +606,9 @@
 </template>
 
 <script setup lang="ts">
-import { computed, nextTick, onMounted, onUnmounted, ref } from 'vue'
+import { computed, h, nextTick, onMounted, onUnmounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
-import { message } from 'ant-design-vue'
+import { Modal, message } from 'ant-design-vue'
 import {
   ArrowRightOutlined,
   BookOutlined,
@@ -639,8 +641,10 @@ import type { AgentSummary } from '@/apis/ai/agent/type'
 import {
   cancelChatRun,
   createChatSession,
+  deleteChatSession,
   getAgentChatProfile,
   getChatMessageList,
+  getChatRun,
   getChatSessionList,
   streamAgentChat,
 } from '@/apis/ai/chat'
@@ -686,6 +690,8 @@ const currentSession = ref<AgentChatSessionVO | null>(null)
 const editingSessionId = ref<string | null>(null)
 const editingTitle = ref('')
 const renameInputRef = ref<HTMLInputElement | null>(null)
+const deletingSessionId = ref<string | null>(null)
+const currentSessionLoadToken = ref(0)
 
 // 4. 消息流转
 const messages = ref<AgentChatMessageVO[]>([])
@@ -700,9 +706,9 @@ const activeRunId = ref<string | null>(null)
 let activeAbortController: AbortController | null = null
 const senderInputRef = ref<any>(null)
 
-// 打字机字符级缓冲器（平滑打字机）
+// 打字机字符级缓冲器（平滑打字节拍器）
 let charQueue: string[] = []
-let rafHandle: number | null = null
+let typewriterTimer: any = null
 let currentStreamingMessage: AgentChatMessageVO | null = null
 let isStreamFinished = false
 let streamDoneData: { inputTokens?: number; outputTokens?: number } | null = null
@@ -795,20 +801,20 @@ const toggleReasoning = (msg: any) => {
   msg._reasoningExpanded = msg._reasoningExpanded === false
 }
 
-// 启动字符级平滑打字机
+// 启动高质感平滑打字节拍器（25~30ms 每次敲 1 字符，真实打字机节奏感）
 const startRafDrain = () => {
-  if (rafHandle !== null) return
+  if (typewriterTimer !== null) return
 
-  const drain = () => {
+  const tick = () => {
     if (!currentStreamingMessage) {
-      rafHandle = null
+      typewriterTimer = null
       return
     }
 
     if (charQueue.length > 0) {
       const qLen = charQueue.length
-      // 动态步长：积压较少时 1~2 个字/帧，积压中等时 3~5 个字/帧，积压严重时平滑追赶
-      const step = qLen > 120 ? 8 : qLen > 50 ? 5 : qLen > 20 ? 3 : qLen > 5 ? 2 : 1
+      // 真实打字感：积压 100 字以内严格每次敲 1 个字；积压超 100 字每次 2 字；积压超 200 字每次 3 字
+      const step = qLen > 200 ? 3 : qLen > 100 ? 2 : 1
       const count = Math.min(charQueue.length, step)
       const chunk = charQueue.splice(0, count).join('')
       currentStreamingMessage.content = (currentStreamingMessage.content || '') + chunk
@@ -818,12 +824,13 @@ const startRafDrain = () => {
       }
     }
 
-    // 检查是否继续下一帧
+    // 检查是否继续下一拍
     if (charQueue.length > 0 || !isStreamFinished) {
-      rafHandle = requestAnimationFrame(drain)
+      const delay = charQueue.length > 150 ? 15 : 28
+      typewriterTimer = setTimeout(tick, delay)
     } else {
-      // 队列全部消费完毕，且后端流已经发送了 done 事件 -> 真正完成！
-      rafHandle = null
+      // 队列全部敲完且后端已完成
+      typewriterTimer = null
       if (currentStreamingMessage && currentStreamingMessage.messageStatus === 'generating') {
         currentStreamingMessage.messageStatus = 'completed'
         if (streamDoneData?.inputTokens) currentStreamingMessage.inputTokens = streamDoneData.inputTokens
@@ -837,14 +844,14 @@ const startRafDrain = () => {
     }
   }
 
-  rafHandle = requestAnimationFrame(drain)
+  typewriterTimer = setTimeout(tick, 28)
 }
 
 // 强制截断打字机（仅在主动停止或出错时调用）
 const stopTypewriterImmediately = () => {
-  if (rafHandle !== null) {
-    cancelAnimationFrame(rafHandle)
-    rafHandle = null
+  if (typewriterTimer !== null) {
+    clearTimeout(typewriterTimer)
+    typewriterTimer = null
   }
   charQueue = []
   isStreamFinished = true
@@ -926,18 +933,36 @@ const handleSelectSession = async (sess: AgentChatSessionVO) => {
     message.warning('正在生成回答中，请等待完成或点击停止后再切换会话')
     return
   }
+  const targetId = String(sess.id)
+  currentSessionLoadToken.value++
+  const loadToken = currentSessionLoadToken.value
+
   currentSession.value = sess
   messages.value = []
   hasMoreHistory.value = false
 
   try {
-    const res = await getChatMessageList(String(sess.id), { size: 50 })
+    const res = await getChatMessageList(targetId, { size: 50 })
+    // 防竞态检查：若当前请求已被新会话覆盖或该会话已被删除，严禁回写
+    if (
+      loadToken !== currentSessionLoadToken.value ||
+      !currentSession.value ||
+      String(currentSession.value.id) !== targetId
+    ) {
+      return
+    }
     const list = res.data || []
     messages.value = list
     hasMoreHistory.value = list.length >= 50
     scrollToBottom('auto')
   } catch (err: any) {
-    message.error(err?.message || '加载会话消息失败')
+    if (
+      loadToken === currentSessionLoadToken.value &&
+      currentSession.value &&
+      String(currentSession.value.id) === targetId
+    ) {
+      message.error(err?.message || '加载会话消息失败')
+    }
   }
 }
 
@@ -993,18 +1018,103 @@ const handleSaveRename = (sess: AgentChatSessionVO) => {
   editingSessionId.value = null
 }
 
-/** 7. 删除会话 */
+/**
+ * 7. 删除会话
+ * 严格对齐 8 项交互规范：
+ * 1. 列表操作阻止冒泡；
+ * 2. 弹窗确认，deletingSessionId 防重复提交；
+ * 3. 仅在业务响应成功（code=2000, data=true）后移除列表项并清理缓存；
+ * 4. 删除当前会话后，清空当前会话 ID、消息和运行状态，回到未选择会话初始页；
+ * 5. 删除其他会话时，保持当前聊天内容；
+ * 6. 生成中或取消中的会话禁止删除，提示先停止并等待结束；
+ * 7. 删除失败时保留列表和聊天内容，展示后端提示；
+ * 8. 递增 currentSessionLoadToken，防止先前历史请求回写。
+ */
 const handleDeleteSession = (sess: AgentChatSessionVO) => {
-  sessionList.value = sessionList.value.filter((item) => item.id !== sess.id)
-  if (currentSession.value?.id === sess.id) {
-    if (sessionList.value.length > 0) {
-      handleSelectSession(sessionList.value[0])
-    } else {
-      currentSession.value = null
-      messages.value = []
-    }
+  const sessionId = String(sess.id)
+  const isTargetCurrent = currentSession.value && String(currentSession.value.id) === sessionId
+
+  // 6. 生成中或取消中的会话禁止删除，提示先停止并等待结束
+  if ((generating.value || cancelling.value) && isTargetCurrent) {
+    message.warning('当前会话正在生成或停止中，请先停止并等待完全结束后再删除。')
+    return
   }
-  message.success('已删除对话')
+
+  // 2. 禁止重复提交
+  if (deletingSessionId.value) {
+    message.warning('正在处理删除操作，请勿重复提交')
+    return
+  }
+
+  const sessionTitle = sess.title || '未命名对话'
+
+  Modal.confirm({
+    title: '确认删除此对话？',
+    icon: () => h(ExclamationCircleOutlined, { style: { color: '#ff4d4f' } }),
+    content: `确定要删除对话「${sessionTitle}」吗？删除后相关聊天记录将无法恢复。`,
+    okText: '确认删除',
+    okType: 'danger',
+    cancelText: '取消',
+    async onOk() {
+      // 确认点击时二次拦截正在生成或取消状态
+      if (
+        (generating.value || cancelling.value) &&
+        currentSession.value &&
+        String(currentSession.value.id) === sessionId
+      ) {
+        message.warning('当前会话正在生成或停止中，请先停止并等待完全结束后再删除。')
+        return Promise.reject()
+      }
+
+      if (deletingSessionId.value) {
+        return Promise.reject()
+      }
+
+      deletingSessionId.value = sessionId
+
+      try {
+        const res = await deleteChatSession(sessionId)
+        // 3. 仅在业务响应成功（code=2000, data=true）后移除列表项
+        if (res && res.code === 2000 && res.data === true) {
+          message.success('已成功删除对话')
+
+          // 移除列表项
+          sessionList.value = sessionList.value.filter((item) => String(item.id) !== sessionId)
+
+          // 4. 删除当前会话后，清空当前会话 ID、消息和运行状态，回到未选择会话的初始页面
+          if (isTargetCurrent) {
+            // 8. 递增 loadToken，彻底防止删除前发出的历史消息请求在成功后回写页面
+            currentSessionLoadToken.value++
+
+            currentSession.value = null
+            messages.value = []
+            hasMoreHistory.value = false
+            loadingMoreHistory.value = false
+            activeRunId.value = null
+            generating.value = false
+            cancelling.value = false
+            inputText.value = ''
+            stopTypewriterImmediately()
+            if (activeAbortController) {
+              activeAbortController.abort()
+              activeAbortController = null
+            }
+          }
+          // 5. 删除其他会话时，保持当前聊天内容
+        } else {
+          // 7. 删除失败时保留列表和聊天内容，按现有规范展示后端提示
+          message.error(res?.message || '删除会话失败')
+          return Promise.reject()
+        }
+      } catch (err: any) {
+        // 7. 异常时保留列表和聊天内容
+        message.error(err?.message || '删除会话失败，请稍后重试')
+        return Promise.reject()
+      } finally {
+        deletingSessionId.value = null
+      }
+    },
+  })
 }
 
 /** 8. 加载更早的历史消息 */
@@ -1013,14 +1123,25 @@ const handleLoadMoreMessages = async () => {
   const firstMsg = messages.value[0]
   if (!firstMsg) return
 
+  const targetId = String(currentSession.value.id)
+  const loadToken = currentSessionLoadToken.value
+
   loadingMoreHistory.value = true
   const oldScrollHeight = messagesContainerRef.value?.scrollHeight || 0
 
   try {
-    const res = await getChatMessageList(String(currentSession.value.id), {
+    const res = await getChatMessageList(targetId, {
       beforeSequence: firstMsg.sequenceNo,
       size: 50,
     })
+    // 防竞态检查
+    if (
+      loadToken !== currentSessionLoadToken.value ||
+      !currentSession.value ||
+      String(currentSession.value.id) !== targetId
+    ) {
+      return
+    }
     const list = res.data || []
     if (list.length > 0) {
       messages.value = [...list, ...messages.value]
@@ -1034,7 +1155,13 @@ const handleLoadMoreMessages = async () => {
       hasMoreHistory.value = false
     }
   } catch (err: any) {
-    message.error(err?.message || '加载更早消息失败')
+    if (
+      loadToken === currentSessionLoadToken.value &&
+      currentSession.value &&
+      String(currentSession.value.id) === targetId
+    ) {
+      message.error(err?.message || '加载更早消息失败')
+    }
   } finally {
     loadingMoreHistory.value = false
   }
@@ -1142,6 +1269,7 @@ const handleSendMessage = async () => {
         },
         onDelta: (evt) => {
           if (evt.text) {
+            console.log('[SSE delta arrival]', evt.text)
             // 将接收到的文本逐字解构，推入字符级平滑队列
             const chars = Array.from(evt.text)
             charQueue.push(...chars)
@@ -1188,18 +1316,36 @@ const handleSendMessage = async () => {
 /** 停止回答生成 */
 const handleCancelGeneration = async () => {
   cancelling.value = true
+  const runIdToCancel = activeRunId.value
   try {
     if (activeAbortController) {
       activeAbortController.abort()
       activeAbortController = null
     }
-    if (activeRunId.value) {
-      await cancelChatRun(activeRunId.value)
+    if (runIdToCancel) {
+      await cancelChatRun(runIdToCancel)
     }
     stopTypewriterImmediately()
     if (currentStreamingMessage) {
       currentStreamingMessage.messageStatus = 'interrupted'
     }
+
+    // 等待后端 Run 进入终态（规则6：取消接口返回后不代表已停止，必须等待运行进入终态后才能删除）
+    if (runIdToCancel) {
+      try {
+        for (let i = 0; i < 6; i++) {
+          const runRes = await getChatRun(runIdToCancel)
+          const status = runRes.data?.runStatus
+          if (status === 'cancelled' || status === 'failed' || status === 'succeeded') {
+            break
+          }
+          await new Promise((r) => setTimeout(r, 400))
+        }
+      } catch (e) {
+        console.warn('等待终态检测异常:', e)
+      }
+    }
+
     message.info('已停止生成')
   } catch (err: any) {
     message.warn('已在本地断开连接')
@@ -1264,8 +1410,9 @@ onMounted(() => {
 })
 
 onUnmounted(() => {
-  if (rafHandle !== null) {
-    cancelAnimationFrame(rafHandle)
+  if (typewriterTimer !== null) {
+    clearTimeout(typewriterTimer)
+    typewriterTimer = null
   }
   if (activeAbortController) {
     activeAbortController.abort()
@@ -1982,15 +2129,22 @@ onUnmounted(() => {
   padding: 0 !important;
 }
 
-/* 呼吸灯光标 */
-.stream-cursor {
+/* 流式打字实时内联渲染（零防抖、实时逐字推进） */
+.streaming-text-wrap {
+  font-size: 13.5px;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  word-break: break-word;
+  color: #1f2328;
+}
+
+.blinking-cursor {
   display: inline-block;
-  width: 7px;
-  height: 15px;
-  vertical-align: -2px;
-  background: var(--du-color-primary, #1677ff);
-  margin-left: 3px;
-  animation: cursorBlink 0.9s infinite;
+  color: var(--du-color-primary, #1677ff);
+  font-weight: 900;
+  margin-left: 2px;
+  vertical-align: baseline;
+  animation: cursorBlink 0.75s infinite;
 }
 
 @keyframes cursorBlink {

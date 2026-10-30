@@ -86,6 +86,17 @@ export const getChatSessionList = async (params: AgentChatSessionQuery = {}) => 
 }
 
 /**
+ * 3.1 删除 Agent 聊天会话
+ * DELETE /agent/chat/sessions/{sessionId}
+ * 无需请求体，sessionId 为字符串
+ */
+export const deleteChatSession = async (sessionId: string) => {
+  return await request.delete<ResultModel<boolean>>({
+    url: `${CHAT_BASE_API}/sessions/${encodeURIComponent(sessionId)}`,
+  })
+}
+
+/**
  * 4. 查询消息历史记录（向前翻页使用 beforeSequence，本页升序）
  * GET /agent/chat/sessions/{sessionId}/messages?beforeSequence=...&size=50
  */

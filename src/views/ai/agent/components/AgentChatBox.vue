@@ -143,8 +143,7 @@
             <!-- 消息正文与动态光标 -->
             <template #message>
               <div class="bubble-message-text">
-                <span>{{ msg.content }}</span>
-                <span v-if="msg.role === 'assistant' && msg.messageStatus === 'generating'" class="typing-cursor"></span>
+                <span>{{ msg.content }}{{ msg.role === 'assistant' && msg.messageStatus === 'generating' ? ' ▍' : '' }}</span>
               </div>
 
               <!-- 异常状态提示 -->
@@ -282,6 +281,7 @@
           <Conversations
             :items="conversationItems"
             :active-key="currentSession ? String(currentSession.id) : undefined"
+            :menu="getConversationMenu"
             class="custom-x-conversations"
             @active-change="handleConversationChange"
           />
@@ -348,10 +348,11 @@
 
 <script setup lang="ts">
 import { computed, h, nextTick, onDeactivated, onMounted, onUnmounted, ref, watch } from 'vue'
-import { message } from 'ant-design-vue'
+import { Modal, message } from 'ant-design-vue'
 import {
   BookOutlined,
   CloseOutlined,
+  DeleteOutlined,
   DownOutlined,
   ExclamationCircleOutlined,
   ExportOutlined,
@@ -367,10 +368,11 @@ import {
   UserOutlined,
 } from '@ant-design/icons-vue'
 import { Bubble, Conversations, Prompts, Sender, Welcome } from 'ant-design-x-vue'
-import type { Conversation } from 'ant-design-x-vue'
+import type { Conversation, ConversationsProps } from 'ant-design-x-vue'
 import {
   cancelChatRun,
   createChatSession,
+  deleteChatSession,
   getChatMessageList,
   getAgentChatProfile,
   getChatRun,
@@ -413,6 +415,8 @@ const sessionList = ref<AgentChatSessionVO[]>([])
 const currentSession = ref<AgentChatSessionVO | null>(null)
 const hasMoreSessions = ref(false)
 const loadingMoreSessions = ref(false)
+const deletingSessionId = ref<string | null>(null)
+const currentSessionLoadToken = ref(0)
 
 // 消息列表与向前翻页
 const messages = ref<AgentChatMessageVO[]>([])
@@ -427,9 +431,9 @@ const activeRunId = ref<string | null>(null)
 const activeRequestId = ref<string | null>(null)
 let activeAbortController: AbortController | null = null
 
-// 打字机缓冲器（requestAnimationFrame 字符级逐字平滑打字）
+// 打字机缓冲器（字符级逐字平滑打字节拍器）
 let deltaQueue: string[] = []
-let rafHandle: number | null = null
+let boxTypewriterTimer: any = null
 let currentStreamingMessage: AgentChatMessageVO | null = null
 let isBoxStreamFinished = false
 let boxStreamDoneData: { inputTokens?: number; outputTokens?: number } | null = null
@@ -464,6 +468,35 @@ const conversationItems = computed<Conversation[]>(() => {
     disabled: generating.value,
   }))
 })
+
+/**
+ * 为 ant-design-x-vue 的 Conversations 列表项提供操作菜单（删除等）
+ * 点击时通过 stopPropagation 阻止触发激活切换
+ */
+const getConversationMenu: NonNullable<ConversationsProps['menu']> = (item: Conversation) => {
+  const isRunning =
+    (generating.value || cancelling.value) &&
+    currentSession.value &&
+    String(currentSession.value.id) === item.key
+
+  return {
+    items: [
+      {
+        key: 'delete',
+        label: isRunning ? '生成中无法删除' : '删除会话',
+        danger: !isRunning,
+        disabled: isRunning || deletingSessionId.value === item.key,
+        icon: () => h(DeleteOutlined),
+      },
+    ],
+    onClick: (menuInfo: any) => {
+      menuInfo?.domEvent?.stopPropagation?.()
+      if (menuInfo?.key === 'delete') {
+        handleDeleteSession(item.key)
+      }
+    },
+  }
+}
 
 // 格式化时间
 const formatTime = (isoString?: string) => {
@@ -505,21 +538,21 @@ const scrollToBottom = (behavior: ScrollBehavior = 'auto') => {
 const scrollToBottomSmooth = () => scrollToBottom('smooth')
 
 /**
- * 启动打字机动画帧调度器
+ * 启动高质感打字节拍器（25~30ms 每次敲 1 字符）
  */
 const startTypewriterLoop = () => {
-  if (rafHandle !== null) return
+  if (boxTypewriterTimer !== null) return
 
   const pump = () => {
     if (!currentStreamingMessage) {
-      rafHandle = null
+      boxTypewriterTimer = null
       return
     }
 
     if (deltaQueue.length > 0) {
-      // 动态步长调节：积压较少时 1~2 字/帧，积压中等时 3~5 字/帧，积压过多时平滑加速
+      // 真实肉眼可见的敲击感：积压少时严格每次 1 字，积压极大时适度每次 2~3 字
       const qLen = deltaQueue.length
-      const step = qLen > 120 ? 8 : qLen > 50 ? 5 : qLen > 20 ? 3 : qLen > 5 ? 2 : 1
+      const step = qLen > 200 ? 3 : qLen > 100 ? 2 : 1
       const count = Math.min(deltaQueue.length, step)
       const chunk = deltaQueue.splice(0, count).join('')
       currentStreamingMessage.content = (currentStreamingMessage.content || '') + chunk
@@ -529,11 +562,12 @@ const startTypewriterLoop = () => {
       }
     }
 
-    // 若仍在传输中或队列中仍有字符，继续下一帧逐字吐出
+    // 若仍在传输中或队列中仍有字符，继续下一拍
     if (deltaQueue.length > 0 || !isBoxStreamFinished) {
-      rafHandle = requestAnimationFrame(pump)
+      const delay = deltaQueue.length > 150 ? 15 : 28
+      boxTypewriterTimer = setTimeout(pump, delay)
     } else {
-      rafHandle = null
+      boxTypewriterTimer = null
       if (currentStreamingMessage && currentStreamingMessage.messageStatus === 'generating') {
         currentStreamingMessage.messageStatus = 'completed'
         if (boxStreamDoneData?.inputTokens) currentStreamingMessage.inputTokens = boxStreamDoneData.inputTokens
@@ -547,16 +581,16 @@ const startTypewriterLoop = () => {
     }
   }
 
-  rafHandle = requestAnimationFrame(pump)
+  boxTypewriterTimer = setTimeout(pump, 28)
 }
 
 /**
  * 强制中断打字机（仅在主动取消或网络异常中断时调用）
  */
 const flushTypewriterQueue = () => {
-  if (rafHandle !== null) {
-    cancelAnimationFrame(rafHandle)
-    rafHandle = null
+  if (boxTypewriterTimer !== null) {
+    clearTimeout(boxTypewriterTimer)
+    boxTypewriterTimer = null
   }
   deltaQueue = []
   isBoxStreamFinished = true
@@ -630,18 +664,36 @@ const selectSession = async (session: AgentChatSessionVO) => {
     message.warning('当前会话正在生成回答，请稍后再切换')
     return
   }
+  const targetId = String(session.id)
+  currentSessionLoadToken.value++
+  const loadToken = currentSessionLoadToken.value
+
   currentSession.value = session
   sessionDrawerOpen.value = false
   messages.value = []
   hasMoreHistory.value = false
 
   try {
-    const res = await getChatMessageList(String(session.id), { size: 50 })
+    const res = await getChatMessageList(targetId, { size: 50 })
+    // 防竞态检查：若当前请求已被新的会话覆盖，或会话已被删除，严禁回写！
+    if (
+      loadToken !== currentSessionLoadToken.value ||
+      !currentSession.value ||
+      String(currentSession.value.id) !== targetId
+    ) {
+      return
+    }
     messages.value = res.data || []
     hasMoreHistory.value = (res.data || []).length === 50
     scrollToBottom('auto')
   } catch (error: any) {
-    message.error(error?.message || '加载消息历史失败')
+    if (
+      loadToken === currentSessionLoadToken.value &&
+      currentSession.value &&
+      String(currentSession.value.id) === targetId
+    ) {
+      message.error(error?.message || '加载消息历史失败')
+    }
   }
 }
 
@@ -662,15 +714,25 @@ const handleLoadMoreMessages = async () => {
   if (loadingMoreHistory.value || !currentSession.value || !messages.value.length) return
   loadingMoreHistory.value = true
 
+  const targetId = String(currentSession.value.id)
+  const loadToken = currentSessionLoadToken.value
   const firstMsg = messages.value[0]
   const container = scrollContainerRef.value
   const previousScrollHeight = container?.scrollHeight || 0
 
   try {
-    const res = await getChatMessageList(String(currentSession.value.id), {
+    const res = await getChatMessageList(targetId, {
       beforeSequence: firstMsg.sequenceNo,
       size: 50,
     })
+    // 防竞态检查
+    if (
+      loadToken !== currentSessionLoadToken.value ||
+      !currentSession.value ||
+      String(currentSession.value.id) !== targetId
+    ) {
+      return
+    }
     const earlierList = res.data || []
     if (earlierList.length) {
       messages.value = [...earlierList, ...messages.value]
@@ -686,10 +748,114 @@ const handleLoadMoreMessages = async () => {
       hasMoreHistory.value = false
     }
   } catch (error: any) {
-    message.error(error?.message || '加载更多历史失败')
+    if (
+      loadToken === currentSessionLoadToken.value &&
+      currentSession.value &&
+      String(currentSession.value.id) === targetId
+    ) {
+      message.error(error?.message || '加载更多历史失败')
+    }
   } finally {
     loadingMoreHistory.value = false
   }
+}
+
+/**
+ * 删除会话
+ * 1. 验证生成中或取消中禁止删除
+ * 2. 弹窗确认，防重复提交
+ * 3. 业务响应成功才移除列表项并清理本地缓存
+ * 4. 删除当前会话后，清空当前会话 ID、消息和运行状态，回到未选择会话的初始页面
+ * 5. 删除其他会话时，保持当前聊天内容
+ * 6. 严禁回写：递增 currentSessionLoadToken，防止先前历史请求回写导致重新显示
+ * 7. 删除失败时保留列表和聊天内容，展示后端提示
+ */
+const handleDeleteSession = (sessionId: string) => {
+  const isTargetCurrent = currentSession.value && String(currentSession.value.id) === String(sessionId)
+
+  // 6. 生成中或取消中的会话禁止删除，提示先停止并等待结束
+  if ((generating.value || cancelling.value) && isTargetCurrent) {
+    message.warning('当前会话正在生成或停止中，请先停止并等待完全结束后再删除。')
+    return
+  }
+
+  // 2. 禁止重复提交
+  if (deletingSessionId.value) {
+    message.warning('正在处理删除操作，请勿重复提交')
+    return
+  }
+
+  const targetSession = sessionList.value.find((s) => String(s.id) === String(sessionId))
+  const sessionTitle = targetSession?.title || '未命名会话'
+
+  Modal.confirm({
+    title: '确认删除会话？',
+    icon: () => h(ExclamationCircleOutlined, { style: { color: '#ff4d4f' } }),
+    content: `确定要删除会话「${sessionTitle}」吗？删除后相关聊天记录将无法恢复。`,
+    okText: '确认删除',
+    okType: 'danger',
+    cancelText: '取消',
+    async onOk() {
+      // 确认时再次拦截正在生成或取消状态
+      if (
+        (generating.value || cancelling.value) &&
+        currentSession.value &&
+        String(currentSession.value.id) === String(sessionId)
+      ) {
+        message.warning('当前会话正在生成或停止中，请先停止并等待完全结束后再删除。')
+        return Promise.reject()
+      }
+
+      if (deletingSessionId.value) {
+        return Promise.reject()
+      }
+
+      deletingSessionId.value = String(sessionId)
+
+      try {
+        const res = await deleteChatSession(String(sessionId))
+        // 3. 仅在业务响应成功后（code=2000, data=true）移除列表项
+        if (res && res.code === 2000 && res.data === true) {
+          message.success('会话已成功删除')
+
+          // 移除列表项
+          sessionList.value = sessionList.value.filter((s) => String(s.id) !== String(sessionId))
+
+          // 4. 删除当前会话后，清空当前会话 ID、消息和运行状态，回到未选择会话的初始页面
+          if (isTargetCurrent) {
+            // 8. 递增 loadToken，彻底防止删除前发出的历史消息请求在成功后回写页面
+            currentSessionLoadToken.value++
+
+            currentSession.value = null
+            messages.value = []
+            hasMoreHistory.value = false
+            loadingMoreHistory.value = false
+            activeRunId.value = null
+            activeRequestId.value = null
+            generating.value = false
+            cancelling.value = false
+            inputContent.value = ''
+            flushTypewriterQueue()
+            if (activeAbortController) {
+              activeAbortController.abort()
+              activeAbortController = null
+            }
+          }
+          // 5. 删除其他会话时，保持当前聊天内容
+        } else {
+          // 7. 删除失败时保留列表和聊天内容，按现有规范展示后端提示
+          message.error(res?.message || '删除会话失败')
+          return Promise.reject()
+        }
+      } catch (err: any) {
+        // 7. 异常时保留列表和聊天内容
+        message.error(err?.message || '删除会话失败，请稍后重试')
+        return Promise.reject()
+      } finally {
+        deletingSessionId.value = null
+      }
+    },
+  })
 }
 
 /**
@@ -921,10 +1087,11 @@ const handleCancelGeneration = async () => {
     currentStreamingMessage.messageStatus = 'interrupted'
   }
 
+  const runIdToCancel = activeRunId.value
   // 1. 如果已有 runId，立即调用 cancel 端点
-  if (activeRunId.value) {
+  if (runIdToCancel) {
     try {
-      await cancelChatRun(activeRunId.value)
+      await cancelChatRun(runIdToCancel)
     } catch (e: any) {
       console.warn('请求取消失败:', e)
     }
@@ -933,9 +1100,27 @@ const handleCancelGeneration = async () => {
   // 2. 中止前端 fetch 连接
   if (activeAbortController) {
     activeAbortController.abort()
+    activeAbortController = null
   }
 
   flushTypewriterQueue()
+
+  // 3. 等待后端进入终态（规则6：取消接口返回后不代表已停止，必须等待运行进入终态后才能删除）
+  if (runIdToCancel) {
+    try {
+      for (let i = 0; i < 6; i++) {
+        const runRes = await getChatRun(runIdToCancel)
+        const status = runRes.data?.runStatus
+        if (status === 'cancelled' || status === 'failed' || status === 'succeeded') {
+          break
+        }
+        await new Promise((r) => setTimeout(r, 400))
+      }
+    } catch (e) {
+      console.warn('等待终态检测异常:', e)
+    }
+  }
+
   generating.value = false
   cancelling.value = false
 }
@@ -990,9 +1175,9 @@ const cleanup = () => {
     activeAbortController.abort()
     activeAbortController = null
   }
-  if (rafHandle !== null) {
-    cancelAnimationFrame(rafHandle)
-    rafHandle = null
+  if (boxTypewriterTimer !== null) {
+    clearTimeout(boxTypewriterTimer)
+    boxTypewriterTimer = null
   }
 }
 
@@ -1426,6 +1611,28 @@ onDeactivated(cleanup)
 
 .custom-x-conversations {
   width: 100%;
+}
+
+:deep(.ant-conversations-item) {
+  border-radius: 4px;
+  margin-bottom: 2px;
+  font-size: 12px;
+}
+
+:deep(.ant-conversations-item-menu-icon) {
+  opacity: 0.7;
+  transition: opacity 0.2s, color 0.2s, background-color 0.2s;
+  padding: 2px 4px;
+  border-radius: 4px;
+}
+
+:deep(.ant-conversations-item:hover .ant-conversations-item-menu-icon) {
+  opacity: 1;
+}
+
+:deep(.ant-conversations-item-menu-icon:hover) {
+  color: #ff4d4f !important;
+  background-color: #fff1f0;
 }
 
 .load-more-session-wrap {
